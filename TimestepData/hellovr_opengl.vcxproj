@@ -35,7 +35,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v110</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -167,14 +167,23 @@
     <ClCompile Include="..\shared\lodepng.cpp" />
     <ClCompile Include="..\shared\Matrices.cpp" />
     <ClCompile Include="..\shared\pathtools.cpp" />
+    <ClCompile Include="atoms.cpp" />
     <ClCompile Include="hellovr_opengl_main.cpp" />
+    <ClCompile Include="hsv.c" />
+    <ClCompile Include="polyhedron.cpp" />
     <ClCompile Include="rply.c" />
+    <ClCompile Include="TessShaders.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\shared\lodepng.h" />
     <ClInclude Include="..\shared\Matrices.h" />
     <ClInclude Include="..\shared\pathtools.h" />
     <ClInclude Include="..\shared\Vectors.h" />
+    <ClInclude Include="atoms.hpp" />
+    <ClInclude Include="hsv.h" />
+    <ClInclude Include="NOMADViveT.h" />
+    <ClInclude Include="polyhedron.h" />
+    <ClInclude Include="TessShaders.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="NOMADViveT.rc" />

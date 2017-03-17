@@ -1,11 +1,11 @@
 ﻿//========= Copyright Valve Corporation ============//
 
-/*#define _CRTDBG_MAP_ALLOC
+#define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
 #include <crtdbg.h>
 #define DEBUG_NEW new(_NORMAL_BLOCK, __FILE__, __LINE__)
 #define new DEBUG_NEW
-*/
+
 
 #include <SDL.h>
 #include <GL/glew.h>
@@ -22,6 +22,11 @@
 #include "shared/pathtools.h"
 
 #include "rply.h"
+//#include "hsv.h"
+#include "atoms.hpp"
+#include "polyhedron.h"
+
+#include "TessShaders.h"
 
 static int vertex_cb(p_ply_argument argument);
 static int face_cb(p_ply_argument argument);
@@ -31,16 +36,27 @@ static int *CubeIndices;
 static int CurrentVertex;
 static int CurrentIndex;
 
-
+//#define SOLID Tetrahedron //not nicely uniform distribution
+#define SOLID Icosahedron
+#define TESSSUB 16
+//#define SOLID Octahedron
 
 static float BACKGROUND[3];
 static const char * PATH;
+static const char * SCREENSHOT;
 static int ISOS;
 static int TIMESTEPS;
 static float **isocolours; // [ISOS][4];
 const char **plyfiles;
 static float **translations;
 static float userpos[3];
+
+static int* numAtoms; //[timesteps]
+static float **atoms; //[timesteps][numAtoms[i]*4] //xyzu, u=atom number
+static float atomScaling;
+
+static float abc[3][3]; //basis vectors
+static bool has_abc = false;
 
 //#define LOCALTEST
 
@@ -60,54 +76,14 @@ static float userpos[3];
 //use 32 or 16 bits for index (in case more than 64k vertices / mesh
 #define INDICESGL32 
 
-//isosurfaces (or meshes such as atoms etc)
-//#define ISOS 5
-
 //shown on https://www.vbw-bayern.de/vbw/Aktionsfelder/Innovation-F-T/Forschung-und-Technologie/Zukunft-digital-Big-Data.jsp
 
 #define GRID 1
 #define GRIDSTR "1"
 #define NUMLODS 1
 
-/*#ifndef LOCALTEST
-#define TIMESTEPS 423
-#else
-#define TIMESTEPS 1
-#endif*/
 
 #define NUMPLY (TIMESTEPS * ISOS)
-
-
-//http://stackoverflow.com/questions/3018313/algorithm-to-convert-rgb-to-hsv-and-hsv-to-rgb-in-range-0-255-for-both
-void hsv2rgb(float *hsv, float *rgb) {
-	float h = hsv[0], s = hsv[1], v = hsv[2], p, q, t, f, r, g, b;
-
-	(h == 360.) ? (h = 0.) : (h /= 60.);
-	f = h - floor(h);
-
-	p = v*(1.f - s);
-	q = v*(1.f - s*f);
-	t = v*(1.f - s*(1.f - f));
-
-	if (0. <= h && h < 1.){
-		r = v; g = t; b = p;
-	}	else if (1. <= h && h < 2.) {
-		r = q; g = v; b = p;
-	}	else if (2. <= h && h < 3.){
-		r = p; g = v; b = t;
-	}else if (3. <= h && h < 4.){
-		r = p; g = q; b = v;
-	}else if (4. <= h && h < 5.){
-		r = t; g = p; b = v;
-	}else if (5. <= h && h < 6.){
-		r = v; g = p;b = q;
-	}
-	else{
-		r = 0.; g = 0.; b = 0.;
-	}
-	rgb[0] = r; rgb[1] = g; rgb[2] = b;
-}
-
 
 class CGLRenderModel
 {
@@ -157,6 +133,9 @@ public:
 	bool SetupDepthPeeling();
 
 	void SetupScene();
+	void SetupIsosurfaces();
+	void SetupAtoms();
+
 	bool AddModelToScene(Matrix4 mat, std::vector<float> &vertdata, 
 #ifndef INDICESGL32
 		std::vector<short> & vertindices, 
@@ -174,15 +153,18 @@ public:
 	void RenderStereoTargets();
 	void RenderDistortion();
 	void RenderScene(vr::Hmd_Eye nEye);
-
+	void RenderAtoms(const vr::Hmd_Eye &nEye);
+	
 	Matrix4 GetHMDMatrixProjectionEye(vr::Hmd_Eye nEye);
 	Matrix4 GetHMDMatrixPoseEye(vr::Hmd_Eye nEye);
 	Matrix4 GetCurrentViewProjectionMatrix(vr::Hmd_Eye nEye);
+	Matrix4 GetCurrentViewMatrix( vr::Hmd_Eye nEye );
 	void UpdateHMDMatrixPose();
 
 	Matrix4 ConvertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPose);
 
-	GLuint CompileGLShader(const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader);
+	GLuint CompileGLShader(const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader,
+				const char *pchTessEvalShader=nullptr);
 	bool CreateAllShaders();
 
 	void SetupRenderModelForTrackedDevice(vr::TrackedDeviceIndex_t unTrackedDeviceIndex);
@@ -239,13 +221,20 @@ private: // OpenGL bookkeeping
 	float m_fNearClip;
 	float m_fFarClip;
 
-	GLuint *m_iTexture; //[3+ZLAYERS];
+	GLuint *m_iTexture; //[3+ZLAYERS+1] // white, depth1, depth2, color[ZLAYERS], atomtexture
 	GLuint peelingFramebuffer;
 	unsigned int **m_uiVertcount;// [LODS][NUMPLY];
 
+	//for isos
 	GLuint **m_glSceneVertBuffer; // [LODS][NUMPLY];
 	GLuint **m_unSceneVAO; //[LODS][NUMPLY];
 	GLuint **m_unSceneVAOIndices; //[LODS][NUMPLY];
+
+	//for atoms
+	GLuint *m_glAtomVertBuffer; // [TIMESTEPS];
+	GLuint *m_glAtomIndexBuffer; // [TIMESTEPS];
+	GLuint *m_unAtomVAO; //[TIMESTEPS];
+
 	int currentset;
 	float elapsedtime;
 	static const float videospeed;
@@ -288,11 +277,14 @@ private: // OpenGL bookkeeping
 	GLuint m_unLensProgramID;
 	GLuint m_unControllerTransformProgramID;
 	GLuint m_unRenderModelProgramID;
+	GLuint m_unAtomsProgramID;
 
 	GLint m_nSceneMatrixLocation;
 	GLint m_nBlendingIntLocation;
 	GLint m_nControllerMatrixLocation;
 	GLint m_nRenderModelMatrixLocation;
+	GLint m_nAtomMatrixLocation;
+	GLint m_nAtomMVLocation;
 
 	struct FramebufferDesc
 	{
@@ -306,7 +298,7 @@ private: // OpenGL bookkeeping
 	FramebufferDesc rightEyeDesc;
 
 	bool CreateFrameBuffer( int nWidth, int nHeight, FramebufferDesc &framebufferDesc );
-	
+	void CleanDepthTexture();
 	uint32_t m_nRenderWidth;
 	uint32_t m_nRenderHeight;
 
@@ -337,8 +329,8 @@ void dprintf( const char *fmt, ... )
 		printf( "%s", buffer );
 
 	OutputDebugStringA( buffer );
-
-	//SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Warning", buffer, 0);
+	if (strncmp(buffer, "PoseCount", 9) && strncmp (buffer, "Device", 6))
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Warning", buffer, 0);
 }
 
 //-----------------------------------------------------------------------------
@@ -353,6 +345,7 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 	, m_unLensProgramID(0)
 	, m_unControllerTransformProgramID(0)
 	, m_unRenderModelProgramID(0)
+	, m_unAtomsProgramID(0)
 	, m_pHMD(NULL)
 	, m_pRenderModels(NULL)
 	, m_bDebugOpenGL(false)
@@ -364,10 +357,16 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 	, m_unControllerVAO(0)
 	, m_unLensVAO(0)
 	, m_unSceneVAO(0)
+	, m_unSceneVAOIndices(0)
+	, m_unAtomVAO(0)
+	, m_glAtomVertBuffer(0)
+	, m_glAtomIndexBuffer(0)
 	, m_nSceneMatrixLocation(-1)
 	, m_nBlendingIntLocation(-1)
 	, m_nControllerMatrixLocation(-1)
 	, m_nRenderModelMatrixLocation(-1)
+	, m_nAtomMatrixLocation(-1)
+	, m_nAtomMVLocation(-1)
 	, m_iTrackedControllerCount(0)
 	, m_iTrackedControllerCount_Last(-1)
 	, m_iValidPoseCount(0)
@@ -560,7 +559,7 @@ bool CMainApplication::BInit()
  	m_fScaleSpacing = 4.0f;
  
  	m_fNearClip = 0.2f;
- 	m_fFarClip = 30.0f;//rgh: original 30 too small for our skymap
+ 	m_fFarClip = 50.0f;//rgh: original 30 too small for our skymap
  
 
  
@@ -637,6 +636,19 @@ bool CMainApplication::BInitCompositor()
 }
 
 
+void deleteVaos (GLuint *** vaos, int numlods, int numply)
+{
+if( *vaos != 0 )
+{
+	for (int i = 0; i < numlods; i++) {
+		glDeleteVertexArrays(numply, (*vaos)[i]);
+		delete[] (*vaos)[i];
+	}
+	delete[] (*vaos);
+	*vaos = 0;
+}
+}
+
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
@@ -699,6 +711,11 @@ void CMainApplication::Shutdown()
 		{
 			glDeleteProgram( m_unLensProgramID );
 		}
+		if ( m_unAtomsProgramID )
+		{
+			glDeleteProgram( m_unAtomsProgramID );
+		}
+
 
 		glDeleteRenderbuffers( 1, &leftEyeDesc.m_nDepthBufferId );
 		glDeleteTextures( 1, &leftEyeDesc.m_nRenderTextureId );
@@ -716,22 +733,40 @@ void CMainApplication::Shutdown()
 		{
 			glDeleteVertexArrays( 1, &m_unLensVAO );
 		}
-		if( m_unSceneVAO != 0 )
+		deleteVaos(&m_unSceneVAO, NUMLODS, NUMPLY);
+		if( m_unAtomVAO != 0 )
 		{
-			for (int i = 0; i < NUMLODS; i++) {
-				glDeleteVertexArrays(NUMPLY, m_unSceneVAO[i]);
-				delete[] m_unSceneVAO[i];
-			}
-			delete[] m_unSceneVAO;
-			m_unSceneVAO = 0;
+			glDeleteVertexArrays(TIMESTEPS, m_unAtomVAO);
+			delete[] m_unAtomVAO;
+			m_unAtomVAO = 0;
+		}		
+		if (m_glAtomVertBuffer!=0)
+		{
+			glDeleteBuffers(TIMESTEPS, m_glAtomVertBuffer);
+			delete[] m_glAtomVertBuffer;
+			m_glAtomVertBuffer=0;
+		}
+		if (m_glAtomIndexBuffer != 0)
+		{
+			glDeleteBuffers(TIMESTEPS, m_glAtomIndexBuffer);
+			delete[] m_glAtomIndexBuffer;
+			m_glAtomIndexBuffer = 0;
+
 		}
 		if( m_unControllerVAO != 0 )
 		{
 			glDeleteVertexArrays( 1, &m_unControllerVAO );
 		}
-
+		if (m_unSceneVAOIndices!=0)
+		{
+			for (int i=0;i<NUMLODS;i++) {
+				glDeleteBuffers(NUMPLY, m_unSceneVAOIndices[i]);
+				delete[] m_unSceneVAOIndices[i];
+			}
+			delete[] m_unSceneVAOIndices;
+		}
 		if (m_iTexture != 0) {
-			glDeleteTextures(3+ZLAYERS, m_iTexture);
+			glDeleteTextures(3+ZLAYERS+1, m_iTexture);
 			delete[] m_iTexture;
 			m_iTexture = 0;
 
@@ -747,8 +782,24 @@ void CMainApplication::Shutdown()
 		m_pWindow = NULL;
 	}
 
-	delete m_uiVertcount;
+	if (m_uiVertcount!=0) {
+		for (int i=0;i<NUMLODS;i++) {
+			delete[] m_uiVertcount[i];
+		}
+		delete[] m_uiVertcount;
+	}
 
+	if (numAtoms!=0) {
+		for (int i=0;i<TIMESTEPS;i++) {
+			delete[] atoms[i];
+		}
+		delete[] atoms;
+		delete[] numAtoms;
+		numAtoms=0;
+		atoms=0;
+	}
+	if (pixels !=0)
+		delete [] pixels;
 	SDL_Quit();
 }
 
@@ -785,13 +836,13 @@ bool CMainApplication::HandleInput()
 			//rgh: add keyboard navigation here
 			if (sdlEvent.key.keysym.sym == SDLK_1) {
 				currentset++;
-				if (currentset >= NUMPLY / ISOS)
+				if (currentset >= TIMESTEPS)
 					currentset = 0;
 			}
 			if (sdlEvent.key.keysym.sym == SDLK_2) {
 				currentset--;
 				if (currentset < 0)
-					currentset = NUMPLY / ISOS -1;
+					currentset = TIMESTEPS -1;
 			}
 			if (sdlEvent.key.keysym.sym == SDLK_0) {
 				currentiso++;
@@ -853,7 +904,7 @@ bool CMainApplication::HandleInput()
 				if (unDevice == firstdevice) {
 					currentset--;
 					if (currentset < 0)
-						currentset = NUMPLY / ISOS - 1;
+						currentset = TIMESTEPS - 1;
 				} else {
 					currentiso++;
 					if (currentiso > ISOS)
@@ -875,7 +926,7 @@ bool CMainApplication::HandleInput()
 					if (newtime-elapsedtime > 1) {
 						elapsedtime = newtime;
 						currentset++;
-						if (currentset >= NUMPLY / ISOS)
+						if (currentset >= TIMESTEPS)
 							currentset = 0;
 					}
 				}
@@ -1012,7 +1063,8 @@ void CMainApplication::RenderFrame()
 // Purpose: Compiles a GL shader program and returns the handle. Returns 0 if
 //			the shader couldn't be compiled for some reason.
 //-----------------------------------------------------------------------------
-GLuint CMainApplication::CompileGLShader( const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader )
+GLuint CMainApplication::CompileGLShader( const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader,
+	const char *pchTessEvalShader /*= nullptr*/)
 {
 	GLuint unProgramID = glCreateProgram();
 
@@ -1059,6 +1111,29 @@ GLuint CMainApplication::CompileGLShader( const char *pchShaderName, const char 
 	glAttachShader( unProgramID, nSceneFragmentShader );
 	glDeleteShader( nSceneFragmentShader ); // the program hangs onto this once it's attached
 
+	//tess
+	if (pchTessEvalShader) {
+		GLuint  nSceneTessShader = glCreateShader(GL_TESS_EVALUATION_SHADER);
+		glShaderSource(nSceneTessShader, 1, &pchTessEvalShader, NULL);
+		glCompileShader(nSceneTessShader);
+
+		GLint tShaderCompiled = GL_FALSE;
+		glGetShaderiv(nSceneTessShader, GL_COMPILE_STATUS, &tShaderCompiled);
+		if (tShaderCompiled != GL_TRUE)
+		{
+			dprintf("%s - Unable to compile tess eval shader %d!\n", pchShaderName, nSceneTessShader);
+			GLchar mess[3000];
+			GLsizei le;
+			glGetShaderInfoLog(nSceneTessShader, 3000, &le, mess);
+			dprintf("error messages: %s", mess);
+			glDeleteProgram(unProgramID);
+			glDeleteShader(nSceneTessShader);
+			return 0;
+		}
+		glAttachShader(unProgramID, nSceneTessShader);
+		glDeleteShader(nSceneTessShader); // the program hangs onto this once it's attached
+	}
+
 	glLinkProgram( unProgramID );
 
 	GLint programSuccess = GL_TRUE;
@@ -1085,6 +1160,7 @@ bool CMainApplication::CreateAllShaders()
 	m_unSceneProgramID = CompileGLShader(
 		"Scene",
 
+		//rgh FIXME, multiply normals by modelview!!
 		// Vertex Shader
 		"#version 410\n"
 		"uniform mat4 matrix;\n"
@@ -1143,7 +1219,7 @@ bool CMainApplication::CreateAllShaders()
 	{
 		dprintf("Unable to find blending uniform in scene shader\n");
 		return false;
-	}*/
+	}*/ 
 	m_unControllerTransformProgramID = CompileGLShader(
 		"Controller",
 
@@ -1208,7 +1284,28 @@ bool CMainApplication::CreateAllShaders()
 		dprintf( "Unable to find matrix uniform in render model shader\n" );
 		return false;
 	}
-
+//https://www.gamedev.net/topic/591110-geometry-shader-point-sprites-to-spheres/
+	//no rotation, only translations means we can do directional lighting in the shader.
+	//FIXME
+	//http://stackoverflow.com/questions/40101023/flat-shading-in-webgl
+	m_unAtomsProgramID = CompileGLShader(
+		AtomShaders[SHADERNAME],
+		AtomShaders[SHADERVERTEX],
+		AtomShaders[SHADERFRAGMENT],
+		AtomShaders[SHADERTESSEVAL]
+		);
+	m_nAtomMatrixLocation=glGetUniformLocation(m_unAtomsProgramID, "matrix");
+	if( m_nAtomMatrixLocation == -1 )
+	{
+		dprintf( "Unable to find matrix uniform in atom shader\n" );
+		return false;
+	}
+//	m_nAtomMVLocation=glGetUniformLocation(m_unAtomsProgramID, "mv");
+	/*if( m_nAtomMVLocation == -1 )
+	{
+		dprintf( "Unable to find mv uniform in atom shader\n" );
+		return false;
+	}*/
 	m_unLensProgramID = CompileGLShader(
 		"Distortion",
 
@@ -1273,8 +1370,8 @@ bool CMainApplication::SetupTexturemaps()
 	//std::string sExecutableDirectory = Path_StripFilename(Path_GetExecutablePath());
 	//std::string strFullPath = Path_MakeAbsolute("../cube_texture.png", sExecutableDirectory);
 
-	m_iTexture = new GLuint[3+ZLAYERS];
-	glGenTextures(3+ZLAYERS, m_iTexture);
+	m_iTexture = new GLuint[3+ZLAYERS+1]; // white, depth1, depth2, color[ZLAYERS], atomtexture
+	glGenTextures(3+ZLAYERS+1, m_iTexture);
 
 	//white
 	unsigned char data2[4] = { 255, 255, 255, 255 }; //white texture for non-textured meshes
@@ -1285,11 +1382,25 @@ bool CMainApplication::SetupTexturemaps()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, data2);
 
-	glBindTexture( GL_TEXTURE_2D, 0 );
-
 	GLenum e;
 	if ((e = glGetError()) != GL_NO_ERROR)
-		dprintf("opengl error %d, SetupTextureMaps\n", e);
+		dprintf("opengl error %d, SetupTextureMaps 1\n", e);
+
+	//rgh: scale atoms here
+	for (int i = 0; i < 118; i++)
+		atomColours[i][3] *= atomScaling;
+
+	glBindTexture(GL_TEXTURE_2D, m_iTexture[3+ZLAYERS]); //atom texture
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 118, 1, 0, GL_RGBA, GL_FLOAT, atomColours);
+
+	glBindTexture( GL_TEXTURE_2D, 0 );
+
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("opengl error %d, SetupTextureMaps 2\n", e);
 
 	return ( m_iTexture != 0 && e==GL_NO_ERROR);
 }
@@ -1352,9 +1463,77 @@ bool CMainApplication::SetupDepthPeeling()
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: create a sea of cubes
+// Purpose: Load the scene into OpenGL
 //-----------------------------------------------------------------------------
 void CMainApplication::SetupScene()
+{
+	SetupIsosurfaces();
+	SetupAtoms();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Load the atoms into OpenGL
+//-----------------------------------------------------------------------------
+
+
+void CMainApplication::SetupAtoms()
+{
+	if (!numAtoms)
+		return;
+	//rgh FIXME: use tesselation shaders to do a sphere from a point in the future
+	//for now, render an icosahedron
+	//http://prideout.net/blog/?p=48 //public domain code
+	//xyz u=atom type ; 4 floats
+	int e;
+	m_unAtomVAO = new GLuint[TIMESTEPS];
+	m_glAtomVertBuffer = new GLuint[TIMESTEPS];
+	m_glAtomIndexBuffer = new GLuint[TIMESTEPS];
+	glGenVertexArrays(TIMESTEPS, m_unAtomVAO);
+	glGenBuffers(TIMESTEPS, m_glAtomVertBuffer);
+	glGenBuffers(TIMESTEPS, m_glAtomIndexBuffer);
+
+	for (int p=0;p<TIMESTEPS;p++) {
+		glBindVertexArray(m_unAtomVAO[p]);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_glAtomIndexBuffer[p]);
+		glBindBuffer(GL_ARRAY_BUFFER, m_glAtomVertBuffer[p]);
+
+		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
+		glDisableVertexAttribArray(2);
+		glDisableVertexAttribArray(3);
+
+		float *tmp = new float[4 * numAtoms[p]];
+
+		for (int a = 0; a < numAtoms[p]; a++) {
+			const int atomNumber = atoms[p][4 * a + 3];
+			for (int k = 0; k < 3; k++) {
+				tmp[a * 4 + k] = atoms[p][4 * a + k];
+			}
+			tmp[a * 4 + 3] = atomNumber;
+		} //a
+		glBufferData(GL_ARRAY_BUFFER, sizeof(float) * numAtoms[p] * 4 , tmp,
+			GL_STATIC_DRAW);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			dprintf("opengl error %d, glBufferData, l %d\n", e, __LINE__);
+
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
+		glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(3 * sizeof(float)));
+
+		if (glGetError() != GL_NO_ERROR)
+			dprintf("opengl error attrib pointer 0\n");
+
+		glBindVertexArray(0);
+		delete[] tmp;
+	}
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("opengl error %d, end of SetupAtoms, l %d\n", e, __LINE__);
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Load the isosurfaces into OpenGL
+//-----------------------------------------------------------------------------
+void CMainApplication::SetupIsosurfaces()
 {
 	if (!m_pHMD)
 		return;
@@ -1477,18 +1656,8 @@ void CMainApplication::SetupScene()
 	}
 	GLsizei stride = sizeof(float) * numComponents; //sizeof(VertexDataScene);
 
-#if 0
-
-	float r = 0, g = 0, b = 0;
-	//float quad[] = { -1.0f, -1.0f, 0.0f,   1.0f, -1.0f, 0.0f,		1.0f, 1.0f, 0.0f,    -1.0f, 1.0f, 0.0f};
-	//unsigned int quadbuffer;
-	//glDisable(GL_DEPTH_TEST);
-#endif
 	char tmpname[250];
 	for (int currentlod = 0; currentlod < NUMLODS; currentlod++) {
-
-
-
 		int time = 1;
 		for (int p = 0; p < NUMPLY; p++) {
 			glBindVertexArray(myvao);
@@ -1503,21 +1672,6 @@ void CMainApplication::SetupScene()
 			if ((e = glGetError()) != GL_NO_ERROR)
 				dprintf("opengl error %d, l %d\n", e, __LINE__);
 
-#if 0
-			r += 0.1f;
-			if (r > 1) {
-				r = 0;
-				g += 0.1f;
-			}
-			if (g > 1) {
-				g = 0;
-				b += 0.1f;
-			}
-			if (b > 1)
-				b = 0;
-			glClearColor(r, g, b, 1);
-			glClear(GL_COLOR_BUFFER_BIT);
-#endif
 			SDL_GL_SwapWindow(m_pWindow);
 
 			//http://stackoverflow.com/questions/9052224/error4error-c3861-snprintf-identifier-not-found
@@ -1556,7 +1710,7 @@ void CMainApplication::SetupScene()
 				dprintf("opengl error %d, glBufferData, l %d\n", e, __LINE__);
 			int offset = 0;
 
-			//now pos[3], normal[3], color[4], uv[2]
+			//now pos[3], normal[3], color[4]
 			//pos
 			glEnableVertexAttribArray(0);
 			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
@@ -2068,7 +2222,7 @@ void CMainApplication::RenderStereoTargets()
 	char name[100];
 
 	if (savetodisk) {
-		sprintf(name, "c:\\temp\\frameL%05d.bmp", framecounter);
+		sprintf(name, "%sL%05d.bmp", SCREENSHOT, framecounter);
 		glPixelStorei(GL_PACK_ALIGNMENT, 1);
 		glReadPixels(0, 0, m_nRenderWidth, m_nRenderHeight, GL_RGB, GL_UNSIGNED_BYTE, pixels);
 		//little endian machine, R and B are flipped
@@ -2126,7 +2280,7 @@ void CMainApplication::PaintGrid(const vr::Hmd_Eye &nEye, int iso) {
 	glUniformMatrix4fv(m_nSceneMatrixLocation, 1, GL_FALSE, transform.get());
 
 	const int currentlod = 0;
-	int actualset = (currentset ) % TIMESTEPS;
+	int actualset = currentset;
 	glBindVertexArray(m_unSceneVAO[currentlod][ISOS * actualset + iso]);
 	glDrawElements(GL_TRIANGLES, m_uiVertcount[currentlod][ISOS * actualset + iso], 
 #ifndef INDICESGL32				
@@ -2143,6 +2297,60 @@ void CMainApplication::PaintGrid(const vr::Hmd_Eye &nEye, int iso) {
 
 }
 
+void CMainApplication::RenderAtoms(const vr::Hmd_Eye &nEye)
+{
+	//glDisable(GL_DEPTH_TEST);
+	//glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
+	int e;
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error before RenderAtoms timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+
+	glUseProgram(m_unAtomsProgramID);
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+	float levelso[4] = { TESSSUB, TESSSUB, TESSSUB, TESSSUB };
+	float levelsi[2] = { TESSSUB, TESSSUB};
+
+	glPatchParameterfv(GL_PATCH_DEFAULT_OUTER_LEVEL,levelso);
+	glPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL,levelsi);
+	//glPatchParameteri(GL_PATCH_VERTICES, 3);
+	glPatchParameteri(GL_PATCH_VERTICES, 1);
+
+	glBindVertexArray(m_unAtomVAO[currentset]);
+	//glBindVertexArray(m_unSceneVAO[0][currentset]);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error 0 timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+	glBindTexture(GL_TEXTURE_2D, m_iTexture[3+ZLAYERS]);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error 2 timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+
+	Matrix4 trans;
+	Vector3 iPos = Vector3(0, 0, 0);
+		
+	trans.rotateX(-90).translate(iPos).translate(UserPosition);
+	Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans;
+	Matrix4 mv=GetCurrentViewMatrix(nEye)*trans;
+	glUniformMatrix4fv(m_nAtomMatrixLocation, 1, GL_FALSE, transform.get());
+	//glUniformMatrix4fv(m_nAtomMVLocation, 1, GL_FALSE, mv.get());
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error 4 timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+	glDrawArrays(GL_PATCHES, 0, numAtoms[currentset]);
+	
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after RenderAtoms timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+	glUseProgram(0);
+}
+
+void CMainApplication::CleanDepthTexture ()
+{
+int e;
+GLuint clearColor = 0;
+glBindTexture(GL_TEXTURE_2D, m_iTexture[1]);
+if ((e = glGetError()) != GL_NO_ERROR)
+	dprintf("Gl error after bindtexture: %d, %s\n", e, gluErrorString(e));
+glClearTexImage(m_iTexture[1], 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, &clearColor);
+}
+
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
@@ -2157,6 +2365,11 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
+	if (ISOS==0) {
+		RenderAtoms(nEye);
+		return;
+	}
+
 	if (m_bShowCubes)
 	{
 		glDisable(GL_CULL_FACE);
@@ -2169,19 +2382,10 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 		//isosurface
 
 		if (currentiso == ISOS) {
-#if (1)
 			glDisable(GL_BLEND);
 			glDepthMask(GL_TRUE);
 			//do depth peeling
-			GLuint clearColor = 0;
-			glBindTexture(GL_TEXTURE_2D, m_iTexture[1]);
-			if ((e = glGetError()) != GL_NO_ERROR)
-				dprintf("Gl error after bindtexture: %d, %s\n", e, gluErrorString(e));
-			glClearTexImage(m_iTexture[1], 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, &clearColor);
-
-			if ((e = glGetError()) != GL_NO_ERROR)
-				dprintf("Gl error after clearteximage: %d, %s\n", e, gluErrorString(e));
-
+			CleanDepthTexture();
 			GLint dfb;
 			glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &dfb);
 
@@ -2205,6 +2409,9 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 				} //for all isos in descending order
 				if ((e = glGetError()) != GL_NO_ERROR)
 					dprintf("Gl error after paintgrid: %d, %s\n", e, gluErrorString(e));
+				if (numAtoms!=0) {
+					RenderAtoms(nEye);
+				}
 				RenderAllTrackedRenderModels(nEye);
 			} // for zl
 
@@ -2222,7 +2429,6 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 
 			if ((e = glGetError()) != GL_NO_ERROR)
 				dprintf("Gl error after zlayer: %d, %s\n", e, gluErrorString(e));
-			//glDisable(GL_TEXTURE_2D);
 			glBindTexture(GL_TEXTURE_2D, m_iTexture[1]);
 			if ((e = glGetError()) != GL_NO_ERROR)
 				dprintf("Gl error after zlayer: %d, %s\n", e, gluErrorString(e));
@@ -2295,120 +2501,14 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 			glDisableVertexAttribArray(0);
 			glDisableVertexAttribArray(1);
 			glDisableVertexAttribArray(2);
-#endif
-
-#if 0
-	//show colour buffers with the depth peeling (first 5)
-			glClearColor(nEye == vr::Eye_Left ? 0.5 : 0, 0, nEye == vr::Eye_Right ? 0.5 : 0, 1);
-			glClear(/*GL_COLOR_BUFFER_BIT |*/ GL_DEPTH_BUFFER_BIT);
-			glUseProgram(m_unRenderModelProgramID);
-			float mat2[] = {.5, 0, 0, 0, 
-				0, .5, 0, 0, 
-				0, 0, .5, 0, 
-				0, 0, 0, 1};
-			glUniformMatrix4fv(m_nRenderModelMatrixLocation, 1, GL_FALSE, mat2);
-
-			if ((e = glGetError()) != GL_NO_ERROR)
-				dprintf("Gl error after zlayer: %d, %s\n", e, gluErrorString(e));
-			//glDisable(GL_TEXTURE_2D);
-			if ((e = glGetError()) != GL_NO_ERROR)
-				dprintf("Gl error after zlayer: %d, %s\n", e, gluErrorString(e));
-
-			glDisable(GL_CULL_FACE);
-			glDisable(GL_BLEND);
-			float z2 = 0.0f; //(m_fNearClip + m_fFarClip) / 2.0f;
-			float points2[] ={
-				0, 0, z2, 1,		0,0,-1,		0,0,
-				0, 1, z2, 1,		0, 0,-1,	0, 1,
-				1, 1, z2, 1,		0, 0, -1,	1, 1,
-				1, 0, z2, 1,		0, 0, -1,	1, 0, };
-
-			//http://stackoverflow.com/questions/21767467/glvertexattribpointer-raising-impossible-gl-invalid-operation
-			GLuint myvao2;
-			glGenVertexArrays(1, &myvao2);
-			glBindVertexArray(myvao2);
-			GLuint testBuf2;
-			glGenBuffers(1,&testBuf2);
-			glBindBuffer(GL_ARRAY_BUFFER, testBuf2);
-			glBufferData(GL_ARRAY_BUFFER, 4 * 9 * sizeof(GLfloat), points2, GL_STATIC_DRAW);
-			if ((e = glGetError()) != GL_NO_ERROR)
-				dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
-
-			glEnableVertexAttribArray(0);
-			glEnableVertexAttribArray(1);
-			glEnableVertexAttribArray(2);
-			glDisableVertexAttribArray(3);
-			if ((e = glGetError()) != GL_NO_ERROR)
-				dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
-			glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 9*sizeof(float), (void*)0);
-			if ((e = glGetError()) != GL_NO_ERROR)
-				dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__); //<- fails ?!
-			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (void*)(4 * sizeof(float)));
-			if ((e = glGetError()) != GL_NO_ERROR)
-				dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
-			glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (void*)(7 * sizeof(float)));
-			if ((e = glGetError()) != GL_NO_ERROR)
-				dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
-
-
-			GLuint iData2[] = { 0, 1, 2,
-				2, 3, 0 };
-
-			GLuint indexBufferID2;
-			glGenBuffers(1, &indexBufferID2);
-			if ((e = glGetError()) != GL_NO_ERROR)
-				dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID2);
-			if ((e = glGetError()) != GL_NO_ERROR)
-				dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(iData2), iData2, GL_STATIC_DRAW);
-
-			if ((e = glGetError()) != GL_NO_ERROR)
-				dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
-			if (ZLAYERS >2) {
-				glBindTexture(GL_TEXTURE_2D, m_iTexture[5]);
-				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-			}
-			
-			mat2[13] = 0.5;
-			glUniformMatrix4fv(m_nRenderModelMatrixLocation, 1, GL_FALSE, mat2);
-			glBindTexture(GL_TEXTURE_2D, m_iTexture[3]);
-			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-			mat2[12] = 0.5;
-
-			if (ZLAYERS >1) {
-				glUniformMatrix4fv(m_nRenderModelMatrixLocation, 1, GL_FALSE, mat2);
-				glBindTexture(GL_TEXTURE_2D, m_iTexture[4]);
-				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-			}
-			mat2[13] = 0;
-			if (ZLAYERS >3) {
-				glUniformMatrix4fv(m_nRenderModelMatrixLocation, 1, GL_FALSE, mat2);
-				glBindTexture(GL_TEXTURE_2D, m_iTexture[6]);
-				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-			}
-			mat2[13] = -0.5;
-			if (ZLAYERS >4) {
-				glUniformMatrix4fv(m_nRenderModelMatrixLocation, 1, GL_FALSE, mat2);
-				glBindTexture(GL_TEXTURE_2D, m_iTexture[7]);
-				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-			}
-			if ((e = glGetError()) != GL_NO_ERROR)
-				dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
-			glDeleteBuffers(1, &testBuf2);
-			glDeleteBuffers(1, &indexBufferID2);
-			glDeleteVertexArrays(1, &myvao2);
-			if ((e = glGetError()) != GL_NO_ERROR)
-				dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
-			glUseProgram(0);
-			glDisableVertexAttribArray(0);
-			glDisableVertexAttribArray(1);
-			glDisableVertexAttribArray(2);
-
-#endif 
 		} // if currentiso
 		else {
+			if (numAtoms!=0) {
+				RenderAtoms(nEye);
+			}
+			glEnable(GL_DEPTH_TEST);
 			glDisable(GL_BLEND);
+			CleanDepthTexture();
 			glUseProgram(m_unSceneProgramID);
 			PaintGrid(nEye, currentiso);
 			RenderAllTrackedRenderModels(nEye);
@@ -2418,23 +2518,6 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 		if ((e = glGetError()) != GL_NO_ERROR)
 			dprintf("Gl error after rendering: %d, %s\n", e, gluErrorString(e));
 	} //show cubes 
-
-	bool bIsInputCapturedByAnotherProcess = m_pHMD->IsInputFocusCapturedByAnotherProcess();
-	/*
-	 //this is not initialized in our program, gives opengl error
-	if( !bIsInputCapturedByAnotherProcess )
-	{
-		// draw the controller axis lines
-		glUseProgram( m_unControllerTransformProgramID );
-		glUniformMatrix4fv( m_nControllerMatrixLocation, 1, GL_FALSE, GetCurrentViewProjectionMatrix( nEye ).get() );
-		glBindVertexArray( m_unControllerVAO );
-		glDrawArrays( GL_LINES, 0, m_uiControllerVertcount );
-		glBindVertexArray( 0 );
-	}
-	if ((e = glGetError()) != GL_NO_ERROR)
-		dprintf("Gl error marker 1: %d, %s\n", e, gluErrorString(e));
-		*/
-
 }
 
 void CMainApplication::RenderAllTrackedRenderModels(vr::Hmd_Eye nEye)
@@ -2532,7 +2615,23 @@ Matrix4 CMainApplication::GetHMDMatrixPoseEye( vr::Hmd_Eye nEye )
 	return matrixObj.invert();
 }
 
+//-----------------------------------------------------------------------------
+// Purpose:
+//-----------------------------------------------------------------------------
+Matrix4 CMainApplication::GetCurrentViewMatrix( vr::Hmd_Eye nEye )
+{
+	Matrix4 matMV;
+	if( nEye == vr::Eye_Left )
+	{
+		matMV = m_mat4eyePosLeft * m_mat4HMDPose;
+	}
+	else if( nEye == vr::Eye_Right )
+	{
+		matMV = m_mat4eyePosRight *  m_mat4HMDPose;
+	}
 
+	return matMV;
+}
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
@@ -2640,31 +2739,6 @@ CGLRenderModel *CMainApplication::FindOrLoadRenderModel( const char *pchRenderMo
 			return NULL; // move on to the next tracked device
 		}
 
-
-#if 0
-
-	// load the model if we didn't find one
-	if( !pRenderModel )
-	{
-		vr::RenderModel_t *pModel = NULL;
-		//rgh, add path
-		//char tmp[500];
-		//sprintf(tmp, "C:\\Program Files (x86)\\Steam\\steamapps\\common\\SteamVR\\resources\\rendermodels\\%s", pchRenderModelName);
-		if ( !vr::VRRenderModels()->LoadRenderModel_Async( pchRenderModelName, &pModel ) || pModel == NULL )
-		{
-			dprintf( "Unable to load render model %s\n", pchRenderModelName );
-			return NULL; // move on to the next tracked device
-		}
-
-		vr::RenderModel_TextureMap_t *pTexture = NULL;
-		if ( !vr::VRRenderModels( )->LoadTexture_Async( pModel->diffuseTextureId, &pTexture ) || pTexture == NULL )
-		{
-			dprintf( "Unable to load render texture id:%d for render model %s\n", pModel->diffuseTextureId, pchRenderModelName );
-			vr::VRRenderModels()->FreeRenderModel( pModel );
-			return NULL; // move on to the next tracked device
-		}
-
-#endif
 		pRenderModel = new CGLRenderModel( pchRenderModelName );
 		if ( !pRenderModel->BInit( *pModel, *pTexture ) )
 		{
@@ -2850,43 +2924,6 @@ void CGLRenderModel::Draw()
 	glBindVertexArray( 0 );
 }
 
-
-bool loadConfigFileDefault()
-{
-	BACKGROUND[0] = 0.95f;
-	BACKGROUND[1] = 0.95f;
-	BACKGROUND[2] = 0.95f;
-
-	PATH="data\\CO2-CaO-B\\";
-	TIMESTEPS = 423;
-	ISOS = 5;
-
-	const char* plyfiles_[]= { "-0001.ply", "-0005.ply", "-0010.ply", "-0050.ply", "-atom.ply" };
-
-	plyfiles = new const char*[ISOS];
-	for (int i = 0; i < ISOS; i++)
-		plyfiles[i] = plyfiles_[i];
-
-	isocolours = new float*[ISOS];
-	for (int i = 0; i < ISOS; i++)
-		isocolours[i] = new float[4];
-
-	float hsv[3];
-	hsv[1] = 1;
-	hsv[2] = 1;
-	for (int i = 0; i < ISOS; i++)
-	{
-		hsv[0] = (float)i / float(ISOS) * 240;
-		hsv2rgb(hsv, isocolours[i]);
-		if (i == ISOS - 1)
-			isocolours[i][3] = 1.0f;
-		else
-			isocolours[i][3] = 0.5f; //0.5f;
-	}
-
-	return true;
-}
-
 void readString(FILE *f, char *s)
 {
 	char s2[100];
@@ -2914,15 +2951,38 @@ void readString(FILE *f, char *s)
 	}
 }
 
+char * loadConfigFileErrors[] =
+{
+	"All Ok",//0
+	"file could not be opened", //-1
+	"unrecognized parameter",//-2
+	"values with no previous iso", //-3
+	"colours with no previous iso",//-4
+	"translations with no previous correct iso",//-5
+	"Missing isos and xyzfile",//-6
+	"missing values",//-7
+	"timesteps from config file and from atom file do not match",//-8, unused, now minimum is used
+	"isos parameter specified twice",//-9
+	"Error loading xyz file, add 100 to see the error"//<-100
+};
+
 int loadConfigFile(const char * f)
 {
 	//default values
+	BACKGROUND[0] = 0.95f;
+	BACKGROUND[1] = 0.95f;
+	BACKGROUND[2] = 0.95f;
+	SCREENSHOT="C:\\temp\\frame";
 	ISOS = 0;
+	TIMESTEPS=0;
+	PATH=strdup("");
+	numAtoms=0;
+	atomScaling=1;
 	for (int i=0;i<3;i++)
 		userpos[i] = 0;
 	//
 	FILE *F = fopen(f, "r");
-	if (f == 0)
+	if (F == 0)
 	{
 		fprintf(stderr, "Could not open config file %s\n", f);
 		return -1;
@@ -2931,26 +2991,29 @@ int loadConfigFile(const char * f)
 	int r;
 	while (!feof(F)) {
 		r=fscanf_s(F, "%s", s, 100);
-		if (r == 0)
+		if (r <= 0)
 			continue;
-		if (s[0] == '#') //comment
-		{
-			int c;
-			do {
-				c = fgetc(F);
-			} while (c != EOF && c != '\n');
+		if (s[0] == '#') {//comment
+			discardline(F);
 			continue;
 		}
 		if (!strcmp(s, "timesteps")) {
-			r = fscanf(F, "%d", &TIMESTEPS);
+			int timesteps;
+			r = fscanf(F, "%d", &timesteps);
+			if (TIMESTEPS==0)
+				TIMESTEPS=timesteps;
+			else
+				TIMESTEPS=std::min(TIMESTEPS, timesteps);
 		}
 		else if (!strcmp(s, "isos")) {
+			if (ISOS!=0) 
+				return -9;
 			r = fscanf(F, "%d", &ISOS);
 			plyfiles = new const char*[ISOS];
 			isocolours = new float*[ISOS];
 			translations = new float*[ISOS];
 			for (int i = 0; i < ISOS; i++) {
-				plyfiles[i] = 0;
+				plyfiles[i] = strdup("");
 				isocolours[i] = new float[4];
 				translations[i] = new float[3];
 				//default values
@@ -2968,6 +3031,7 @@ int loadConfigFile(const char * f)
 			}
 			for (int i = 0; i < ISOS; i++) {
 				readString(F, s);
+				free ((void*)(plyfiles[i]));
 				plyfiles[i] = strdup(s);
 			}
 
@@ -2985,6 +3049,7 @@ int loadConfigFile(const char * f)
 		}
 		else if (!strcmp(s, "path")) {
 			readString(F, s);
+			free((void*)PATH);
 			PATH = strdup(s);
 		}
 		else if (!strcmp(s, "background")) {
@@ -3007,6 +3072,48 @@ int loadConfigFile(const char * f)
 				r = fscanf_s(F, "%f", &(userpos[j]));
 			}
 		}
+		else if (!strcmp(s, "screenshot")) {
+			readString(F, s);
+			SCREENSHOT = strdup(s);
+		}
+		else if (!strcmp(s, "xyzfile")||!strcmp(s, "atomfile")) {
+			readString(F, s);
+			int timesteps;
+			char file[256];
+			sprintf (file, "%s%s", PATH, s);
+			int e;
+			e=readAtomsXYZ(file, &numAtoms, &timesteps, &atoms);
+			if (e<0)
+				return e-100;
+			if (TIMESTEPS==0)
+				TIMESTEPS=timesteps;
+			else
+				TIMESTEPS=std::min(TIMESTEPS, timesteps);
+		}
+		else if (!strcmp(s, "cubefile")) {
+			readString(F, s);
+			int timesteps;
+			char file[256];
+			sprintf(file, "%s%s", PATH, s);
+			int e;
+			e = readAtomsCube(file, &numAtoms, &timesteps, &atoms);
+			if (e<0)
+				return e - 100;
+			if (TIMESTEPS==0)
+				TIMESTEPS=timesteps;
+			else
+				TIMESTEPS=std::min(TIMESTEPS, timesteps);
+			//	return -8;
+		}
+		else if (!strcmp(s, "atomscaling")) {
+			r = fscanf_s(F, "%f", &atomScaling);
+		}
+		else if (!strcmp(s, "abc")) {
+			for (int i=0;i<3;i++)
+				for (int j=0;j<3;j++)
+					r = fscanf_s(F, "%f", &(abc[i,j]));
+			has_abc = true;
+		}
 		else {
 			fprintf(stderr, "Unrecognized parameter %s\n", s);
 			fclose(F);
@@ -3017,11 +3124,11 @@ int loadConfigFile(const char * f)
 //verification
 	fclose(F);
 
-	if (ISOS == 0) {
-		fprintf(stderr, "Missing isos parameter\n");
+	if (ISOS == 0 && numAtoms==0) {
+		fprintf(stderr, "Missing isos and atomfile parameter\n");
 		return -6;
 	} 
-	if (plyfiles[0] == 0) {
+	if (ISOS !=0 && plyfiles[0] == 0) {
 		fprintf(stderr, "Missing values parameter\n");
 		fclose(F);
 		return -7;
@@ -3038,36 +3145,61 @@ void cleanConfig()
 	}
 	delete[] isocolours;
 	delete[] translations;
-	delete[] plyfiles;
+	if (plyfiles) {
+		for (int i=0;i<ISOS;i++)
+			free ((void*)(plyfiles[i])); //strdup
+		delete[] plyfiles;
+	}
+	
+	free((void*)PATH);
 }
 
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
+char * MainErrors [] = {
+	"No error, successful exit",
+	"Exactly one parameter should be provided",
+	"Out of memory starting application",
+	"Could not init application"
+};
 int main(int argc, char *argv[])
 {
 	if (argc != 2) {
-		fprintf(stderr, "Use %s <config file>\n", argv[0]);
+		fprintf(stderr, "Use: %s <config file>\n", argv[0]);
+		MessageBoxA(0, MainErrors[1], nullptr, 0);
 		return -1;
 	}
 
+	{
 	//change cwd so that relative paths work
 	std::string s(argv[1]);
 	SetCurrentDirectoryA(s.substr(0, s.find_last_of("\\/")).c_str());
+	}
 
 	int r;
-	if ((r=loadConfigFile(argv[1]))<0)
+	if ((r=loadConfigFile(argv[1]))<0) {
+		if (-100<r)
+			MessageBoxA(0, loadConfigFileErrors[-r], "Config file reading error", 0);
+		else if (-200<r)
+			MessageBoxA(0, readAtomsXYZErrors[-r-100], "XYZ file reading error", 0);
+		else
+			MessageBoxA(0, readAtomsCubeErrors[-r-200], "Cube file reading error", 0);
 		return -100+r;
+	}
 
 	CMainApplication *pMainApplication = new CMainApplication( argc, argv );
 
-	if (pMainApplication == nullptr)
+	if (pMainApplication == nullptr) {
+		MessageBoxA(0, MainErrors[2], nullptr, 0);
 		return -2;
+	}
 
 	if (!pMainApplication->BInit())
 	{
 		pMainApplication->Shutdown();
-		return 1;
+		MessageBoxA(0, MainErrors[3], nullptr, 0);
+		return -3;
 	}
 
 	pMainApplication->RunMainLoop();
@@ -3076,7 +3208,6 @@ int main(int argc, char *argv[])
 	delete pMainApplication;
 
 	cleanConfig();
-
 	_CrtDumpMemoryLeaks();
 	return 0;
 }
