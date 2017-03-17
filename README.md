@@ -5,4 +5,5 @@ Clone that repository and add the content of this one inside the samples directo
 
 List of directories
 TimestepData: 
-	Loads prepared molecular dynamics simulations
+	This program can load prepared molecular dynamics simulations
+
