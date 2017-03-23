@@ -4,9 +4,11 @@
 //RGH FIXME, add the other colour scheme when requested.
 extern float atomColours[][4];
 
-void discardline (FILE *F);
 int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float ***pos);
 int readAtomsCube(const char *const file, int **numatoms, int *timesteps, float ***pos);
+int readAtomsJson (const char *const file, int **numatoms, int *timesteps, float ***pos, float abc[3][3],  std::vector<float>** clonedAtoms);
+int readAtomsJsonURL (const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3],  std::vector<float>** clonedAtoms);
+int readAtomsJsonURLwget (const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3],  std::vector<float>** clonedAtoms);
 
 const float MISSINGRADIUS=0.2;
 const float MISSINGR=1;
@@ -15,4 +17,10 @@ const float MISSINGB=1;
 
 extern char * readAtomsXYZErrors[];
 extern char * readAtomsCubeErrors[];
+extern char * readAtomsJsonErrors[];
+extern char * readAtomsJsonErrors[];
 
+//internal functions
+void discardline (FILE *F);
+void Clone (float tmppos[3], float k, std::vector<float>* clonedAtoms);
+void TransformAtoms(std::vector<float>* clonedAtoms, const float abc[3][3]);

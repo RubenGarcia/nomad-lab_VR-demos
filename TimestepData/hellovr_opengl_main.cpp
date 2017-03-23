@@ -1,4 +1,5 @@
 ﻿//========= Copyright Valve Corporation ============//
+#define NOMINMAX
 
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
@@ -6,14 +7,19 @@
 #define DEBUG_NEW new(_NORMAL_BLOCK, __FILE__, __LINE__)
 #define new DEBUG_NEW
 
+#include <vector>
 
 #include <SDL.h>
 #include <GL/glew.h>
 #include <SDL_opengl.h>
+//#include <SDL_ttf.h>
 #include <gl/glu.h>
 #include <stdio.h>
 #include <string>
 #include <cstdlib>
+
+
+#include <winsock2.h>
 
 #include <openvr.h>
 
@@ -27,6 +33,7 @@
 #include "polyhedron.h"
 
 #include "TessShaders.h"
+#include "UnitCellShaders.h"
 
 static int vertex_cb(p_ply_argument argument);
 static int face_cb(p_ply_argument argument);
@@ -54,9 +61,21 @@ static float userpos[3];
 static int* numAtoms; //[timesteps]
 static float **atoms; //[timesteps][numAtoms[i]*4] //xyzu, u=atom number
 static float atomScaling;
+static std::vector<float> *clonedAtoms;
+static int numClonedAtoms;
+static int *basisvectorreps;
+
+static bool showTrajectories;
+static std::vector<int> atomtrajectories;
+static std::vector<std::vector<int>> atomtrajectoryrestarts;
 
 static float abc[3][3]; //basis vectors
 static bool has_abc = false;
+
+int repetitions[3];
+
+
+//TTF_Font* font;
 
 //#define LOCALTEST
 
@@ -135,6 +154,7 @@ public:
 	void SetupScene();
 	void SetupIsosurfaces();
 	void SetupAtoms();
+	void SetupUnitCell();
 
 	bool AddModelToScene(Matrix4 mat, std::vector<float> &vertdata, 
 #ifndef INDICESGL32
@@ -154,7 +174,11 @@ public:
 	void RenderDistortion();
 	void RenderScene(vr::Hmd_Eye nEye);
 	void RenderAtoms(const vr::Hmd_Eye &nEye);
-	
+	void RenderAtomsUnitCell(const vr::Hmd_Eye &nEye, int p[3]);
+
+	void RenderUnitCell(const vr::Hmd_Eye &nEye);
+	Vector3 GetDisplacement(int p[3]);
+
 	Matrix4 GetHMDMatrixProjectionEye(vr::Hmd_Eye nEye);
 	Matrix4 GetHMDMatrixPoseEye(vr::Hmd_Eye nEye);
 	Matrix4 GetCurrentViewProjectionMatrix(vr::Hmd_Eye nEye);
@@ -199,6 +223,8 @@ private: // SDL bookkeeping
 	SDL_GLContext m_pContext;
 
 	void PaintGrid(const vr::Hmd_Eye &nEye, const int iso);
+	bool PaintBox();
+
 
 private: // OpenGL bookkeeping
 	int m_iTrackedControllerCount;
@@ -222,6 +248,7 @@ private: // OpenGL bookkeeping
 	float m_fFarClip;
 
 	GLuint *m_iTexture; //[3+ZLAYERS+1] // white, depth1, depth2, color[ZLAYERS], atomtexture
+	SDL_Texture **axisTextures; //[6]
 	GLuint peelingFramebuffer;
 	unsigned int **m_uiVertcount;// [LODS][NUMPLY];
 
@@ -232,8 +259,12 @@ private: // OpenGL bookkeeping
 
 	//for atoms
 	GLuint *m_glAtomVertBuffer; // [TIMESTEPS];
-	GLuint *m_glAtomIndexBuffer; // [TIMESTEPS];
 	GLuint *m_unAtomVAO; //[TIMESTEPS];
+
+	//for unit cells
+	GLuint m_glUnitCellVertBuffer; // primitive, possibly non-primitive in further. Deformed cube
+	GLuint m_glUnitCellIndexBuffer; // 
+	GLuint m_unUnitCellVAO; //
 
 	int currentset;
 	float elapsedtime;
@@ -278,6 +309,7 @@ private: // OpenGL bookkeeping
 	GLuint m_unControllerTransformProgramID;
 	GLuint m_unRenderModelProgramID;
 	GLuint m_unAtomsProgramID;
+	GLuint m_unUnitCellProgramID;
 
 	GLint m_nSceneMatrixLocation;
 	GLint m_nBlendingIntLocation;
@@ -285,6 +317,7 @@ private: // OpenGL bookkeeping
 	GLint m_nRenderModelMatrixLocation;
 	GLint m_nAtomMatrixLocation;
 	GLint m_nAtomMVLocation;
+	GLint m_nUnitCellMatrixLocation, m_nUnitCellColourLocation;
 
 	struct FramebufferDesc
 	{
@@ -346,6 +379,7 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 	, m_unControllerTransformProgramID(0)
 	, m_unRenderModelProgramID(0)
 	, m_unAtomsProgramID(0)
+	, m_unUnitCellProgramID(0)
 	, m_pHMD(NULL)
 	, m_pRenderModels(NULL)
 	, m_bDebugOpenGL(false)
@@ -360,13 +394,17 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 	, m_unSceneVAOIndices(0)
 	, m_unAtomVAO(0)
 	, m_glAtomVertBuffer(0)
-	, m_glAtomIndexBuffer(0)
+	, m_glUnitCellVertBuffer(-1)
+	, m_glUnitCellIndexBuffer(-1)
+	, m_unUnitCellVAO(0)
 	, m_nSceneMatrixLocation(-1)
 	, m_nBlendingIntLocation(-1)
 	, m_nControllerMatrixLocation(-1)
 	, m_nRenderModelMatrixLocation(-1)
 	, m_nAtomMatrixLocation(-1)
 	, m_nAtomMVLocation(-1)
+	, m_nUnitCellMatrixLocation(-1)
+	, m_nUnitCellColourLocation(-1)
 	, m_iTrackedControllerCount(0)
 	, m_iTrackedControllerCount_Last(-1)
 	, m_iValidPoseCount(0)
@@ -379,6 +417,7 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 	, currentiso(ISOS)
 	, firstdevice(-1)
 	, m_iTexture(0)
+	, axisTextures(0)
 	, peelingFramebuffer(0)
 	, m_uiVertcount(0)
 	, m_glSceneVertBuffer(0)
@@ -715,7 +754,8 @@ void CMainApplication::Shutdown()
 		{
 			glDeleteProgram( m_unAtomsProgramID );
 		}
-
+		if (m_unUnitCellProgramID)
+			glDeleteProgram(m_unUnitCellProgramID);
 
 		glDeleteRenderbuffers( 1, &leftEyeDesc.m_nDepthBufferId );
 		glDeleteTextures( 1, &leftEyeDesc.m_nRenderTextureId );
@@ -736,23 +776,30 @@ void CMainApplication::Shutdown()
 		deleteVaos(&m_unSceneVAO, NUMLODS, NUMPLY);
 		if( m_unAtomVAO != 0 )
 		{
-			glDeleteVertexArrays(TIMESTEPS, m_unAtomVAO);
+			glDeleteVertexArrays(1, m_unAtomVAO);
 			delete[] m_unAtomVAO;
 			m_unAtomVAO = 0;
 		}		
 		if (m_glAtomVertBuffer!=0)
 		{
-			glDeleteBuffers(TIMESTEPS, m_glAtomVertBuffer);
+			glDeleteBuffers(1, m_glAtomVertBuffer);
 			delete[] m_glAtomVertBuffer;
 			m_glAtomVertBuffer=0;
 		}
-		if (m_glAtomIndexBuffer != 0)
-		{
-			glDeleteBuffers(TIMESTEPS, m_glAtomIndexBuffer);
-			delete[] m_glAtomIndexBuffer;
-			m_glAtomIndexBuffer = 0;
 
+		if (m_unUnitCellVAO!=0) {
+			glDeleteVertexArrays(1, &m_unUnitCellVAO);
 		}
+		if (m_glUnitCellVertBuffer!=-1) {
+			glDeleteBuffers(1, &m_glUnitCellVertBuffer);
+			m_glUnitCellVertBuffer=-1;
+		}
+
+		if (m_glUnitCellIndexBuffer!=-1) {
+			glDeleteBuffers(1, &m_glUnitCellIndexBuffer);
+			m_glUnitCellIndexBuffer=-1;
+		}
+
 		if( m_unControllerVAO != 0 )
 		{
 			glDeleteVertexArrays( 1, &m_unControllerVAO );
@@ -771,7 +818,9 @@ void CMainApplication::Shutdown()
 			m_iTexture = 0;
 
 		}
-
+		if (axisTextures !=0) {
+			delete[] axisTextures;
+		}
 		if (peelingFramebuffer!=0)
 			glDeleteFramebuffers(1, &peelingFramebuffer);
 	}
@@ -1300,6 +1349,25 @@ bool CMainApplication::CreateAllShaders()
 		dprintf( "Unable to find matrix uniform in atom shader\n" );
 		return false;
 	}
+
+	m_unUnitCellProgramID= CompileGLShader(
+		UnitCellShaders[SHADERNAME],
+		UnitCellShaders[SHADERVERTEX],
+		UnitCellShaders[SHADERFRAGMENT],
+		UnitCellShaders[SHADERTESSEVAL]
+		);
+	m_nUnitCellMatrixLocation=glGetUniformLocation(m_unUnitCellProgramID, "matrix");
+	if( m_nUnitCellMatrixLocation == -1 )
+	{
+		dprintf( "Unable to find matrix uniform in UnitCell shader\n" );
+		return false;
+	}
+	m_nUnitCellColourLocation=glGetUniformLocation(m_unUnitCellProgramID, "color");
+	if( m_nUnitCellColourLocation == -1 )
+	{
+		dprintf( "Unable to find color uniform in UnitCell shader\n" );
+		return false;
+	}
 //	m_nAtomMVLocation=glGetUniformLocation(m_unAtomsProgramID, "mv");
 	/*if( m_nAtomMVLocation == -1 )
 	{
@@ -1367,6 +1435,7 @@ bool CMainApplication::SetupTexturemaps()
 	//rgh: textures:	[0] White texture for textureless meshes
 	//					[1,2] Depth texture for depth peeling ping pong (needs to be initialized after SetupStereoRenderTargets)
 	//					[3..ZLAYERS+2] Colour textures for transparency
+	//sdl_textures: 6	[0..5] a b c alpha beta gamma text for axis labels
 	//std::string sExecutableDirectory = Path_StripFilename(Path_GetExecutablePath());
 	//std::string strFullPath = Path_MakeAbsolute("../cube_texture.png", sExecutableDirectory);
 
@@ -1401,6 +1470,19 @@ bool CMainApplication::SetupTexturemaps()
 
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("opengl error %d, SetupTextureMaps 2\n", e);
+
+	//sdl text http://stackoverflow.com/questions/5289447/using-sdl-ttf-with-opengl/5289823#5289823
+	//http://stackoverflow.com/questions/28880562/rendering-text-with-sdl2-and-opengl
+	//FIXME TODO
+	/*int size=10;
+	=TTF_OpenFont("", size);
+	axisTextures=new SDL_Texture*[6];
+
+	const wchar_t axis[6]={'a', 'b', 'c', '\u03B1', '\u03B2', '\u03B3'};
+	for (int i=0;i<6;i++) {
+		axisTextures[i]=TTF_RenderUTF8_Blended();
+	}
+	*/
 
 	return ( m_iTexture != 0 && e==GL_NO_ERROR);
 }
@@ -1469,64 +1551,166 @@ void CMainApplication::SetupScene()
 {
 	SetupIsosurfaces();
 	SetupAtoms();
+	SetupUnitCell();
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: Load the atoms into OpenGL
 //-----------------------------------------------------------------------------
+void CMainApplication::SetupUnitCell()
+{
+	if (!has_abc)
+		return;
+	int e;
+	glGenVertexArrays(1, &m_unUnitCellVAO);
+	glGenBuffers(1, &m_glUnitCellVertBuffer);
+	glGenBuffers(1, &m_glUnitCellIndexBuffer);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("opengl error %d, glGenBuffers, l %d\n", e, __LINE__);
 
+	glBindVertexArray(m_unUnitCellVAO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_glUnitCellIndexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, m_glUnitCellVertBuffer);
+
+	glEnableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+	glDisableVertexAttribArray(2);
+	glDisableVertexAttribArray(3);
+
+	float *tmp = new float[3*8];
+	//0, a, b, c, a+b+c, b+c, a+c, a+b
+	for (int i=0;i<3;i++) {
+		tmp[0+i]=0;
+		for (int j=0;j<3;j++)
+			tmp[3*(j+1)+i]=abc[j][i];
+		tmp[3*4+i]=abc[0][i]+abc[1][i]+abc[2][i];
+		tmp[3*5+i]=			abc[1][i]+abc[2][i];
+		tmp[3*6+i]=abc[0][i]+		abc[2][i];
+		tmp[3*7+i]=abc[0][i]+abc[1][i];
+	}
+
+	int tmpi[12*2]={ //lines
+		0,1, 
+		1,6,
+		6,3,
+		3,0,
+		2,7,
+		7,4,
+		4,5,
+		5,2,
+		0,2,
+		1,7,
+		6,4,
+		3,5
+	};
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3*8 , tmp,
+			GL_STATIC_DRAW);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("opengl error %d, glBufferData, l %d\n", e, __LINE__);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (const void *)(0));
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(tmpi), tmpi, GL_STATIC_DRAW);
+}
 
 void CMainApplication::SetupAtoms()
 {
 	if (!numAtoms)
 		return;
-	//rgh FIXME: use tesselation shaders to do a sphere from a point in the future
-	//for now, render an icosahedron
+	//rgh FIXME: put this all in the same vao
+	
 	//http://prideout.net/blog/?p=48 //public domain code
 	//xyz u=atom type ; 4 floats
 	int e;
-	m_unAtomVAO = new GLuint[TIMESTEPS];
-	m_glAtomVertBuffer = new GLuint[TIMESTEPS];
-	m_glAtomIndexBuffer = new GLuint[TIMESTEPS];
-	glGenVertexArrays(TIMESTEPS, m_unAtomVAO);
-	glGenBuffers(TIMESTEPS, m_glAtomVertBuffer);
-	glGenBuffers(TIMESTEPS, m_glAtomIndexBuffer);
 
+	int totalatoms=0;
+	for (int i=0;i<TIMESTEPS;i++) {
+		totalatoms += numAtoms[i];
+	}
+
+
+	m_unAtomVAO = new GLuint[2]; //atoms, cloned atoms
+	m_glAtomVertBuffer = new GLuint[2];
+	glGenVertexArrays(2, m_unAtomVAO);
+	glGenBuffers(2, m_glAtomVertBuffer);
+
+	glBindVertexArray(m_unAtomVAO[0]);
+	glBindBuffer(GL_ARRAY_BUFFER, m_glAtomVertBuffer[0]);
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glDisableVertexAttribArray(2);
+	glDisableVertexAttribArray(3);
+	float *tmp = new float[4 * totalatoms];
+	float *current=tmp;
 	for (int p=0;p<TIMESTEPS;p++) {
-		glBindVertexArray(m_unAtomVAO[p]);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_glAtomIndexBuffer[p]);
-		glBindBuffer(GL_ARRAY_BUFFER, m_glAtomVertBuffer[p]);
-
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-		glDisableVertexAttribArray(2);
-		glDisableVertexAttribArray(3);
-
-		float *tmp = new float[4 * numAtoms[p]];
 
 		for (int a = 0; a < numAtoms[p]; a++) {
-			const int atomNumber = atoms[p][4 * a + 3];
-			for (int k = 0; k < 3; k++) {
-				tmp[a * 4 + k] = atoms[p][4 * a + k];
+			for (int k = 0; k < 4; k++) {
+				*current++ = atoms[p][4 * a + k];
 			}
-			tmp[a * 4 + 3] = atomNumber;
 		} //a
-		glBufferData(GL_ARRAY_BUFFER, sizeof(float) * numAtoms[p] * 4 , tmp,
+		if (p!=0)
+			numAtoms[p]+=numAtoms[p-1];
+	}
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
+	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(3 * sizeof(float)));
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * totalatoms * 4 , tmp,
 			GL_STATIC_DRAW);
 		if ((e = glGetError()) != GL_NO_ERROR)
 			dprintf("opengl error %d, glBufferData, l %d\n", e, __LINE__);
-
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
-		glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(3 * sizeof(float)));
 
 		if (glGetError() != GL_NO_ERROR)
 			dprintf("opengl error attrib pointer 0\n");
 
 		glBindVertexArray(0);
-		delete[] tmp;
-	}
+
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("opengl error %d, end of SetupAtoms, l %d\n", e, __LINE__);
+
+	if (showTrajectories) {
+			//fill the restart buffer
+		//use abc for measuring
+		float max=0;
+		if (has_abc) {
+			for (int i=0;i<3;i++)
+				for (int j=0;j<3;j++)
+				max+=abc[i][j];
+			max /=9*2;
+		}
+
+		for (int t=0;t<atomtrajectories.size();t++) {
+			atomtrajectoryrestarts.push_back(std::vector<int>());
+			atomtrajectoryrestarts[t].push_back(0);
+			for (int p=1;p<TIMESTEPS;p++) {
+				int a=atomtrajectories[t];
+				if (fabs(atoms[p][a*4+0]-atoms[p-1][a*4+0])+
+					fabs(atoms[p][a*4+1]-atoms[p-1][a*4+1])+
+					fabs(atoms[p][a*4+2]-atoms[p-1][a*4+2])>max)
+						atomtrajectoryrestarts[t].push_back(p);
+			}
+			atomtrajectoryrestarts[t].push_back(TIMESTEPS);
+		}
+	}
+	delete[] tmp;
+
+	//now clones
+	if (basisvectorreps ||!clonedAtoms) //do not replicate
+		return;
+
+
+
+	glBindVertexArray(m_unAtomVAO[1]); //rgh FIXME, only works for TIMESTEPS=1
+	glBindBuffer(GL_ARRAY_BUFFER, m_glAtomVertBuffer[1]);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * clonedAtoms[0].size(), clonedAtoms[0].data(),
+			GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
+	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(3 * sizeof(float)));
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("opengl error %d, end of Setup cloned Atoms, l %d\n", e, __LINE__);
+
+	delete[] clonedAtoms;
+	clonedAtoms=0;
 }
 
 
@@ -2297,6 +2481,120 @@ void CMainApplication::PaintGrid(const vr::Hmd_Eye &nEye, int iso) {
 
 }
 
+void CMainApplication::RenderUnitCell(const vr::Hmd_Eye &nEye)
+{
+	if (!has_abc)
+		return;
+	int e;
+	glUseProgram(m_unUnitCellProgramID);
+	glBindVertexArray(m_unUnitCellVAO);
+	if (m_unUnitCellVAO==0)
+		dprintf ("Error, Unit Cell VAO not loaded");
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after glBindVertexArray RenderUnitCell: %d, %s\n", e, gluErrorString(e));
+
+	Matrix4 trans;
+		int p[3];
+	for (p[0]=0;p[0]<repetitions[0];(p[0])++)
+		for (p[1]=0;p[1]<repetitions[1];(p[1])++)
+			for (p[2]=0;p[2]<repetitions[2];(p[2])++)
+				
+	{
+		Vector3 iPos = GetDisplacement(p);
+		trans.identity();
+		
+		trans.translate(iPos).rotateX(-90).translate(UserPosition);
+		Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans;
+		glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
+		if ((e = glGetError()) != GL_NO_ERROR)
+			dprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
+		float color[4]={1,1,1,1};
+		glUniform4fv(m_nUnitCellColourLocation, 1, color);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			dprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
+		glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			dprintf("Gl error after RenderUnitCell: %d, %s\n", e, gluErrorString(e));
+	}
+}
+
+Vector3 CMainApplication::GetDisplacement(int p[3])
+{
+Vector3 delta[3];
+for (int ss=0;ss<3;ss++)
+	delta[ss]=static_cast<float>(p[ss])*Vector3(abc[ss][0], abc[ss][1], abc[ss][2]);
+Vector3 f=delta[0]+delta[1]+delta[2];
+return (f);
+}
+
+void CMainApplication::RenderAtomsUnitCell(const vr::Hmd_Eye &nEye, int p[3])
+{
+	int e;
+Matrix4 trans;
+Vector3 iPos = GetDisplacement(p);
+glUseProgram(m_unAtomsProgramID);
+
+float levelso[4] = { TESSSUB, TESSSUB, TESSSUB, TESSSUB };
+float levelsi[2] = { TESSSUB, TESSSUB};
+
+glPatchParameterfv(GL_PATCH_DEFAULT_OUTER_LEVEL,levelso);
+glPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL,levelsi);
+glPatchParameteri(GL_PATCH_VERTICES, 1);
+glBindVertexArray(m_unAtomVAO[0]);
+glEnableVertexAttribArray(0);
+glEnableVertexAttribArray(1);
+glBindBuffer(GL_ARRAY_BUFFER, m_glAtomVertBuffer[0]);
+glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
+glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(3 * sizeof(float)));
+
+trans.translate(iPos).rotateX(-90).translate(UserPosition);
+Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans;
+Matrix4 mv=GetCurrentViewMatrix(nEye)*trans;
+glUniformMatrix4fv(m_nAtomMatrixLocation, 1, GL_FALSE, transform.get());
+//glUniformMatrix4fv(m_nAtomMVLocation, 1, GL_FALSE, mv.get());
+if ((e = glGetError()) != GL_NO_ERROR)
+	dprintf("Gl error 4 timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+if (currentset==0)
+	glDrawArrays(GL_PATCHES, 0, numAtoms[0]);
+else
+	glDrawArrays(GL_PATCHES, numAtoms[currentset-1], numAtoms[currentset]-numAtoms[currentset-1]);
+	
+if ((e = glGetError()) != GL_NO_ERROR)
+	dprintf("Gl error after RenderAtoms timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+
+//now cloned atoms
+if (numClonedAtoms!=0 && currentset==0) {
+	glBindVertexArray(m_unAtomVAO[1]);
+	glDrawArrays(GL_PATCHES, 0, numClonedAtoms);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after Render cloned Atom trajectories timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+}
+
+//now trajectories
+if (!showTrajectories)
+	return;
+
+glUseProgram(m_unUnitCellProgramID);
+glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
+float color[4]={1,0,0,1};
+glUniform4fv(m_nUnitCellColourLocation, 1, color);
+if ((e = glGetError()) != GL_NO_ERROR)
+	dprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
+glEnableVertexAttribArray(0);
+glDisableVertexAttribArray(1);
+
+for (int i=0;i<atomtrajectories.size();i++) {
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float)*numAtoms[0], (const void *)(0+4*sizeof(float)*atomtrajectories[i]));
+	for (int j=1;j<atomtrajectoryrestarts[i].size();j++) {
+		int orig=atomtrajectoryrestarts[i][j-1];
+		int count=atomtrajectoryrestarts[i][j]-atomtrajectoryrestarts[i][j-1];
+		glDrawArrays(GL_LINE_STRIP, orig, count);
+	}
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after Render Atom trajectories timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+}
+}
+
 void CMainApplication::RenderAtoms(const vr::Hmd_Eye &nEye)
 {
 	//glDisable(GL_DEPTH_TEST);
@@ -2305,39 +2603,22 @@ void CMainApplication::RenderAtoms(const vr::Hmd_Eye &nEye)
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("Gl error before RenderAtoms timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 
-	glUseProgram(m_unAtomsProgramID);
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
-	float levelso[4] = { TESSSUB, TESSSUB, TESSSUB, TESSSUB };
-	float levelsi[2] = { TESSSUB, TESSSUB};
 
-	glPatchParameterfv(GL_PATCH_DEFAULT_OUTER_LEVEL,levelso);
-	glPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL,levelsi);
-	//glPatchParameteri(GL_PATCH_VERTICES, 3);
-	glPatchParameteri(GL_PATCH_VERTICES, 1);
 
-	glBindVertexArray(m_unAtomVAO[currentset]);
-	//glBindVertexArray(m_unSceneVAO[0][currentset]);
+	
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("Gl error 0 timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 	glBindTexture(GL_TEXTURE_2D, m_iTexture[3+ZLAYERS]);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("Gl error 2 timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 
-	Matrix4 trans;
-	Vector3 iPos = Vector3(0, 0, 0);
-		
-	trans.rotateX(-90).translate(iPos).translate(UserPosition);
-	Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans;
-	Matrix4 mv=GetCurrentViewMatrix(nEye)*trans;
-	glUniformMatrix4fv(m_nAtomMatrixLocation, 1, GL_FALSE, transform.get());
-	//glUniformMatrix4fv(m_nAtomMVLocation, 1, GL_FALSE, mv.get());
-	if ((e = glGetError()) != GL_NO_ERROR)
-		dprintf("Gl error 4 timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
-	glDrawArrays(GL_PATCHES, 0, numAtoms[currentset]);
+	int p[3];
+	for (p[0]=0;p[0]<repetitions[0];(p[0])++)
+		for (p[1]=0;p[1]<repetitions[1];(p[1])++)
+			for (p[2]=0;p[2]<repetitions[2];(p[2])++)
+				RenderAtomsUnitCell(nEye, p);
 	
-	if ((e = glGetError()) != GL_NO_ERROR)
-		dprintf("Gl error after RenderAtoms timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 	glUseProgram(0);
 }
 
@@ -2367,6 +2648,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 
 	if (ISOS==0) {
 		RenderAtoms(nEye);
+		RenderUnitCell(nEye);
 		return;
 	}
 
@@ -2411,6 +2693,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 					dprintf("Gl error after paintgrid: %d, %s\n", e, gluErrorString(e));
 				if (numAtoms!=0) {
 					RenderAtoms(nEye);
+					RenderUnitCell(nEye);
 				}
 				RenderAllTrackedRenderModels(nEye);
 			} // for zl
@@ -2505,6 +2788,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 		else {
 			if (numAtoms!=0) {
 				RenderAtoms(nEye);
+				RenderUnitCell(nEye);
 			}
 			glEnable(GL_DEPTH_TEST);
 			glDisable(GL_BLEND);
@@ -2934,7 +3218,7 @@ void readString(FILE *f, char *s)
 		return;
 	} else {
 		strcpy(s, s2+1); //skip "
-		int l = strlen(s);
+		size_t l = strlen(s);
 		if (s[l-1] == '"') {
 			s[l-1] = '\0';
 			return;
@@ -2963,12 +3247,29 @@ char * loadConfigFileErrors[] =
 	"missing values",//-7
 	"timesteps from config file and from atom file do not match",//-8, unused, now minimum is used
 	"isos parameter specified twice",//-9
-	"Error loading xyz file, add 100 to see the error"//<-100
+	"Error reading unit cell parameters", //-10
+	"Error reading repetitions",//-11
+	"Non-periodic, but repetitions requested", //-12
+	"No basis vectors, but repetitions requested", //-13
+	"Error loading xyz file, add 100 to see the error",//<-100
+	"Error loading cube file, add 100 to see the error",//<-200
+	"Error loading json file, add 200 to see the error",//<-300
 };
+
+void updateTIMESTEPS (int timesteps)
+{
+if (TIMESTEPS==0)
+	TIMESTEPS=timesteps;
+else
+	TIMESTEPS=std::min(TIMESTEPS, timesteps);
+}
 
 int loadConfigFile(const char * f)
 {
 	//default values
+	bool nonperiodic=false;
+	char base_url[1024]="http://enc-testing-nomad.esc.rzg.mpg.de/v1.0/materials/";
+	char material[1024]="";
 	BACKGROUND[0] = 0.95f;
 	BACKGROUND[1] = 0.95f;
 	BACKGROUND[2] = 0.95f;
@@ -2978,6 +3279,12 @@ int loadConfigFile(const char * f)
 	PATH=strdup("");
 	numAtoms=0;
 	atomScaling=1;
+	clonedAtoms=0;
+	showTrajectories = false;
+	basisvectorreps=0;
+	numClonedAtoms=0;
+	for (int i=0;i<3;i++)
+		repetitions[i]=1;
 	for (int i=0;i<3;i++)
 		userpos[i] = 0;
 	//
@@ -3085,10 +3392,7 @@ int loadConfigFile(const char * f)
 			e=readAtomsXYZ(file, &numAtoms, &timesteps, &atoms);
 			if (e<0)
 				return e-100;
-			if (TIMESTEPS==0)
-				TIMESTEPS=timesteps;
-			else
-				TIMESTEPS=std::min(TIMESTEPS, timesteps);
+			updateTIMESTEPS (timesteps);
 		}
 		else if (!strcmp(s, "cubefile")) {
 			readString(F, s);
@@ -3098,11 +3402,8 @@ int loadConfigFile(const char * f)
 			int e;
 			e = readAtomsCube(file, &numAtoms, &timesteps, &atoms);
 			if (e<0)
-				return e - 100;
-			if (TIMESTEPS==0)
-				TIMESTEPS=timesteps;
-			else
-				TIMESTEPS=std::min(TIMESTEPS, timesteps);
+				return e - 200;
+			updateTIMESTEPS (timesteps);
 			//	return -8;
 		}
 		else if (!strcmp(s, "atomscaling")) {
@@ -3110,9 +3411,59 @@ int loadConfigFile(const char * f)
 		}
 		else if (!strcmp(s, "abc")) {
 			for (int i=0;i<3;i++)
-				for (int j=0;j<3;j++)
-					r = fscanf_s(F, "%f", &(abc[i,j]));
+				for (int j=0;j<3;j++) {
+					r = fscanf_s(F, "%f", &(abc[i][j]));
+					if (r!=1)
+						return -10;
+				}
 			has_abc = true;
+		}
+		else if (!strcmp(s, "json")) {
+			readString(F, s);
+
+			char file[256];
+			sprintf(file, "%s%s", PATH, s);
+			int e;
+			int timesteps;
+			//rgh fixme, we know only one
+			e = readAtomsJson (file, &numAtoms, &timesteps, &atoms, abc, &clonedAtoms);
+			numClonedAtoms=clonedAtoms[0].size()/4;
+			if (e<0)
+				return e-300;
+			has_abc=true;
+			updateTIMESTEPS (timesteps);
+		} 
+		else if (!strcmp(s, "baseurl")) {
+			readString (F, base_url);
+		} 
+		else if (!strcmp(s, "jsonurl")) {
+			int e;
+			int timesteps;
+			readString (F, material);
+			char url[2048];
+			sprintf (url, "%s%s", base_url, material);
+			//rgh fixme, we know only one
+			e = readAtomsJsonURL (url, &numAtoms, &timesteps, &atoms, abc, &clonedAtoms);
+			numClonedAtoms=clonedAtoms[0].size()/4;
+			if (e<0)
+				return e-200;
+			has_abc=true;
+			updateTIMESTEPS (timesteps);
+		}
+		else if (!strcmp(s, "showtrajectory")) {
+			showTrajectories = true;
+			int atom;
+			while (1 == (r = fscanf(F, "%d", &atom))) {
+				atomtrajectories.push_back(atom - 1);
+			}
+		} else if (!strcmp(s, "nonperiodic")) {
+			nonperiodic=true;
+		} else if (!strcmp(s, "repetitions")) {
+			for (int j=0;j<3;j++) {
+					r = fscanf_s(F, "%d", repetitions+j);
+					if (r!=1)
+						return -11;
+			}
 		}
 		else {
 			fprintf(stderr, "Unrecognized parameter %s\n", s);
@@ -3121,7 +3472,7 @@ int loadConfigFile(const char * f)
 		}
 	}
 
-//verification
+//verification and additional processing
 	fclose(F);
 
 	if (ISOS == 0 && numAtoms==0) {
@@ -3133,7 +3484,23 @@ int loadConfigFile(const char * f)
 		fclose(F);
 		return -7;
 	}
-	
+	if (nonperiodic) {
+		numClonedAtoms=0;
+		if (repetitions[0]!=1 ||repetitions[1]!=1 ||repetitions[2]!=1)
+			return -12;
+	}
+	if (repetitions[0]!=1 ||repetitions[1]!=1 ||repetitions[2]!=1) {
+		if (!has_abc)
+			return (-13);
+		numClonedAtoms=0;
+	}
+
+	if (showTrajectories && atomtrajectories[0]<0) {
+		atomtrajectories.clear();
+		for (int i=0;i<*numAtoms;i++)
+			atomtrajectories.push_back(i);
+	}
+
 	return 0;
 }
 
@@ -3165,6 +3532,11 @@ char * MainErrors [] = {
 };
 int main(int argc, char *argv[])
 {
+	//http://stackoverflow.com/questions/4991967/how-does-wsastartup-function-initiates-use-of-the-winsock-dll
+	WSADATA wsaData;
+    if(WSAStartup(0x202, &wsaData) != 0)
+		return -10;
+	
 	if (argc != 2) {
 		fprintf(stderr, "Use: %s <config file>\n", argv[0]);
 		MessageBoxA(0, MainErrors[1], nullptr, 0);
@@ -3183,8 +3555,9 @@ int main(int argc, char *argv[])
 			MessageBoxA(0, loadConfigFileErrors[-r], "Config file reading error", 0);
 		else if (-200<r)
 			MessageBoxA(0, readAtomsXYZErrors[-r-100], "XYZ file reading error", 0);
-		else
+		else if (-300<r)
 			MessageBoxA(0, readAtomsCubeErrors[-r-200], "Cube file reading error", 0);
+		else MessageBoxA(0, readAtomsCubeErrors[-r-300], "Json reading error", 0);
 		return -100+r;
 	}
 
