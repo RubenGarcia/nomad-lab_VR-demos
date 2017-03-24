@@ -1,0 +1,46 @@
+#!/bin/bash
+if ["$QUERY_STRING" eq ""]
+then
+	#echo Location: /NOMAD/
+	echo Location:http://mrs-srv.srv.lrz.de/NOMAD/
+	echo ''
+else
+	#http://stackoverflow.com/questions/3919755/how-to-parse-query-string-from-a-bash-cgi-script
+	saveIFS=$IFS
+	IFS='=&'
+	parm=($QUERY_STRING)
+	IFS=$saveIFS
+	#material 1
+	
+	Mat=${parm[1]}
+	
+	if ["$Mat" eq ""]
+	then
+		echo "Content-type: text-plain"
+		echo ''	
+		echo Missing material
+		exit
+	fi
+	
+	#RGB 3,5,7, 
+	Col=`echo ${parm[3]} ${parm[5]} ${parm[7]}` 
+	#repetitions 9 11 13
+	Rep=`echo ${parm[9]} ${parm[11]} ${parm[13]}` 
+	#traj 15
+	Traj=${parm[15]}
+	#screenshot 17
+	#encoded http://unix.stackexchange.com/questions/159253/decoding-url-encoding-percent-encoding
+	Shot=$(printf '%b' "${parm[17]//%/\\x}")
+	echo "Content-type: text-plain"
+	echo "Content-disposition: attachment; filename=${Mat}.ncfg"
+	echo ''
+	echo -e \# Material $Mat \\r\\n
+	echo -e baseurl \"http://enc-testing-nomad.esc.rzg.mpg.de/v1.0/materials/\" \\r\\n
+	echo -e jsonurl \"$Mat\" \\r\\n
+	echo -e repetitions $Rep \\r\\n
+	echo -e trajectories $Traj \\r\\n
+	echo -e background $Col \\r\\n
+	echo screenshot \"$Shot\" 
+	echo -e \\r\\n
+	echo -e atomscaling 0.5 \\r\\n
+fi
