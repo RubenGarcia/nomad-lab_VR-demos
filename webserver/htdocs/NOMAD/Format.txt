@@ -1,0 +1,94 @@
+# <- Introduces a comment, ignored
+
+# Regular expression:  * means 0 or more repetitions (additional constraints may apply), space or tab separated
+# <X> denotes the type in non-comments (definition of lines)
+# <Y> denotes the value of a parsed variable in comments (explanations)
+
+#Number of timesteps T. Default value: 0, or that defined by xyzfile (see below) if it exists
+timesteps <int> 
+
+#Number of isos I
+#Default value: 0
+isos <int>
+
+#Values (after isos parameter): I strings. Default value: "" (empty string)
+values <string>*
+
+#Colours (after isos parameter): I*4 floats, rgba [0..1]. Default value: all 1 1 1 1 (white, opaque)
+colours <float>*
+
+#Translations(after isos parameter): I*3 floats, xyz displacements. Default value: all 0 0 0 (no translation)
+translations <float>*
+
+#User position, xyz displacement
+userpos <float> <float> <float> 
+
+#path P of isosurface files, including file prefix. Needs to include the trailing slash as appropriate.
+#Default value: "" (empty string)
+path <string>
+
+
+
+#xyz atom file AXYZF (extended xyz format) - For backwards compatibility, atomfile is an alias of xyzfile
+#If timestep T does not match with the xyz file, the minimum of the two values is used
+xyzfile <string>
+
+#base vectors of unit cell. The unit cell is painted white
+abc <float> <float> <float> <float> <float> <float> <float> <float> <float>
+
+#Gaussian cube atom file ACUBEF. Only atoms (not volumetric data) are parsed at the moment. Implies timesteps T=1 for now.
+cubefile <string>
+
+#NOMAD integration. Baseurl gives the url where the material json can be downloaded
+#by default, the value is "http://enc-testing-nomad.esc.rzg.mpg.de/v1.0/materials/"
+baseurl <string>
+
+#NOMAD integration. Jsonurl gives the material url (which is also the material code in the NOMAD encyclopaedia)
+#This option downloads the materials from the NOMAD repository
+jsonurl <string>
+
+#NOMAD integration. For off-line use. Json provides the base string JSON for the desired, pre-downloaded material
+#expected filenames: <JSON>_elements.json, and <JSON>_cells.json
+json <string>
+
+#scaling of atoms, default value: 1. This parameter scales the atom radius. Use 0.45 for compatibility with encyclopaedia.
+atomscaling <float>
+
+#This option indicates the simulation is non-periodic and that no replication of atoms at the cell borders should take place
+nonperiodic
+
+#This option indicates that the system is periodic and the number of repetitions of the grid and the atoms in the a b c base vector directions
+#If this option is different from the default value 1 1 1, atoms in the unit cell border will not be replicated.
+repetitions <int> <int> <int>
+
+#In the case of simulation in which all atoms correspond in different timesteps, this is a list of atoms (starting in 1) which should have
+#their full trajectory highlighted
+#A single value of -1 means all atoms should have trajectories displayed.
+showtrajectory <int>*
+
+#image background rgb [0..1]. Default background: 0.95 0.95 0.95 (light grey)
+background <float> <float> <float>
+
+#Screenshot basename S. Default value: "C:\\temp\\frame"
+screenshot <string>
+
+
+
+#Expected filenames for isosurfaces: <P><timestep><value>.ply
+#timesteps from 1 to T
+#all values 
+
+#Expected filename for xyz file: <P><AXYZF>
+#Expected filename for cube file: <P><ACUBEF>
+
+#Screenshots saved to disk as bmp files with the following name: <S>[L|R]<screenshot number>.bmp
+#Screenshot numbers are consecutive
+#Fast access (SSD) disk strongly suggested to avoid tracking issues when recording. 
+#L=Left Eye, R=Right Eye. Only left eye saved at the moment
+
+#User is expected to modify background, screenshot, possibly userpos, possibly colours, possibly atomscaling
+#Possibly showtrajectory
+#NOMAD integration: Change baseurl to point to a different NOMAD clone, and jsonurl to choose the material
+
+#Other parameters probably will not be changed by final user.
+

@@ -1,0 +1,11 @@
+#Glucose, atomistic, 1 timestep
+
+timesteps 1
+
+path ""
+background 0 0 0
+
+atomfile "glucose.xyz"
+atomscaling 0.5
+
+

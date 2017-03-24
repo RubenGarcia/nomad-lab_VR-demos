@@ -1,0 +1,16 @@
+#!/bin/bash
+if ["$QUERY_STRING" eq ""]
+then
+	#echo Location: /NOMAD/
+	echo Location:http://mrs-srv.srv.lrz.de/NOMAD/
+	echo ''
+else
+	echo "Content-type: text-plain"
+	echo "Content-disposition: attachment; filename=${QUERY_STRING}.ncfg"
+	echo ''
+	echo \# Material $QUERY_STRING
+	echo baseurl \"http://enc-testing-nomad.esc.rzg.mpg.de/v1.0/materials/\"
+	echo jsonurl \"$QUERY_STRING\"
+	echo background 0 0 0
+	echo atomscaling 0.5
+fi

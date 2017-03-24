@@ -1,0 +1,130 @@
+<html>
+<head>
+<title>
+NOMAD Virtual Reality demos, preview
+</title>
+</head>
+<body>
+<h1>
+NOMAD Virtual Reality (preview, early prototype)
+</h1>
+<h2>
+NOMAD Virtual Reality demo for <a href="https://www.vive.com">HTC Vive</a>
+</h2>
+<h3>Software</h3>
+<p>
+<a href="NOMADViveT-Setup.exe">NOMAD HTC Vive for time-dependant data, 
+64 bit Installer</a>, 20 MB
+</p>
+<p>
+For <a href="https://nomad-coe.eu/">NOMAD</a> Encyclopaedia integration, 
+http is supported directly.
+Other protocols (https, ftp) use an external wget program.
+Wget.exe should be in the PATH to enable https and ftp support. 
+Download it <a href="https://eternallybored.org/misc/wget/">here</a>.
+</p>
+<h3>
+Dataset corresponding to the reaction of gaseous CO<sub>2</sub> to CaO(001) surface.
+Corresponding material: 
+<a href="http://enc-production-nomad.esc.rzg.mpg.de/gui/#/material/131424">
+CaO - space group 225</a> (NOMAD encyclopaedia)
+</h3>
+<h4> Simulation parameters</h4>
+-From <a href="https://gitlab.rzg.mpg.de/nomad-lab/public-wiki/wikis/remoteviz/UseCase1">
+NOMAD Usecase 1</a><br/>
+-Molecular Dynamics (MD) simulation<br/>
+-35 atoms (1 CO<sub>2</sub> molecule, two layer 4x4 CaO solid)<br/>
+-Fixed bottom layer<br/>
+-423 timesteps<br/>
+<img width=10% src="CO2-CaO.png"/>
+<h4>Datasets</h4>
+
+<p>
+<a href="CO2-CaO-Rel.rar">CO<sub>2</sub>-CaO, relative electron densities</a>, 137 MB
+</p>
+<p>
+<a href="CO2-CaO.rar">CO<sub>2</sub>-CaO, full electron densities</a>, 1.8 GB
+</p>
+<h3>Dataset corresponding to an Ag Fermi surface</h3>
+<p>
+<img src="AgAll_bands.png" width=10% /><br/>
+<a href="AgFermi.rar">Ag Fermi surface</a>, 374 KB
+</p>
+<h3>Dataset for molecular dynamics using extended xyz file</h3>
+<p>
+Atomistic viewer: Glucose (from <a href="http://wetche.cmbi.ru.nl/organic/methods/xyzf.html">this example</a>)<br/>
+<a href="Glucose.ncfg">Glucose.ncfg</a><br/>
+<a href="glucose.xyz">Glucose.xyz</a><br/>
+</p>
+<h3>Instructions</h3>
+<p>
+-Download the installer, and install.<br/>
+-Download the rar file, and decompress.<br/>
+-Double click on the .ncfg file and assign to the installed program NOMADViveT.exe
+</p>
+<h4>
+Control:</h4>
+-Trigger of controller 1 moves the user in the gaze direction<br/>
+-Trigger of controller 2 moves the time forward (continuous)<br/>
+-Side button of controller 1 moves the time backwards (discrete)<br/>
+-Side button of controller 2 shows isosurfaces one-by-one, then atoms, then 
+everything with transparency (caveat: ).<br/>
+-Menu (3 lines) button of controller 2 starts/stops recording in c:/temp.
+</p>
+<h4>
+Caveats:</h4>
+-At the beginning of the CO<sub>2</sub>+CaO reaction, the relative densities are zero, so nothing 
+is shown if you press the isosurfaces button too early; if you press it by
+mistake, press it again until you see the atoms, then once more for the full 
+system<br/>
+-Recording: SSD advised, affects tracking negativelly<br/>
+-A high-end graphics card is required. 
+See also <a href="https://github.com/ValveSoftware/openvr/issues/258">here</a>
+regarding slow framerates for 60Hz monitors in Geforce GTX 980 and workarounds
+for the issue.<br/>
+-The Fermi surface is static; the time controls are disabled for this example.
+</p>
+<p>
+<a href="Format.txt">Format</a> of the NOMADViveT configuration file.
+</p>
+<p>
+---------------------------------------------------------------------------
+</p>
+<h1>From here on, experimental demos, do not copy to the NOMAD wp3 website yet!
+</h1>
+<h2>
+NOMAD Virtual Reality demo for <a href="http://www.samsung.com/de/wearables/gear-vr-r322/">Samsung GearVR</a>
+</h2>
+<h3>
+Reaction of gaseous CO<sub>2</sub> to CaO(001) surface, like above
+</h3>
+<p>
+<a href="CO2-CaO-Rel.apk">Android Installer (apk), Relative densities</a>, 2 MB
+</p>
+<p>
+<a href="CO2-CaO.apk">Android Installer (apk), Full densities, 200 timesteps (1,3,...)</a>, 2 MB
+</p>
+<p>
+Install instructions:<br/>
+-Allow unsigned software in oculus 
+(see <a href="https://support.oculus.com/878170922281071">here</a>).<br/>
+-Install desired apk(s)<br/>
+-Relative densities: download <a href="CO2-CaO-Rel.rar">CO2-CaO-Rel.rar</a> (same file as above) and decompress content in sdcard/Oculus. Rename the folder data to NOMAD and inside that, 
+the to CO2CaOrel to CO2-CaO-rel.<br/>
+-Full densities: download <a href="CO2-CaO.rar">CO2-CaO.rar</a> (same file as above) and
+decompress content in sdcard/Oculus.
+Rename the folder data to NOMAD and inside that, 
+the to CO2-CaO-B to CO2-CaO (if the NOMAD folder already exists, you should just move 
+CO2-CaO-B inside the NOMAD folder before renaming).<br/>
+-You may remove the .ncfg files, they are unused.<br/>
+-The procedure will be simplified in the next version!
+</p>
+<p>
+Control:<br/>
+-Swipe forward to fly in the direction of gaze<br/>
+-Swipe backwards to stop the movement<br/>
+-Swipe up/down to go forward/backward in time<br/>
+-Press back to show isosurfaces one by one (same caveat as above).
+</p>
+</body>
+</html>
