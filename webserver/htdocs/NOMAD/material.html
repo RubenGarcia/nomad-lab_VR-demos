@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+<title>Material configurator for VR viewing
+</title>
+</head>
+<body>
+<form action="/cgi-bin/NOMAD/configuredmaterial">
+<fieldset>
+	Material Number from NOMAD encyclopaedia <input type="text" name="material"/><br/>
+	Background Color (RGB, 0-1)
+		<input type="text" name="R" value="0"/>
+		<input type="text" name="G" value="0"/>
+		<input type="text" name="B" value="0"/><br/>
+	Repetitions along a,b,c vectors of the unit cell
+		<input type="text" name="Ra" value="1"/>
+		<input type="text" name="Rb" value="1"/>
+		<input type="text" name="Rc" value="1"/><br/>
+	Show Trajectory of atoms (-1: all; otherwise empty or space separarated list of numbers)
+		<input type="text" name="Traj" value=""/><br/>
+	Screenshot Basename 
+		<input type="text" name="Shot" value="C:\\temp\\frame"/><br/>
+	<input type="submit" name="submit" value="Get Material"/>
+</fieldset>
+</form>
+<p>
+  <a href="http://validator.w3.org/check?uri=referer"><img
+            src="/w3.org/valid-xhtml11.png"
+            alt="Valid XHTML 1.1" height="31" width="88" /></a>
+</p>
+</body>
+</html>

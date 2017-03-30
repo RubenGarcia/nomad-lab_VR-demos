@@ -5,7 +5,8 @@ then
 	echo Location:http://mrs-srv.srv.lrz.de/NOMAD/
 	echo ''
 else
-	echo "Content-type: text-plain"
+#rgh: text/plain works in pc but android chrome saves it as .txt, removing the extension
+	echo "Content-type: application/octet-stream"
 	echo "Content-disposition: attachment; filename=${QUERY_STRING}.ncfg"
 	echo ''
 	echo \# Material $QUERY_STRING

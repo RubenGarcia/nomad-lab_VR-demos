@@ -31,7 +31,9 @@ else
 	#screenshot 17
 	#encoded http://unix.stackexchange.com/questions/159253/decoding-url-encoding-percent-encoding
 	Shot=$(printf '%b' "${parm[17]//%/\\x}")
-	echo "Content-type: text-plain"
+	#rgh: text/plain works in pc but android chrome saves it as .txt, removing the extension
+
+	echo "Content-type: application/octet-stream"
 	echo "Content-disposition: attachment; filename=${Mat}.ncfg"
 	echo ''
 	echo -e \# Material $Mat \\r\\n
