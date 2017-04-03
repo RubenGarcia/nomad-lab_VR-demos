@@ -40,7 +40,7 @@ else
 	echo -e baseurl \"http://enc-testing-nomad.esc.rzg.mpg.de/v1.0/materials/\" \\r\\n
 	echo -e jsonurl \"$Mat\" \\r\\n
 	echo -e repetitions $Rep \\r\\n
-	echo -e trajectories $Traj \\r\\n
+	echo -e showtrajectory $Traj \\r\\n
 	echo -e background $Col \\r\\n
 	echo screenshot \"$Shot\" 
 	echo -e \\r\\n
