@@ -5,7 +5,7 @@ void hsv2rgb(float *hsv, float *rgb) {
 	float h = hsv[0], s = hsv[1], v = hsv[2], p, q, t, f, r, g, b;
 
 	(h == 360.) ? (h = 0.) : (h /= 60.);
-	f = h - floor(h);
+	f = h - floorf(h);
 
 	p = v*(1.f - s);
 	q = v*(1.f - s*f);

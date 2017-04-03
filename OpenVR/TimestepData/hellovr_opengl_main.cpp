@@ -27,13 +27,16 @@
 #include "shared/Matrices.h"
 #include "shared/pathtools.h"
 
-#include "rply.h"
-//#include "hsv.h"
-#include "atoms.hpp"
-#include "polyhedron.h"
+#include "rply/rply.h"
 
-#include "TessShaders.h"
-#include "UnitCellShaders.h"
+#include "NOMADVRLib/ConfigFile.h"
+#include "NOMADVRLib/atoms.hpp"
+#include "NOMADVRLib/atomsGL.h"
+
+#include "NOMADVRLib/TessShaders.h"
+#include "NOMADVRLib/UnitCellShaders.h"
+
+#include "NOMADVRLib/CompileGLShader.h"
 
 static int vertex_cb(p_ply_argument argument);
 static int face_cb(p_ply_argument argument);
@@ -44,36 +47,8 @@ static int CurrentVertex;
 static int CurrentIndex;
 
 //#define SOLID Tetrahedron //not nicely uniform distribution
-#define SOLID Icosahedron
+//#define SOLID Icosahedron
 #define TESSSUB 16
-//#define SOLID Octahedron
-
-static float BACKGROUND[3];
-static const char * PATH;
-static const char * SCREENSHOT;
-static int ISOS;
-static int TIMESTEPS;
-static float **isocolours; // [ISOS][4];
-const char **plyfiles;
-static float **translations;
-static float userpos[3];
-
-static int* numAtoms; //[timesteps]
-static float **atoms; //[timesteps][numAtoms[i]*4] //xyzu, u=atom number
-static float atomScaling;
-static std::vector<float> *clonedAtoms;
-static int numClonedAtoms;
-static int *basisvectorreps;
-
-static bool showTrajectories;
-static std::vector<int> atomtrajectories;
-static std::vector<std::vector<int>> atomtrajectoryrestarts;
-
-static float abc[3][3]; //basis vectors
-static bool has_abc = false;
-
-int repetitions[3];
-
 
 //TTF_Font* font;
 
@@ -177,7 +152,7 @@ public:
 	void RenderAtomsUnitCell(const vr::Hmd_Eye &nEye, int p[3]);
 
 	void RenderUnitCell(const vr::Hmd_Eye &nEye);
-	Vector3 GetDisplacement(int p[3]);
+	//Vector3 GetDisplacement(int p[3]);
 
 	Matrix4 GetHMDMatrixProjectionEye(vr::Hmd_Eye nEye);
 	Matrix4 GetHMDMatrixPoseEye(vr::Hmd_Eye nEye);
@@ -187,8 +162,6 @@ public:
 
 	Matrix4 ConvertSteamVRMatrixToMatrix4(const vr::HmdMatrix34_t &matPose);
 
-	GLuint CompileGLShader(const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader,
-				const char *pchTessEvalShader=nullptr);
 	bool CreateAllShaders();
 
 	void SetupRenderModelForTrackedDevice(vr::TrackedDeviceIndex_t unTrackedDeviceIndex);
@@ -364,6 +337,23 @@ void dprintf( const char *fmt, ... )
 	OutputDebugStringA( buffer );
 	if (strncmp(buffer, "PoseCount", 9) && strncmp (buffer, "Device", 6))
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Warning", buffer, 0);
+}
+
+
+//pure windows, no sdl
+void eprintf( const char *fmt, ... )
+{
+	va_list args;
+	char buffer[ 2048 ];
+
+	va_start( args, fmt );
+	vsprintf_s( buffer, fmt, args );
+	va_end( args );
+
+	if ( g_bPrintf )
+		printf( "%s", buffer );
+
+	MessageBoxA(0, buffer, "Warning", 0);
 }
 
 //-----------------------------------------------------------------------------
@@ -1108,97 +1098,7 @@ void CMainApplication::RenderFrame()
 }
 
 
-//-----------------------------------------------------------------------------
-// Purpose: Compiles a GL shader program and returns the handle. Returns 0 if
-//			the shader couldn't be compiled for some reason.
-//-----------------------------------------------------------------------------
-GLuint CMainApplication::CompileGLShader( const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader,
-	const char *pchTessEvalShader /*= nullptr*/)
-{
-	GLuint unProgramID = glCreateProgram();
 
-	GLuint nSceneVertexShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource( nSceneVertexShader, 1, &pchVertexShader, NULL);
-	glCompileShader( nSceneVertexShader );
-
-	GLint vShaderCompiled = GL_FALSE;
-	glGetShaderiv( nSceneVertexShader, GL_COMPILE_STATUS, &vShaderCompiled);
-	if ( vShaderCompiled != GL_TRUE)
-	{
-		dprintf("%s - Unable to compile vertex shader %d!\n", pchShaderName, nSceneVertexShader);
-
-		GLchar mess[3000];
-		GLsizei le;
-		glGetShaderInfoLog(nSceneVertexShader, 3000, &le, mess);
-		dprintf("error messages: %s", mess);
-
-		glDeleteProgram( unProgramID );
-		glDeleteShader( nSceneVertexShader );
-		return 0;
-	}
-	glAttachShader( unProgramID, nSceneVertexShader);
-	glDeleteShader( nSceneVertexShader ); // the program hangs onto this once it's attached
-
-	GLuint  nSceneFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource( nSceneFragmentShader, 1, &pchFragmentShader, NULL);
-	glCompileShader( nSceneFragmentShader );
-
-	GLint fShaderCompiled = GL_FALSE;
-	glGetShaderiv( nSceneFragmentShader, GL_COMPILE_STATUS, &fShaderCompiled);
-	if (fShaderCompiled != GL_TRUE)
-	{
-		dprintf("%s - Unable to compile fragment shader %d!\n", pchShaderName, nSceneFragmentShader );
-		GLchar mess[3000];
-		GLsizei le;
-		glGetShaderInfoLog(nSceneFragmentShader, 3000, &le, mess);
-		dprintf("error messages: %s", mess);
-		glDeleteProgram( unProgramID );
-		glDeleteShader( nSceneFragmentShader );
-		return 0;	
-	}
-
-	glAttachShader( unProgramID, nSceneFragmentShader );
-	glDeleteShader( nSceneFragmentShader ); // the program hangs onto this once it's attached
-
-	//tess
-	if (pchTessEvalShader) {
-		GLuint  nSceneTessShader = glCreateShader(GL_TESS_EVALUATION_SHADER);
-		glShaderSource(nSceneTessShader, 1, &pchTessEvalShader, NULL);
-		glCompileShader(nSceneTessShader);
-
-		GLint tShaderCompiled = GL_FALSE;
-		glGetShaderiv(nSceneTessShader, GL_COMPILE_STATUS, &tShaderCompiled);
-		if (tShaderCompiled != GL_TRUE)
-		{
-			dprintf("%s - Unable to compile tess eval shader %d!\n", pchShaderName, nSceneTessShader);
-			GLchar mess[3000];
-			GLsizei le;
-			glGetShaderInfoLog(nSceneTessShader, 3000, &le, mess);
-			dprintf("error messages: %s", mess);
-			glDeleteProgram(unProgramID);
-			glDeleteShader(nSceneTessShader);
-			return 0;
-		}
-		glAttachShader(unProgramID, nSceneTessShader);
-		glDeleteShader(nSceneTessShader); // the program hangs onto this once it's attached
-	}
-
-	glLinkProgram( unProgramID );
-
-	GLint programSuccess = GL_TRUE;
-	glGetProgramiv( unProgramID, GL_LINK_STATUS, &programSuccess);
-	if ( programSuccess != GL_TRUE )
-	{
-		dprintf("%s - Error linking program %d!\n", pchShaderName, unProgramID);
-		glDeleteProgram( unProgramID );
-		return 0;
-	}
-
-	glUseProgram( unProgramID );
-	glUseProgram( 0 );
-
-	return unProgramID;
-}
 
 
 //-----------------------------------------------------------------------------
@@ -1333,47 +1233,12 @@ bool CMainApplication::CreateAllShaders()
 		dprintf( "Unable to find matrix uniform in render model shader\n" );
 		return false;
 	}
-//https://www.gamedev.net/topic/591110-geometry-shader-point-sprites-to-spheres/
-	//no rotation, only translations means we can do directional lighting in the shader.
-	//FIXME
-	//http://stackoverflow.com/questions/40101023/flat-shading-in-webgl
-	m_unAtomsProgramID = CompileGLShader(
-		AtomShaders[SHADERNAME],
-		AtomShaders[SHADERVERTEX],
-		AtomShaders[SHADERFRAGMENT],
-		AtomShaders[SHADERTESSEVAL]
-		);
-	m_nAtomMatrixLocation=glGetUniformLocation(m_unAtomsProgramID, "matrix");
-	if( m_nAtomMatrixLocation == -1 )
-	{
-		dprintf( "Unable to find matrix uniform in atom shader\n" );
-		return false;
-	}
 
-	m_unUnitCellProgramID= CompileGLShader(
-		UnitCellShaders[SHADERNAME],
-		UnitCellShaders[SHADERVERTEX],
-		UnitCellShaders[SHADERFRAGMENT],
-		UnitCellShaders[SHADERTESSEVAL]
-		);
-	m_nUnitCellMatrixLocation=glGetUniformLocation(m_unUnitCellProgramID, "matrix");
-	if( m_nUnitCellMatrixLocation == -1 )
-	{
-		dprintf( "Unable to find matrix uniform in UnitCell shader\n" );
+	if (!PrepareUnitCellAtomShader (&m_unAtomsProgramID, &m_unUnitCellProgramID, &m_nAtomMatrixLocation, 
+			&m_nUnitCellMatrixLocation,  &m_nUnitCellColourLocation))
 		return false;
-	}
-	m_nUnitCellColourLocation=glGetUniformLocation(m_unUnitCellProgramID, "color");
-	if( m_nUnitCellColourLocation == -1 )
-	{
-		dprintf( "Unable to find color uniform in UnitCell shader\n" );
-		return false;
-	}
-//	m_nAtomMVLocation=glGetUniformLocation(m_unAtomsProgramID, "mv");
-	/*if( m_nAtomMVLocation == -1 )
-	{
-		dprintf( "Unable to find mv uniform in atom shader\n" );
-		return false;
-	}*/
+
+
 	m_unLensProgramID = CompileGLShader(
 		"Distortion",
 
@@ -1455,16 +1320,7 @@ bool CMainApplication::SetupTexturemaps()
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("opengl error %d, SetupTextureMaps 1\n", e);
 
-	//rgh: scale atoms here
-	for (int i = 0; i < 118; i++)
-		atomColours[i][3] *= atomScaling;
-
-	glBindTexture(GL_TEXTURE_2D, m_iTexture[3+ZLAYERS]); //atom texture
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 118, 1, 0, GL_RGBA, GL_FLOAT, atomColours);
+	e=atomTexture( m_iTexture[3+ZLAYERS]);
 
 	glBindTexture( GL_TEXTURE_2D, 0 );
 
@@ -1551,6 +1407,8 @@ void CMainApplication::SetupScene()
 {
 	SetupIsosurfaces();
 	SetupAtoms();
+	delete[] clonedAtoms;
+	clonedAtoms=0;
 	SetupUnitCell();
 }
 
@@ -1559,159 +1417,22 @@ void CMainApplication::SetupScene()
 //-----------------------------------------------------------------------------
 void CMainApplication::SetupUnitCell()
 {
-	if (!has_abc)
-		return;
-	int e;
-	glGenVertexArrays(1, &m_unUnitCellVAO);
-	glGenBuffers(1, &m_glUnitCellVertBuffer);
-	glGenBuffers(1, &m_glUnitCellIndexBuffer);
-	if ((e = glGetError()) != GL_NO_ERROR)
-		dprintf("opengl error %d, glGenBuffers, l %d\n", e, __LINE__);
-
-	glBindVertexArray(m_unUnitCellVAO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_glUnitCellIndexBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, m_glUnitCellVertBuffer);
-
-	glEnableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-	glDisableVertexAttribArray(2);
-	glDisableVertexAttribArray(3);
-
-	float *tmp = new float[3*8];
-	//0, a, b, c, a+b+c, b+c, a+c, a+b
-	for (int i=0;i<3;i++) {
-		tmp[0+i]=0;
-		for (int j=0;j<3;j++)
-			tmp[3*(j+1)+i]=abc[j][i];
-		tmp[3*4+i]=abc[0][i]+abc[1][i]+abc[2][i];
-		tmp[3*5+i]=			abc[1][i]+abc[2][i];
-		tmp[3*6+i]=abc[0][i]+		abc[2][i];
-		tmp[3*7+i]=abc[0][i]+abc[1][i];
-	}
-
-	int tmpi[12*2]={ //lines
-		0,1, 
-		1,6,
-		6,3,
-		3,0,
-		2,7,
-		7,4,
-		4,5,
-		5,2,
-		0,2,
-		1,7,
-		6,4,
-		3,5
-	};
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3*8 , tmp,
-			GL_STATIC_DRAW);
-	if ((e = glGetError()) != GL_NO_ERROR)
-		dprintf("opengl error %d, glBufferData, l %d\n", e, __LINE__);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (const void *)(0));
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(tmpi), tmpi, GL_STATIC_DRAW);
+	GLenum e;
+	e=::SetupUnitCell(&m_unUnitCellVAO, &m_glUnitCellVertBuffer, &m_glUnitCellIndexBuffer);
+	if (e!=GL_NO_ERROR)
+		dprintf("opengl error %d, SetupUnitCell, l %d\n", e, __LINE__);
 }
 
 void CMainApplication::SetupAtoms()
 {
-	if (!numAtoms)
-		return;
-	//rgh FIXME: put this all in the same vao
-	
-	//http://prideout.net/blog/?p=48 //public domain code
-	//xyz u=atom type ; 4 floats
-	int e;
-
-	int totalatoms=0;
-	for (int i=0;i<TIMESTEPS;i++) {
-		totalatoms += numAtoms[i];
-	}
-
-
-	m_unAtomVAO = new GLuint[2]; //atoms, cloned atoms
-	m_glAtomVertBuffer = new GLuint[2];
-	glGenVertexArrays(2, m_unAtomVAO);
-	glGenBuffers(2, m_glAtomVertBuffer);
-
-	glBindVertexArray(m_unAtomVAO[0]);
-	glBindBuffer(GL_ARRAY_BUFFER, m_glAtomVertBuffer[0]);
-
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	glDisableVertexAttribArray(2);
-	glDisableVertexAttribArray(3);
-	float *tmp = new float[4 * totalatoms];
-	float *current=tmp;
-	for (int p=0;p<TIMESTEPS;p++) {
-
-		for (int a = 0; a < numAtoms[p]; a++) {
-			for (int k = 0; k < 4; k++) {
-				*current++ = atoms[p][4 * a + k];
-			}
-		} //a
-		if (p!=0)
-			numAtoms[p]+=numAtoms[p-1];
-	}
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
-	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(3 * sizeof(float)));
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * totalatoms * 4 , tmp,
-			GL_STATIC_DRAW);
-		if ((e = glGetError()) != GL_NO_ERROR)
-			dprintf("opengl error %d, glBufferData, l %d\n", e, __LINE__);
-
-		if (glGetError() != GL_NO_ERROR)
-			dprintf("opengl error attrib pointer 0\n");
-
-		glBindVertexArray(0);
-
-	if ((e = glGetError()) != GL_NO_ERROR)
-		dprintf("opengl error %d, end of SetupAtoms, l %d\n", e, __LINE__);
-
-	if (showTrajectories) {
-			//fill the restart buffer
-		//use abc for measuring
-		float max=0;
-		if (has_abc) {
-			for (int i=0;i<3;i++)
-				for (int j=0;j<3;j++)
-				max+=abc[i][j];
-			max /=9*2;
-		}
-
-		for (int t=0;t<atomtrajectories.size();t++) {
-			atomtrajectoryrestarts.push_back(std::vector<int>());
-			atomtrajectoryrestarts[t].push_back(0);
-			for (int p=1;p<TIMESTEPS;p++) {
-				int a=atomtrajectories[t];
-				if (fabs(atoms[p][a*4+0]-atoms[p-1][a*4+0])+
-					fabs(atoms[p][a*4+1]-atoms[p-1][a*4+1])+
-					fabs(atoms[p][a*4+2]-atoms[p-1][a*4+2])>max)
-						atomtrajectoryrestarts[t].push_back(p);
-			}
-			atomtrajectoryrestarts[t].push_back(TIMESTEPS);
-		}
-	}
-	delete[] tmp;
-
-	//now clones
-	if (basisvectorreps ||!clonedAtoms) //do not replicate
-		return;
-
-
-
-	glBindVertexArray(m_unAtomVAO[1]); //rgh FIXME, only works for TIMESTEPS=1
-	glBindBuffer(GL_ARRAY_BUFFER, m_glAtomVertBuffer[1]);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * clonedAtoms[0].size(), clonedAtoms[0].data(),
-			GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
-	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(3 * sizeof(float)));
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	if ((e = glGetError()) != GL_NO_ERROR)
-		dprintf("opengl error %d, end of Setup cloned Atoms, l %d\n", e, __LINE__);
-
-	delete[] clonedAtoms;
-	clonedAtoms=0;
+	GLenum e;
+	e=::SetupAtoms(&m_unAtomVAO, &m_glAtomVertBuffer);
+//	GLuint *vao, *buffer, *index;
+//	e=::SetupAtomsNoTess(&vao, &buffer, &index);
+	if (e!=GL_NO_ERROR)
+		dprintf("opengl error %d, SetupAtoms, l %d\n", e, __LINE__);
 }
+
 
 
 //-----------------------------------------------------------------------------
@@ -2494,30 +2215,32 @@ void CMainApplication::RenderUnitCell(const vr::Hmd_Eye &nEye)
 		dprintf("Gl error after glBindVertexArray RenderUnitCell: %d, %s\n", e, gluErrorString(e));
 
 	Matrix4 trans;
-		int p[3];
+	int p[3];
 	for (p[0]=0;p[0]<repetitions[0];(p[0])++)
 		for (p[1]=0;p[1]<repetitions[1];(p[1])++)
 			for (p[2]=0;p[2]<repetitions[2];(p[2])++)
-				
-	{
-		Vector3 iPos = GetDisplacement(p);
-		trans.identity();
+				{
+					float delta[3];
+					::GetDisplacement(p, delta);
+					Vector3 iPos(delta[0], delta[1], delta[2]);
+					trans.identity();
 		
-		trans.translate(iPos).rotateX(-90).translate(UserPosition);
-		Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans;
-		glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
-		if ((e = glGetError()) != GL_NO_ERROR)
-			dprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
-		float color[4]={1,1,1,1};
-		glUniform4fv(m_nUnitCellColourLocation, 1, color);
-		if ((e = glGetError()) != GL_NO_ERROR)
-			dprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
-		glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
-		if ((e = glGetError()) != GL_NO_ERROR)
-			dprintf("Gl error after RenderUnitCell: %d, %s\n", e, gluErrorString(e));
-	}
+					trans.translate(iPos).rotateX(-90).translate(UserPosition);
+					Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans;
+					glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
+					if ((e = glGetError()) != GL_NO_ERROR)
+						dprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
+					float color[4]={1,1,1,1};
+					glUniform4fv(m_nUnitCellColourLocation, 1, color);
+					if ((e = glGetError()) != GL_NO_ERROR)
+						dprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
+					glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
+					if ((e = glGetError()) != GL_NO_ERROR)
+						dprintf("Gl error after RenderUnitCell: %d, %s\n", e, gluErrorString(e));
+				}
 }
 
+/*
 Vector3 CMainApplication::GetDisplacement(int p[3])
 {
 Vector3 delta[3];
@@ -2525,13 +2248,15 @@ for (int ss=0;ss<3;ss++)
 	delta[ss]=static_cast<float>(p[ss])*Vector3(abc[ss][0], abc[ss][1], abc[ss][2]);
 Vector3 f=delta[0]+delta[1]+delta[2];
 return (f);
-}
+}*/
 
 void CMainApplication::RenderAtomsUnitCell(const vr::Hmd_Eye &nEye, int p[3])
 {
 	int e;
 Matrix4 trans;
-Vector3 iPos = GetDisplacement(p);
+float delta[3];
+::GetDisplacement(p, delta);
+Vector3 iPos(delta[0], delta[1], delta[2]);
 glUseProgram(m_unAtomsProgramID);
 
 float levelso[4] = { TESSSUB, TESSSUB, TESSSUB, TESSSUB };
@@ -2567,7 +2292,7 @@ if (numClonedAtoms!=0 && currentset==0) {
 	glBindVertexArray(m_unAtomVAO[1]);
 	glDrawArrays(GL_PATCHES, 0, numClonedAtoms);
 	if ((e = glGetError()) != GL_NO_ERROR)
-		dprintf("Gl error after Render cloned Atom trajectories timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+		dprintf("Gl error after Render cloned Atom timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 }
 
 //now trajectories
@@ -3208,301 +2933,12 @@ void CGLRenderModel::Draw()
 	glBindVertexArray( 0 );
 }
 
-void readString(FILE *f, char *s)
-{
-	char s2[100];
-	int r, c;
-	r = fscanf_s(f, "%s", s2, 100);
-	if (s2[0]!='"') {
-		strcpy(s, s2);
-		return;
-	} else {
-		strcpy(s, s2+1); //skip "
-		size_t l = strlen(s);
-		if (s[l-1] == '"') {
-			s[l-1] = '\0';
-			return;
-		}
-		else {
-			char *p = s2;
-			do {
-				c = fgetc(f);
-				*p++ = c;
-			} while (c != EOF && c != '"');
-			*(p-1) = '\0';
-			strcat(s, s2);
-		}
-	}
-}
 
-char * loadConfigFileErrors[] =
-{
-	"All Ok",//0
-	"file could not be opened", //-1
-	"unrecognized parameter",//-2
-	"values with no previous iso", //-3
-	"colours with no previous iso",//-4
-	"translations with no previous correct iso",//-5
-	"Missing isos and xyzfile",//-6
-	"missing values",//-7
-	"timesteps from config file and from atom file do not match",//-8, unused, now minimum is used
-	"isos parameter specified twice",//-9
-	"Error reading unit cell parameters", //-10
-	"Error reading repetitions",//-11
-	"Non-periodic, but repetitions requested", //-12
-	"No basis vectors, but repetitions requested", //-13
-	"Error loading xyz file, add 100 to see the error",//<-100
-	"Error loading cube file, add 100 to see the error",//<-200
-	"Error loading json file, add 200 to see the error",//<-300
-};
 
-void updateTIMESTEPS (int timesteps)
-{
-if (TIMESTEPS==0)
-	TIMESTEPS=timesteps;
-else
-	TIMESTEPS=std::min(TIMESTEPS, timesteps);
-}
 
-int loadConfigFile(const char * f)
-{
-	//default values
-	bool nonperiodic=false;
-	char base_url[1024]="http://enc-testing-nomad.esc.rzg.mpg.de/v1.0/materials/";
-	char material[1024]="";
-	BACKGROUND[0] = 0.95f;
-	BACKGROUND[1] = 0.95f;
-	BACKGROUND[2] = 0.95f;
-	SCREENSHOT="C:\\temp\\frame";
-	ISOS = 0;
-	TIMESTEPS=0;
-	PATH=strdup("");
-	numAtoms=0;
-	atomScaling=1;
-	clonedAtoms=0;
-	showTrajectories = false;
-	basisvectorreps=0;
-	numClonedAtoms=0;
-	for (int i=0;i<3;i++)
-		repetitions[i]=1;
-	for (int i=0;i<3;i++)
-		userpos[i] = 0;
-	//
-	FILE *F = fopen(f, "r");
-	if (F == 0)
-	{
-		fprintf(stderr, "Could not open config file %s\n", f);
-		return -1;
-	}
-	char s[100];
-	int r;
-	while (!feof(F)) {
-		r=fscanf_s(F, "%s", s, 100);
-		if (r <= 0)
-			continue;
-		if (s[0] == '#') {//comment
-			discardline(F);
-			continue;
-		}
-		if (!strcmp(s, "timesteps")) {
-			int timesteps;
-			r = fscanf(F, "%d", &timesteps);
-			if (TIMESTEPS==0)
-				TIMESTEPS=timesteps;
-			else
-				TIMESTEPS=std::min(TIMESTEPS, timesteps);
-		}
-		else if (!strcmp(s, "isos")) {
-			if (ISOS!=0) 
-				return -9;
-			r = fscanf(F, "%d", &ISOS);
-			plyfiles = new const char*[ISOS];
-			isocolours = new float*[ISOS];
-			translations = new float*[ISOS];
-			for (int i = 0; i < ISOS; i++) {
-				plyfiles[i] = strdup("");
-				isocolours[i] = new float[4];
-				translations[i] = new float[3];
-				//default values
-				for (int j = 0; j < 4; j++)
-					isocolours[i][j] = 1.f;
-				for (int j = 0; j < 3; j++)
-					translations[i][j] = 0.f;
-			}
-		}
-		else if (!strcmp(s, "values")) {
-			if (ISOS == 0) {
-				fprintf(stderr, "values with no previous correct isos parameter\n");
-				fclose(F);
-				return -3;
-			}
-			for (int i = 0; i < ISOS; i++) {
-				readString(F, s);
-				free ((void*)(plyfiles[i]));
-				plyfiles[i] = strdup(s);
-			}
 
-		}
-		else if (!strcmp(s, "colours")) {
-			if (ISOS == 0) {
-				fprintf(stderr, "colours with no previous correct isos parameter\n");
-				return -4;
-			}
-			for (int i = 0; i < ISOS; i++) {
-				for (int j = 0; j < 4; j++)
-					r = fscanf_s(F, "%f", &(isocolours[i][j]));
-				//if (r==0)
-			}
-		}
-		else if (!strcmp(s, "path")) {
-			readString(F, s);
-			free((void*)PATH);
-			PATH = strdup(s);
-		}
-		else if (!strcmp(s, "background")) {
-			for (int i = 0; i < 3; i++)
-				r = fscanf_s(F, "%f", BACKGROUND + i);
-		}
-		else if (!strcmp(s, "translations")) {
-			if (ISOS == 0) {
-				fprintf(stderr, "translations with no previous correct isos parameter\n");
-				fclose(F);
-				return -5;
-			}
-			for (int i=0;i<ISOS;i++)
-				for (int j = 0; j < 3; j++) {
-					r = fscanf_s(F, "%f", &(translations[i][j]));
-				}
-		}
-		else if (!strcmp(s, "userpos")) {
-			for (int j = 0; j < 3; j++) {
-				r = fscanf_s(F, "%f", &(userpos[j]));
-			}
-		}
-		else if (!strcmp(s, "screenshot")) {
-			readString(F, s);
-			SCREENSHOT = strdup(s);
-		}
-		else if (!strcmp(s, "xyzfile")||!strcmp(s, "atomfile")) {
-			readString(F, s);
-			int timesteps;
-			char file[256];
-			sprintf (file, "%s%s", PATH, s);
-			int e;
-			e=readAtomsXYZ(file, &numAtoms, &timesteps, &atoms);
-			if (e<0)
-				return e-100;
-			updateTIMESTEPS (timesteps);
-		}
-		else if (!strcmp(s, "cubefile")) {
-			readString(F, s);
-			int timesteps;
-			char file[256];
-			sprintf(file, "%s%s", PATH, s);
-			int e;
-			e = readAtomsCube(file, &numAtoms, &timesteps, &atoms);
-			if (e<0)
-				return e - 200;
-			updateTIMESTEPS (timesteps);
-			//	return -8;
-		}
-		else if (!strcmp(s, "atomscaling")) {
-			r = fscanf_s(F, "%f", &atomScaling);
-		}
-		else if (!strcmp(s, "abc")) {
-			for (int i=0;i<3;i++)
-				for (int j=0;j<3;j++) {
-					r = fscanf_s(F, "%f", &(abc[i][j]));
-					if (r!=1)
-						return -10;
-				}
-			has_abc = true;
-		}
-		else if (!strcmp(s, "json")) {
-			readString(F, s);
 
-			char file[256];
-			sprintf(file, "%s%s", PATH, s);
-			int e;
-			int timesteps;
-			//rgh fixme, we know only one
-			e = readAtomsJson (file, &numAtoms, &timesteps, &atoms, abc, &clonedAtoms);
-			numClonedAtoms=clonedAtoms[0].size()/4;
-			if (e<0)
-				return e-300;
-			has_abc=true;
-			updateTIMESTEPS (timesteps);
-		} 
-		else if (!strcmp(s, "baseurl")) {
-			readString (F, base_url);
-		} 
-		else if (!strcmp(s, "jsonurl")) {
-			int e;
-			int timesteps;
-			readString (F, material);
-			char url[2048];
-			sprintf (url, "%s%s", base_url, material);
-			//rgh fixme, we know only one
-			e = readAtomsJsonURL (url, &numAtoms, &timesteps, &atoms, abc, &clonedAtoms);
-			numClonedAtoms=clonedAtoms[0].size()/4;
-			if (e<0)
-				return e-200;
-			has_abc=true;
-			updateTIMESTEPS (timesteps);
-		}
-		else if (!strcmp(s, "showtrajectory")) {
-			showTrajectories = true;
-			int atom;
-			while (1 == (r = fscanf(F, "%d", &atom))) {
-				atomtrajectories.push_back(atom - 1);
-			}
-		} else if (!strcmp(s, "nonperiodic")) {
-			nonperiodic=true;
-		} else if (!strcmp(s, "repetitions")) {
-			for (int j=0;j<3;j++) {
-					r = fscanf_s(F, "%d", repetitions+j);
-					if (r!=1)
-						return -11;
-			}
-		}
-		else {
-			fprintf(stderr, "Unrecognized parameter %s\n", s);
-			fclose(F);
-			return -2;
-		}
-	}
 
-//verification and additional processing
-	fclose(F);
-
-	if (ISOS == 0 && numAtoms==0) {
-		fprintf(stderr, "Missing isos and atomfile parameter\n");
-		return -6;
-	} 
-	if (ISOS !=0 && plyfiles[0] == 0) {
-		fprintf(stderr, "Missing values parameter\n");
-		fclose(F);
-		return -7;
-	}
-	if (nonperiodic) {
-		numClonedAtoms=0;
-		if (repetitions[0]!=1 ||repetitions[1]!=1 ||repetitions[2]!=1)
-			return -12;
-	}
-	if (repetitions[0]!=1 ||repetitions[1]!=1 ||repetitions[2]!=1) {
-		if (!has_abc)
-			return (-13);
-		numClonedAtoms=0;
-	}
-
-	if (showTrajectories && atomtrajectories[0]<0) {
-		atomtrajectories.clear();
-		for (int i=0;i<*numAtoms;i++)
-			atomtrajectories.push_back(i);
-	}
-
-	return 0;
-}
 
 void cleanConfig()
 {
@@ -3557,7 +2993,7 @@ int main(int argc, char *argv[])
 			MessageBoxA(0, readAtomsXYZErrors[-r-100], "XYZ file reading error", 0);
 		else if (-300<r)
 			MessageBoxA(0, readAtomsCubeErrors[-r-200], "Cube file reading error", 0);
-		else MessageBoxA(0, readAtomsCubeErrors[-r-300], "Json reading error", 0);
+		else MessageBoxA(0, readAtomsJsonErrors[-r-300], "Json reading error", 0);
 		return -100+r;
 	}
 
