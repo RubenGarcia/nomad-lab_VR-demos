@@ -3,8 +3,6 @@
 
 #include "MyGL.h"
 
-#define SOLID Icosahedron
-
 GLenum atomTexture(GLuint t);
 GLenum SetupAtoms(GLuint **AtomVAO, GLuint **AtomVertBuffer);
 GLenum SetupAtomsNoTess (GLuint **AtomVAO, GLuint **AtomVertBuffer, GLuint **AtomIndexBuffer);

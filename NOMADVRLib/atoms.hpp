@@ -20,10 +20,10 @@ int readAtomsJsonURL (const char *const f, int **numatoms, int *timesteps, float
 #if defined(WIN32)
 int readAtomsJsonURLwget (const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3],  std::vector<float>** clonedAtoms);
 #endif
-const float MISSINGRADIUS=0.2;
-const float MISSINGR=1;
-const float MISSINGG=1;
-const float MISSINGB=1;
+const float MISSINGRADIUS=0.2f;
+const float MISSINGR=1.f;
+const float MISSINGG=1.f;
+const float MISSINGB=1.f;
 
 extern const char * readAtomsXYZErrors[];
 extern const char * readAtomsCubeErrors[];

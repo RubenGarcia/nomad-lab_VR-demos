@@ -38,6 +38,8 @@
 
 #include "NOMADVRLib/CompileGLShader.h"
 
+#include "NOMADVRLib/polyhedron.h"
+
 static int vertex_cb(p_ply_argument argument);
 static int face_cb(p_ply_argument argument);
 
@@ -2996,6 +2998,9 @@ int main(int argc, char *argv[])
 		else MessageBoxA(0, readAtomsJsonErrors[-r-300], "Json reading error", 0);
 		return -100+r;
 	}
+
+	if (solid)
+		MessageBoxA(0, "Only spheres implemented as atom glyphs in HTC Vive", "Atom Glyph", 0);
 
 	CMainApplication *pMainApplication = new CMainApplication( argc, argv );
 

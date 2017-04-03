@@ -36,6 +36,33 @@
     <ClCompile Include="hsv.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="NOMADVRLib\atoms.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NOMADVRLib\ConfigFile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NOMADVRLib\atomsGL.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NOMADVRLib\TessShaders.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NOMADVRLib\UnitCellShaders.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NOMADVRLib\CompileGLShader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NOMADVRLib\polyhedron.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="happyhttp\happyhttp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rply\rply.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\shared\lodepng.h">
@@ -55,6 +82,33 @@
     </ClInclude>
     <ClInclude Include="NOMADViveT.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NOMADVRLib\atoms.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NOMADVRLib\atomsGL.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NOMADVRLib\TessShaders.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NOMADVRLib\eprintf.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NOMADVRLib\MyGL.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NOMADVRLib\CompileGLShader.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NOMADVRLib\ConfigFile.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NOMADVRLib\UnitCellShaders.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="NOMADVRLib\polyhedron.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

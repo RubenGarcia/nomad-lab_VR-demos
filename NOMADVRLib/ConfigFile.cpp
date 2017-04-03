@@ -3,6 +3,7 @@
 #include "ConfigFile.h"
 #include "atoms.hpp"
 #include "eprintf.h"
+#include "polyhedron.h"
 
 const char * PATH;
 const char * SCREENSHOT;
@@ -29,7 +30,7 @@ float abc[3][3]; //basis vectors
 bool has_abc = false;
 
 int repetitions[3];
-
+Solid *solid;
 
 const char * loadConfigFileErrors[] =
 {
@@ -48,6 +49,7 @@ const char * loadConfigFileErrors[] =
 	"Non-periodic, but repetitions requested", //-12
 	"No basis vectors, but repetitions requested", //-13
 	"Error loading config file",// -14
+	"Error reading atomglyph", //-15
 	"Error loading xyz file, add 100 to see the error",//<-100
 	"Error loading cube file, add 100 to see the error",//<-200
 	"Error loading json file, add 200 to see the error",//<-300
@@ -129,6 +131,7 @@ int loadConfigFile(const char * f)
 		repetitions[i]=1;
 	for (int i=0;i<3;i++)
 		userpos[i] = 0;
+	solid=0;
 	//
 	FILE *F = fopen(f, "r");
 	if (F == 0)
@@ -328,6 +331,18 @@ int loadConfigFile(const char * f)
 					if (r!=1)
 						return -11;
 			}
+		} else if (!strcmp(s, "atomglyph")) {
+			r=fscanf (F, "%s", s);
+			if (r==0)
+				return -15;
+			if (!strcmp(s, "icosahedron"))
+				solid=new Solid(Solid::Type::Icosahedron);
+			else if(!strcmp(s, "octahedron"))
+				solid=new Solid(Solid::Type::Octahedron);
+			else if(!strcmp(s, "tetrahedron"))
+				solid=new Solid(Solid::Type::Tetrahedron);
+			else
+				return -15;
 		}
 		else {
 			eprintf( "Unrecognized parameter %s\n", s);

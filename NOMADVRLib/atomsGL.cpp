@@ -64,15 +64,15 @@ if (!numAtoms)
 	glEnableVertexAttribArray(1);
 	glEnableVertexAttribArray(2);
 	glDisableVertexAttribArray(3);
-	//eprintf ("SetupAtomsNoTess 5, totalatoms=%d, nVerts=%d", totalatoms, SOLID::nVerts);
-	float *tmp = new float[SOLID::nVerts * 7 * totalatoms];
+	//eprintf ("SetupAtomsNoTess 5, totalatoms=%d, nVerts=%d", totalatoms, solid->nVerts);
+	float *tmp = new float[solid->nVerts * 7 * totalatoms];
 	//eprintf ("SetupAtomsNoTess 6");
 #ifdef INDICESGL32		
-	int *tmpi = new int[SOLID::nFaces*3 * totalatoms];
+	int *tmpi = new int[solid->nFaces*3 * totalatoms];
 	//eprintf ("SetupAtomsNoTess 7");
 	int *currenti=tmpi;
 #else
-	unsigned short *tmpi = new unsigned short[SOLID::nFaces*3 * totalatoms];
+	unsigned short *tmpi = new unsigned short[solid->nFaces*3 * totalatoms];
 	//eprintf ("SetupAtomsNoTess 7B");
 	unsigned short *currenti=tmpi;
 #endif
@@ -83,20 +83,20 @@ if (!numAtoms)
 		for (int a = 0; a < numAtoms[p]-(p==0?0:numAtoms[p-1]); a++) {
 			const int atomNumber = static_cast<int>(atoms[p][4 * a + 3]);
 			const float radius = atomColours[atomNumber][3]/**atomScaling*/;
-			for (int i = 0; i < SOLID::nVerts; i++) { //verts
+			for (int i = 0; i < solid->nVerts; i++) { //verts
 				for (int k = 0; k < 3; k++) {
-					*current++ = SOLID::Verts[3 * i + k]* radius +atoms[p][4 * a + k]; //pos
+					*current++ = solid->Verts[3 * i + k]* radius +atoms[p][4 * a + k]; //pos
 				}
 				for (int k = 0; k < 3; k++) {
-					*current++ = SOLID::Verts[3 * i + k]; //normal
+					*current++ = solid->Verts[3 * i + k]; //normal
 				}
-				*current++ = atomNumber;
+				*current++ = static_cast<float>(atomNumber);
 			} //i
-			for (int i = 0; i < SOLID::nFaces * 3; i++)
-				*currenti++ = SOLID::Faces[i] + (a+(p==0?0:numAtoms[p-1]))*SOLID::nVerts;
+			for (int i = 0; i < solid->nFaces * 3; i++)
+				*currenti++ = solid->Faces[i] + (a+(p==0?0:numAtoms[p-1]))*solid->nVerts;
 		} //a
 	} //p
-		glBufferData(GL_ARRAY_BUFFER, sizeof(float) *totalatoms* 7 * SOLID::nVerts, tmp,
+		glBufferData(GL_ARRAY_BUFFER, sizeof(float) *totalatoms* 7 * solid->nVerts, tmp,
 			GL_STATIC_DRAW);
 		if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("opengl error %d, glBufferData, l %d\n", e, __LINE__);
@@ -107,7 +107,7 @@ if (!numAtoms)
 #else
 	sizeof(unsigned int)
 #endif
-		* totalatoms * 3 * SOLID::nFaces, tmpi, GL_STATIC_DRAW);
+		* totalatoms * 3 * solid->nFaces, tmpi, GL_STATIC_DRAW);
 
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7*sizeof(float), (const void *)0);
@@ -125,15 +125,15 @@ if (!numAtoms)
 		eprintf("opengl error %d, end of SetupAtoms, l %d\n", e, __LINE__);
 
 	//FIXME TODO: cloned atoms
-	tmp = new float[SOLID::nVerts * 7 * numClonedAtoms];
+	tmp = new float[solid->nVerts * 7 * numClonedAtoms];
 	current=tmp;
 	//eprintf ("SetupAtomsNoTess 6");
 #ifdef INDICESGL32		
-	tmpi = new int[SOLID::nFaces*3 * numClonedAtoms];
+	tmpi = new int[solid->nFaces*3 * numClonedAtoms];
 	//eprintf ("SetupAtomsNoTess 7");
 	currenti=tmpi;
 #else
-	tmpi = new unsigned short[SOLID::nFaces*3 * numClonedAtoms];
+	tmpi = new unsigned short[solid->nFaces*3 * numClonedAtoms];
 	//eprintf ("SetupAtomsNoTess 7B");
 	currenti=tmpi;
 #endif
@@ -142,17 +142,17 @@ if (!numAtoms)
 	for (int a = 0; a < numClonedAtoms; a++) {
 		const int atomNumber = static_cast<int>(clonedAtoms[0][4 * a + 3]);
 		const float radius = atomColours[atomNumber][3]/**atomScaling*/;
-		for (int i = 0; i < SOLID::nVerts; i++) { //verts
+		for (int i = 0; i < solid->nVerts; i++) { //verts
 				for (int k = 0; k < 3; k++) {
-					*current++ = SOLID::Verts[3 * i + k]* radius +clonedAtoms[0][4 * a + k]; //pos
+					*current++ = solid->Verts[3 * i + k]* radius +clonedAtoms[0][4 * a + k]; //pos
 				}
 				for (int k = 0; k < 3; k++) {
-					*current++ = SOLID::Verts[3 * i + k]; //normal
+					*current++ = solid->Verts[3 * i + k]; //normal
 				}
-				*current++ = atomNumber;
+				*current++ =  static_cast<float>(atomNumber);
 		} //i
-		for (int i = 0; i < SOLID::nFaces * 3; i++)
-			*currenti++ = SOLID::Faces[i] + a*SOLID::nVerts;
+		for (int i = 0; i < solid->nFaces * 3; i++)
+			*currenti++ = solid->Faces[i] + a*solid->nVerts;
 	} //a
 	
 	//eprintf ("After For 2");
@@ -167,7 +167,7 @@ if (!numAtoms)
 	glEnableVertexAttribArray(2);
 	glDisableVertexAttribArray(3);
 
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) *numClonedAtoms* 7 * SOLID::nVerts, tmp,
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) *numClonedAtoms* 7 * solid->nVerts, tmp,
 			GL_STATIC_DRAW);
 		if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("opengl error %d, glBufferData, l %d\n", e, __LINE__);
@@ -178,7 +178,7 @@ if (!numAtoms)
 #else
 	sizeof(unsigned int)
 #endif
-		* numClonedAtoms * 3 * SOLID::nFaces, tmpi, GL_STATIC_DRAW);
+		* numClonedAtoms * 3 * solid->nFaces, tmpi, GL_STATIC_DRAW);
 	//eprintf ("After bufferdata, element array buffer");
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7*sizeof(float), (const void *)0);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (const void *)(3*sizeof(float)));

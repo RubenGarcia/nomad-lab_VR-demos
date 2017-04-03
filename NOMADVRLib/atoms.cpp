@@ -12,7 +12,7 @@
 #include "atoms.hpp"
 #include "rapidjson/document.h" 
 #include "rapidjson/filereadstream.h"
-#include "happyhttp.h"
+#include "happyhttp/happyhttp.h"
 
 //FIXME, support more platforms
 #ifdef WIN32

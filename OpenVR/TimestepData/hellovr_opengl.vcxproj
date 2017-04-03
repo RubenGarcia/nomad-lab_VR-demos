@@ -152,7 +152,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;_CRT_NONSTDC_NO_DEPRECATE;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..;../../headers;../thirdparty/glew/glew-1.11.0/include;..\thirdparty\sdl2-2.0.3\include;Y:\v2t\software\rapidjson\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;../../headers;../thirdparty/glew/glew-1.11.0/include;..\thirdparty\sdl2-2.0.3\include;Y:\v2t\software\rapidjson\include;Y:\v2t\software\openvr\openvr-0.9.19\samples\TimestepData</AdditionalIncludeDirectories>
       <EnablePREfast>false</EnablePREfast>
     </ClCompile>
     <Link>
@@ -169,8 +169,17 @@
     <ClCompile Include="..\shared\lodepng.cpp" />
     <ClCompile Include="..\shared\Matrices.cpp" />
     <ClCompile Include="..\shared\pathtools.cpp" />
+    <ClCompile Include="happyhttp\happyhttp.cpp" />
     <ClCompile Include="hellovr_opengl_main.cpp" />
     <ClCompile Include="hsv.c" />
+    <ClCompile Include="NOMADVRLib\atoms.cpp" />
+    <ClCompile Include="NOMADVRLib\atomsGL.cpp" />
+    <ClCompile Include="NOMADVRLib\CompileGLShader.cpp" />
+    <ClCompile Include="NOMADVRLib\ConfigFile.cpp" />
+    <ClCompile Include="NOMADVRLib\polyhedron.cpp" />
+    <ClCompile Include="NOMADVRLib\TessShaders.cpp" />
+    <ClCompile Include="NOMADVRLib\UnitCellShaders.cpp" />
+    <ClCompile Include="rply\rply.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\shared\lodepng.h" />
@@ -179,6 +188,15 @@
     <ClInclude Include="..\shared\Vectors.h" />
     <ClInclude Include="hsv.h" />
     <ClInclude Include="NOMADViveT.h" />
+    <ClInclude Include="NOMADVRLib\atoms.hpp" />
+    <ClInclude Include="NOMADVRLib\atomsGL.h" />
+    <ClInclude Include="NOMADVRLib\CompileGLShader.h" />
+    <ClInclude Include="NOMADVRLib\ConfigFile.h" />
+    <ClInclude Include="NOMADVRLib\eprintf.h" />
+    <ClInclude Include="NOMADVRLib\MyGL.h" />
+    <ClInclude Include="NOMADVRLib\polyhedron.h" />
+    <ClInclude Include="NOMADVRLib\TessShaders.h" />
+    <ClInclude Include="NOMADVRLib\UnitCellShaders.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="NOMADViveT.rc" />

@@ -15,12 +15,12 @@ Copyright   :   Copyright 2014 Oculus VR, LLC. All Rights reserved.
 #include "GuiSys.h"
 #include "OVR_Locale.h"
 
-#include "atoms.hpp"
-#include "ConfigFile.h"
-#include "atomsGL.h"
-#include "UnitCellShaders.h"
-#include "TessShaders.h"
-#include "polyhedron.h"
+#include "NOMADVRLib/atoms.hpp"
+#include "NOMADVRLib/ConfigFile.h"
+#include "NOMADVRLib/atomsGL.h"
+#include "NOMADVRLib/UnitCellShaders.h"
+#include "NOMADVRLib/TessShaders.h"
+#include "NOMADVRLib/polyhedron.h"
 
 using namespace OVR;
 
@@ -59,7 +59,7 @@ jlong Java_oculus_MainActivity_nativeSetAppInterface( JNIEnv * jni, jclass clazz
     #define GL( func )		func;
 #endif
 
-#include "rply.h"
+#include "rply/rply.h"
 
 //static int vertex_cb(p_ply_argument argument);
 //static int face_cb(p_ply_argument argument);
@@ -148,8 +148,10 @@ void OvrApp::OneTimeInit( const char * fromPackage, const char * launchIntentJSO
 		}
 	
 	}
-	
-	
+	if (!solid) {
+		LOG("No atom glyph specified, using Icosahedron");
+		solid=new Solid(Solid::Type::Icosahedron);
+	}
 	LOG("OneTimeInit, 2");
 	const ovrJava * java = app->GetJava();
 	SoundEffectContext = new ovrSoundEffectContext( *java->Env, java->ActivityObject );
@@ -312,7 +314,7 @@ void OvrApp::RenderAtoms(const float *m) //m[16]
 		glUseProgram(AtomsP);
 		glUniformMatrix4fv(AtomMatrixLoc, 1, GL_FALSE, m);
 		if (currentSet==0) {
-			glDrawElements(GL_TRIANGLES, numAtoms[currentSet]* 3 * SOLID::nFaces, 
+			glDrawElements(GL_TRIANGLES, numAtoms[currentSet]* 3 * solid->nFaces, 
 #ifndef INDICESGL32				
 				GL_UNSIGNED_SHORT,
 #else
@@ -322,12 +324,12 @@ void OvrApp::RenderAtoms(const float *m) //m[16]
 		} else {
 			//eprintf("draw elements triangles, %d, unsigned_int, %d", numAtoms[currentSet]-numAtoms[currentSet-1], 
 			//	numAtoms[currentSet-1]);
-			//eprintf ("solid::nfaces=%d", SOLID::nFaces);
-			glDrawElements(GL_TRIANGLES, (numAtoms[currentSet]-numAtoms[currentSet-1]) * 3 * SOLID::nFaces,
+			//eprintf ("solid->nfaces=%d", solid->nFaces);
+			glDrawElements(GL_TRIANGLES, (numAtoms[currentSet]-numAtoms[currentSet-1]) * 3 * solid->nFaces,
 #ifndef INDICESGL32				
-				GL_UNSIGNED_SHORT, (void*)(numAtoms[currentSet-1]*sizeof(unsigned short)*3*SOLID::nFaces)
+				GL_UNSIGNED_SHORT, (void*)(numAtoms[currentSet-1]*sizeof(unsigned short)*3*solid->nFaces)
 #else
-				GL_UNSIGNED_INT, (void*)(numAtoms[currentSet-1]*sizeof(unsigned int)*3*SOLID::nFaces)
+				GL_UNSIGNED_INT, (void*)(numAtoms[currentSet-1]*sizeof(unsigned int)*3*solid->nFaces)
 #endif
 				);
 		}
@@ -337,7 +339,7 @@ void OvrApp::RenderAtoms(const float *m) //m[16]
 		//eprintf("numClonedAtoms %d, painting", numClonedAtoms);
 		if (numClonedAtoms!=0 && currentSet==0) {
 			glBindVertexArray(AtomVAO[1]);
-			glDrawElements(GL_TRIANGLES, numClonedAtoms* 3 * SOLID::nFaces, 
+			glDrawElements(GL_TRIANGLES, numClonedAtoms* 3 * solid->nFaces, 
 #ifndef INDICESGL32				
 				GL_UNSIGNED_SHORT,
 #else

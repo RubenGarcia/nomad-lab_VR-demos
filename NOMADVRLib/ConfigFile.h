@@ -1,6 +1,7 @@
 #ifndef __CONFIGFILE_H
 #define __CONFIGFILE_H
 #include <vector>
+#include "polyhedron.h"
 
 extern const char * PATH;
 extern const char * SCREENSHOT;
@@ -27,6 +28,8 @@ extern float abc[3][3]; //basis vectors
 extern bool has_abc;
 
 extern int repetitions[3];
+
+extern Solid *solid;
 
 extern const char * loadConfigFileErrors[];
 
