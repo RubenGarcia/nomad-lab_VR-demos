@@ -38,6 +38,16 @@ Samsung GearVR</a></h2>
 APK installer</a>, 2 MB<br/>
 Contact garcia at lrz dot de for instructions related to requesting apk signing.
 </p>
+
+<h2>
+NOMAD Virtual Reality demo for <a href="https://vr.google.com/cardboard/">
+Google Cardboard</a> (android)</h2>
+<h3>Software</h3>
+<p>
+<a href="samples-NOMADgvrT-fat-debug.apk">NOMAD GVR for time-dependant data,
+APK installer</a>, 7 MB<br/>
+</p>
+
 <h2>Datasets for HTC Vive demo</h2>
 <h3>
 Dataset corresponding to the reaction of gaseous CO<sub>2</sub> to CaO(001) surface.
@@ -66,12 +76,19 @@ NOMAD Usecase 1</a><br/>
 <img src="AgAll_bands.png" width=10% /><br/>
 <a href="AgFermi.rar">Ag Fermi surface</a>, 374 KB
 </p>
-<h2>Datasets for both Vive and GearVR</h2>
+<h2>Datasets for all platforms: HTC Vive, Samsung GearVR and Google Cardboard (android)</h2>
 <h3>Dataset for molecular dynamics using extended xyz file</h3>
 <p>
 Atomistic viewer: Glucose (from <a href="http://wetche.cmbi.ru.nl/organic/methods/xyzf.html">this example</a>)<br/>
 <a href="Glucose.ncfg">Glucose.ncfg</a><br/>
 <a href="glucose.xyz">Glucose.xyz</a><br/>
+</p>
+<p>
+Crystal structures from encyclopaedia.
+Choose your material from <a href="http://enc-production-nomad.esc.rzg.mpg.de/gui/#/complex-search">
+NOMAD Encyclopaedia</a>. Copy the material number and fill it 
+<a href="http://mrs-srv.srv.lrz.de/cgi-bin/NOMAD/configurematerial">here</a>.
+Save the material to disk or phone and open it with the corresponding program.
 </p>
 <h3>Instructions</h3>
 <p>
@@ -80,14 +97,27 @@ Atomistic viewer: Glucose (from <a href="http://wetche.cmbi.ru.nl/organic/method
 -Double click on the .ncfg file and assign to the installed program NOMADViveT.exe
 </p>
 <h4>
-Control:</h4>
+Control (HTC Vive):</h4>
 -Trigger of controller 1 moves the user in the gaze direction<br/>
 -Trigger of controller 2 moves the time forward (continuous)<br/>
 -Side button of controller 1 moves the time backwards (discrete)<br/>
 -Side button of controller 2 shows isosurfaces one-by-one, then atoms, then 
 everything with transparency (caveat: ).<br/>
--Menu (3 lines) button of controller 2 starts/stops recording in c:/temp.
+-Menu (3 lines) button of controller 2 starts/stops recording.
 </p>
+<h4>
+Control (Samsung GearVR):</h4>
+-Swipe forward to fly in the direction of gaze<br/>
+-Swipe backwards to stop the movement<br/>
+-Swipe up/down to go forward/backward in time<br/>
+-Press back to enable/disable time advancing automatically
+</p>
+<h4>
+Control (Google Cardboard):</h4>
+-Time advances automatically<br/>
+-Click to start/stop moving in the direction of gaze
+</p>
+
 <h4>
 Caveats:</h4>
 -At the beginning of the CO<sub>2</sub>+CaO reaction, the relative densities are zero, so nothing 

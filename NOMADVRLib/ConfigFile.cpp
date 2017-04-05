@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <errno.h>
 
 #include "ConfigFile.h"
 #include "atoms.hpp"
@@ -137,6 +138,7 @@ int loadConfigFile(const char * f)
 	if (F == 0)
 	{
 		eprintf( "Could not open config file %s\n", f);
+		eprintf("Error: %d", errno);
 		return -1;
 	}
 	char s[100];
