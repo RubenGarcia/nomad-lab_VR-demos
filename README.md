@@ -1,6 +1,7 @@
 Subdirectories:
 	OpenVR: Demos for HTC Vive.
 	OculusMobile: Demos for GearVR.
+	GoogleCardboardAndroid: Demos for Google Cardboard (android)
 	
 	NOMADVRLib: Shared code between HTC Vive and GearVR demos related to NOMAD.
 	libs: Other (external) supporting libs shared by HTC Vive and GearVR demos

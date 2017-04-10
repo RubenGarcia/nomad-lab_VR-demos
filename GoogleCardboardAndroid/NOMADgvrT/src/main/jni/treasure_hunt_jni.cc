@@ -21,6 +21,7 @@
 #include "treasure_hunt_renderer.h"  // NOLINT
 #include "vr/gvr/capi/include/gvr.h"
 #include "vr/gvr/capi/include/gvr_audio.h"
+#include "NOMADVRLib/atoms.hpp" //for TMPDIR
 
 #define JNI_METHOD(return_type, method_name) \
   JNIEXPORT return_type JNICALL              \
@@ -82,8 +83,9 @@ JNI_METHOD(void, nativeOnResume)
 }
 
 JNI_METHOD(void, nativeSetConfigFile)
-(JNIEnv *env, jobject obj, jstring s) {
+(JNIEnv *env, jobject obj, jstring s, jstring e) {
 	configPath = env->GetStringUTFChars(s , NULL ) ;
+	TMPDIR=env->GetStringUTFChars(e , NULL ) ;
 
 }
 

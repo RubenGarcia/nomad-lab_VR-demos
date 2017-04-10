@@ -312,31 +312,32 @@ TreasureHuntRenderer::TreasureHuntRenderer(
       gvr_controller_api_(nullptr),
       gvr_viewer_type_(gvr_api_->GetViewerType()) {
 
-	eprintf ("configPath=%d", configPath);
 	if (configPath!=nullptr)
 		eprintf ("configPath=<%s>", configPath);
+	else
+		eprintf ("configPath is null");
 
-	const char *configfile="/storage/emulated/0/Oculus/NOMAD/ViveTDefault.ncfg";
-	//change cwd so that relative paths work
-	if (configPath!=nullptr)
-		configfile=configPath;
-	std::string s(configfile);
+	if (TMPDIR!=nullptr)
+		eprintf ("TMPDIR=<%s>", TMPDIR);
+	else
+		eprintf ("TMPDIR is null");
+	
+	std::string s(configPath);
 	chdir(s.substr(0, s.find_last_of("\\/")).c_str());
 	
-	int r;
 
-	if ((r=loadConfigFile(configfile))<0) {
-		if (-100<r) {
-			eprintf(loadConfigFileErrors[-r]);
+	if ((error=loadConfigFile(configPath))<0) {
+		if (-100<error) {
+			eprintf(loadConfigFileErrors[-error]);
 			eprintf("Config file reading error");
-		} else if (-200<r){
-			eprintf(readAtomsXYZErrors[-r-100]);
+		} else if (-200<error){
+			eprintf(readAtomsXYZErrors[-error-100]);
 			eprintf("XYZ file reading error");
-		} else if (-300<r) {
-			eprintf(readAtomsCubeErrors[-r-200]);
+		} else if (-300<error) {
+			eprintf(readAtomsCubeErrors[-error-200]);
 			eprintf("Cube file reading error");
 		} else {
-			eprintf(readAtomsJsonErrors[-r-300]);
+			eprintf(readAtomsJsonErrors[-error-300]);
 			eprintf("Json reading error");
 		}	
 	}
@@ -365,6 +366,12 @@ TreasureHuntRenderer::~TreasureHuntRenderer() {
 	glDeleteTextures(2, textures);
 }
 
+const char * ErrorsGL[] = {
+	"Failure compiling Unit Cell Shader", //-401
+	"Failure compiling Atom Shader NoTess", //-402;
+
+};
+
 void TreasureHuntRenderer::InitializeGl() {
   gvr_api_->InitializeGl();
 
@@ -382,35 +389,46 @@ glGenTextures(2, textures);
 	//Leave atoms until we check if android 7 has gles 3.2 or if we use the old icosahedron method with no tesselation
 	if (!PrepareUnitCellShader (&UnitCellP, &UnitCellMatrixLoc, &UnitCellColourLoc)) {
 		eprintf("OneTimeInit, failure compiling Unit Cell Shader");
+		error=-401;
 		return ;
 	}
 	
 	//rgh: for now, we don't have any tess-ready phones
 	//if (!PrepareAtomShader(&AtomsP, &AtomMatrixLoc)) {
 		hasTess=false;
-		if (!PrepareAtomShaderNoTess(&AtomsP, &AtomMatrixLoc))
+		if (!PrepareAtomShaderNoTess(&AtomsP, &AtomMatrixLoc)) {
+			error=-402;
 			eprintf ("PrepareAtomShaderNoTess failed");
+		}
 	//};
 
 	//atom texture
 	int e;
 	
 	e=atomTexture(textures[1]);
-	if (e!=GL_NO_ERROR)
+	if (e!=GL_NO_ERROR) {
 		eprintf ("atomTexture error %d", e);
+		error=-403;
+	}
 
 	e=SetupAtoms(&AtomTVAO, &AtomTBuffer);
-	if (e!=GL_NO_ERROR)
+	if (e!=GL_NO_ERROR) {
 		eprintf ("SetupAtoms error %d", e);
+		error=-404;
+	}
 
 	if (!hasTess)
 		e=SetupAtomsNoTess(&AtomVAO, &AtomBuffer, &AtomIndices);
 
-	if (e!=GL_NO_ERROR)
+	if (e!=GL_NO_ERROR) {
 		eprintf ("SetupAtomsNoTess error %d, tess=%d", e, hasTess);
+		error=-405;
+	}
 	e=SetupUnitCell(&UnitCellVAO, &UnitCellBuffer, &UnitCellIndexBuffer);
-	if (e!=GL_NO_ERROR)
+	if (e!=GL_NO_ERROR) {
 		eprintf ("SetupUnitCell error %d", e);
+		error=-406;
+	}
 
   // Because we are using 2X MSAA, we can render to half as many pixels and
   // achieve similar quality.
@@ -525,7 +543,23 @@ if (animateTimesteps) {
 
   // Draw the world.
   frame.BindBuffer(0);
-  glClearColor(0.1f, 0.1f, 0.1f, 0.5f);  // Dark background so text shows up.
+  if (error<0) {
+		if (-100<error) {
+			glClearColor(1.f, 0.f, 0.f, 1.f); 
+		} else if (-200<error){
+			glClearColor(0.f, 1.f, 0.f, 1.f); 
+		} else if (-300<error) {
+			glClearColor(0.f, 0.f, 1.f, 1.f); 
+		} else if (-400<error) {
+			glClearColor(0.f, 1.f, 1.f, 1.f); 		
+		} else {
+			glClearColor(1.f, 0.f, 1.f, 1.f); 
+		}
+  } else {
+	glClearColor(BACKGROUND[0], BACKGROUND[1], BACKGROUND[2], 0.5f);
+  }
+
+    // Dark background so text shows up.
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   viewport_list_->GetBufferViewport(0, &scratch_viewport_);
   DrawWorld(left_eye_view, scratch_viewport_);
@@ -623,7 +657,14 @@ void TreasureHuntRenderer::DrawWorld(const gvr::Mat4f& view_matrix,
 glDisable(GL_CULL_FACE);
 modelview_=view_matrix;
 modelview_projection_cube_ = MatrixMul(perspective, modelview_);
-RenderUnitCell(modelview_projection_cube_);
+if(error)
+	return;
+if (has_abc) {
+	RenderUnitCell(modelview_projection_cube_);
+} else {
+	//atom trajectories
+	RenderAtomTrajectories(modelview_projection_cube_);
+}
 
 }
 
@@ -724,6 +765,31 @@ void TreasureHuntRenderer::RenderAtoms(const float *m) //m[16]
 	} // no tess
 }
 
+void TreasureHuntRenderer::RenderAtomTrajectories(const gvr::Mat4f eyeViewProjection)
+{
+int e;
+if (!numAtoms)
+	return;
+gvr::Mat4f trans={1,0,0,UserTranslation[0],
+		0,1,0,UserTranslation[1],
+		0,0,1,UserTranslation[2],
+		0,0,0,1};
+					
+//trans.translate(iPos).rotateX(-90).translate(UserPosition);
+gvr::Mat4f transform = MatrixMul(eyeViewProjection,trans);
+//gvr::Mat4f transform=eyeViewProjection;					
+float t[16];
+for (int i=0;i<4;i++)
+	for (int j=0;j<4;j++)
+		t[j*4+i]=transform.m[i][j];
+glUseProgram(UnitCellP);
+glUniformMatrix4fv(UnitCellMatrixLoc, 1, GL_FALSE, t);
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("Gl error after glUniform4fv 1 RenderAtomTrajectories: %d\n", e);
+RenderAtomTrajectoriesUnitCell();
+RenderAtoms(t);
+}
+
 void TreasureHuntRenderer::RenderAtomTrajectoriesUnitCell()
 {
 	//now trajectories
@@ -743,7 +809,7 @@ glBindVertexArray(AtomTVAO[0]);
 float color[4]={1,0,0,1};
 glUniform4fv(UnitCellColourLoc, 1, color);
 if ((e = glGetError()) != GL_NO_ERROR)
-	eprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d\n", e);
+	eprintf("Gl error after glUniform4fv 2 RenderAtomTrajectoriesUnitCell: %d\n", e);
 //glEnableVertexAttribArray(0);
 //glDisableVertexAttribArray(1);
 
@@ -776,13 +842,10 @@ for (unsigned int i=0;i<atomtrajectories.size();i++) {
 
 void TreasureHuntRenderer::RenderUnitCell(const gvr::Mat4f eyeViewProjection)
 {
-	eprintf ("eyeViewProjection");
-	for (int i=0;i<4;i++)
-		for (int j=0;j<4;j++)
-			eprintf ("%d %d = %f", i, j, eyeViewProjection.m[i][j]);
-	//repetitions[0]=10;
-	//repetitions[1]=10;
-	//repetitions[2]=10;
+	//eprintf ("eyeViewProjection");
+	//for (int i=0;i<4;i++)
+	//	for (int j=0;j<4;j++)
+	//		eprintf ("%d %d = %f", i, j, eyeViewProjection.m[i][j]);
 	eprintf ("RenderUnitCell, has_abc=%d", has_abc);
 	if (!has_abc)
 		return;

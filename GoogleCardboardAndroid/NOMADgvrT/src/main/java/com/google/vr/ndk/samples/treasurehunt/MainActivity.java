@@ -84,18 +84,22 @@ public static void verifyStoragePermissions(Activity activity) {
     super.onCreate(savedInstanceState);
 
 	verifyStoragePermissions(this);
+	String externalsd=android.os.Environment.getExternalStorageDirectory().getPath() + "/";
 	//intents
 	android.content.Intent intent = getIntent();
 	
 	String s=intent.getDataString();
-	String uriString="/data/local/tmp/material.ncfg";
-
+	String uriString=externalsd+"material.ncfg";
+	if (s==null)
+			android.util.Log.d("NOMADgvrT","String intent is null");
+	else
+		android.util.Log.d("NOMADgvrT","String intent is <"+ s+">");
 	if (s!=null) {
 		if (s.startsWith("content://")) {
 			try {
 				java.io.InputStream input = getContentResolver().openInputStream(intent.getData());
 				byte[] buffer = new byte[8 * 1024];
-				java.io.FileOutputStream output = new java.io.FileOutputStream("/data/local/tmp/material.ncfg");
+				java.io.FileOutputStream output = new java.io.FileOutputStream(uriString);
 				try{
 					int bytesRead;
 					while((bytesRead = input.read()) != -1){
@@ -106,24 +110,29 @@ public static void verifyStoragePermissions(Activity activity) {
 						output.close();
 					} catch (Exception e) {
 						uriString=null;
+						android.util.Log.d("NOMADgvrT","Exception closing output stream");
 					}
 					try {
 						input.close();
 					} catch (java.io.IOException e) {
 						uriString=null;
+						android.util.Log.d("NOMADgvrT","Exception closing input stream");
 					}
 				}
 			} catch (java.io.IOException e) {
 				uriString=null;
+				android.util.Log.d("NOMADgvrT","Exception saving intent to disk");
 			} 
 		if (uriString!=null)
-			nativeSetConfigFile(uriString);
+			nativeSetConfigFile(uriString, externalsd);
 		} else if (s.startsWith("file://")) {
 			uriString=s.substring(7);
-			nativeSetConfigFile(uriString);
+			nativeSetConfigFile(uriString, externalsd);
 		} else {
 			android.util.Log.d("NOMADgvrT","Unknown protocol in intent:"+ s);
 		}
+	} else { //use default
+		nativeSetConfigFile(externalsd+"Default.ncfg", externalsd);
 	}
 
     // Ensure fullscreen immersion.
@@ -277,5 +286,5 @@ public static void verifyStoragePermissions(Activity activity) {
 
   private native void nativeOnResume(long nativeTreasureHuntRenderer);
 
-  private native void nativeSetConfigFile(String s);
+  private native void nativeSetConfigFile(String s, String e);
 }

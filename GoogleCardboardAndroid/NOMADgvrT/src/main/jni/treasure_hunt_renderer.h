@@ -162,9 +162,10 @@ bool animateTimesteps=false;
 void RenderAtoms(const float *m);
 void RenderUnitCell(const gvr::Mat4f eyeViewProjection);
 void RenderAtomTrajectoriesUnitCell();
+void RenderAtomTrajectories(const gvr::Mat4f eyeViewProjection);
 float UserTranslation[3]={10,0,0};
 
-
+int error=0;
 };
 
 #endif  // TREASUREHUNT_APP_SRC_MAIN_JNI_TREASUREHUNTRENDERER_H_  // NOLINT

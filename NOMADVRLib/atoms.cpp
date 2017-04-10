@@ -18,7 +18,9 @@
 #ifdef WIN32
 const char * TMPDIR="";
 #else
-const char * TMPDIR="/sdcard/Oculus/NOMAD/";
+//const char * TMPDIR="/sdcard/Oculus/NOMAD/";
+const char * TMPDIR;//filled by main
+//="/storage/540E-1AE2/";
 #endif
 
 const char * const atomNames[] =
@@ -204,6 +206,7 @@ int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float *
 			continue; //there may be a blank line at the end of the file
 		(*timesteps)++;
 		discardline (f);
+		//eprintf ("Getting atoms, mynumatoms=%d",mynumatoms);
 		mypos.push_back(new float[mynumatoms*4]);
 		mynum.push_back(mynumatoms);
 		discardline (f); //comment
@@ -223,6 +226,7 @@ int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float *
 	for (int i=0;i<*timesteps;i++) {
 		(*pos)[i]=mypos[i];
 		(*numatoms)[i]=mynum[i];
+		//eprintf ("Getting atoms, numatoms=%d",(*numatoms)[i]);
 	}
 
 	return 0;

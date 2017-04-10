@@ -128,6 +128,7 @@ int loadConfigFile(const char * f)
 	showTrajectories = false;
 	basisvectorreps=0;
 	numClonedAtoms=0;
+	has_abc=false;
 	for (int i=0;i<3;i++)
 		repetitions[i]=1;
 	for (int i=0;i<3;i++)
@@ -249,6 +250,7 @@ int loadConfigFile(const char * f)
 			if (e<0)
 				return e-100;
 			updateTIMESTEPS (timesteps);
+			//eprintf ("After read of xyzfile, numatoms 0 =%d", numAtoms[0]);
 		}
 		else if (!strcmp(s, "cubefile")) {
 			r=readString(F, s);
@@ -345,9 +347,12 @@ int loadConfigFile(const char * f)
 				solid=new Solid(Solid::Type::Tetrahedron);
 			else
 				return -15;
-		}
-		else {
+		} else if (!strcmp (s, "\x0d")) { //discard windows newline (problem in Sebastian Kokott's phone (?!)
+			continue;
+		} else {
 			eprintf( "Unrecognized parameter %s\n", s);
+			for (int i=0;i<strlen(s);i++)
+				eprintf ("<%d>", s[i]);
 			fclose(F);
 			return -2;
 		}
@@ -381,6 +386,6 @@ int loadConfigFile(const char * f)
 		for (int i=0;i<*numAtoms;i++)
 			atomtrajectories.push_back(i);
 	}
-
+	//eprintf ("Before returning, numatoms 0 =%d", numAtoms[0]);
 	return 0;
 }

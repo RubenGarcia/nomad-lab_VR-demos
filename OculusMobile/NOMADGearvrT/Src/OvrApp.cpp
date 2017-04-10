@@ -224,7 +224,7 @@ void OvrApp::OneTimeShutdown()
 	glDeleteProgram(AtomsP);
 	glDeleteProgram(UnitCellP);
 	
-    GL(glDeleteTextures(1, textures));
+    GL(glDeleteTextures(2, textures));
 //	LOG("OneTimeShutdown 2");
 }
 
@@ -303,13 +303,7 @@ void OvrApp::RenderAtoms(const float *m) //m[16]
 		LOG("FIXME, No Tess code for atoms yet!");
 		return;
 	} else { //no tess
-		//eprintf ("rendering atoms, currentSet=%d", currentSet);
 		glBindVertexArray(AtomVAO[0]);
-		//glBindVertexArray(GL_ARRAY_BUFFER, AtomBuffer[0]);
-		
-		//glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7*sizeof(float), (const void *)0);
-		//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (const void *)(3*sizeof(float)));
-		//glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (const void *)(6 * sizeof(float)));
 		glBindTexture(GL_TEXTURE_2D, textures[1]);
 		glUseProgram(AtomsP);
 		glUniformMatrix4fv(AtomMatrixLoc, 1, GL_FALSE, m);
@@ -322,9 +316,6 @@ void OvrApp::RenderAtoms(const float *m) //m[16]
 #endif	
 				0);
 		} else {
-			//eprintf("draw elements triangles, %d, unsigned_int, %d", numAtoms[currentSet]-numAtoms[currentSet-1], 
-			//	numAtoms[currentSet-1]);
-			//eprintf ("solid->nfaces=%d", solid->nFaces);
 			glDrawElements(GL_TRIANGLES, (numAtoms[currentSet]-numAtoms[currentSet-1]) * 3 * solid->nFaces,
 #ifndef INDICESGL32				
 				GL_UNSIGNED_SHORT, (void*)(numAtoms[currentSet-1]*sizeof(unsigned short)*3*solid->nFaces)
@@ -336,7 +327,6 @@ void OvrApp::RenderAtoms(const float *m) //m[16]
 		if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("Gl error after Render  Atom timestep =%d: %d\n", currentSet, e);
 		//now cloned atoms
-		//eprintf("numClonedAtoms %d, painting", numClonedAtoms);
 		if (numClonedAtoms!=0 && currentSet==0) {
 			glBindVertexArray(AtomVAO[1]);
 			glDrawElements(GL_TRIANGLES, numClonedAtoms* 3 * solid->nFaces, 

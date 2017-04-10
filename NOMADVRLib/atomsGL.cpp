@@ -13,20 +13,26 @@ GLenum atomTexture(GLuint t)
 {
 	GLenum e;
 	//rgh: scale atoms here
-	for (int i = 0; i < 118; i++)
-		atomColours[i][3] *= atomScaling;
-
+	//in google cardboard, this is called again if the program is running, so leave original or atoms get progresivelly smaller!
+	float *a=new float[118*4];
+	for (int i = 0; i < 118; i++) {
+		a[i*4+0]=atomColours[i][0];
+		a[i*4+1]=atomColours[i][1];
+		a[i*4+2]=atomColours[i][2];
+		a[i*4+3]=atomColours[i][3] * atomScaling;
+	}
 	glBindTexture(GL_TEXTURE_2D, t); //atom texture
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 118, 1, 0, GL_RGBA, GL_FLOAT, atomColours);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 118, 1, 0, GL_RGBA, GL_FLOAT, a);
 
 	glBindTexture( GL_TEXTURE_2D, 0 );
 	if ((e = glGetError()) != GL_NO_ERROR) {
 		eprintf( "opengl error %d, atomTexture\n", e);
 	}
+	delete [] a;
 	return e;
 }
 
@@ -82,7 +88,7 @@ if (!numAtoms)
 	for (int p=0;p<TIMESTEPS;p++) {
 		for (int a = 0; a < numAtoms[p]-(p==0?0:numAtoms[p-1]); a++) {
 			const int atomNumber = static_cast<int>(atoms[p][4 * a + 3]);
-			const float radius = atomColours[atomNumber][3]/**atomScaling*/;
+			const float radius = atomColours[atomNumber][3]*atomScaling;
 			for (int i = 0; i < solid->nVerts; i++) { //verts
 				for (int k = 0; k < 3; k++) {
 					*current++ = solid->Verts[3 * i + k]* radius +atoms[p][4 * a + k]; //pos
@@ -141,7 +147,7 @@ if (!numAtoms)
 
 	for (int a = 0; a < numClonedAtoms; a++) {
 		const int atomNumber = static_cast<int>(clonedAtoms[0][4 * a + 3]);
-		const float radius = atomColours[atomNumber][3]/**atomScaling*/;
+		const float radius = atomColours[atomNumber][3]*atomScaling;
 		for (int i = 0; i < solid->nVerts; i++) { //verts
 				for (int k = 0; k < 3; k++) {
 					*current++ = solid->Verts[3 * i + k]* radius +clonedAtoms[0][4 * a + k]; //pos
