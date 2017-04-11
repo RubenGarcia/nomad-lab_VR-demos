@@ -45,6 +45,11 @@ GLenum SetupAtomsNoTess (GLuint **AtomVAO, GLuint **AtomVertBuffer, GLuint **Ato
 if (!numAtoms)
 		return 0;
 
+if (!solid) {
+	eprintf ("SetupAtomsNoTess, error: no solid defined");
+	return 0;
+}
+
 //eprintf ("SetupAtomsNoTess 2");
 	//for now, render an icosahedron
 	//http://prideout.net/blog/?p=48 //public domain code

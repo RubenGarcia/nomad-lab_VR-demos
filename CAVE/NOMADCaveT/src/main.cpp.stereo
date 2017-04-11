@@ -1,0 +1,399 @@
+#include <m3drenderer.h>
+#include <functional>
+#include <iostream>
+#include <m3dtextureHandler.h>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/transform.hpp>
+#include <m3dnode.h>
+#include <chrono>
+#include <renderNode.h>
+#include <m3dshader.h>
+//#include <syncher.h>
+//#include <synchType.h>
+#include <synchObject.h>
+#include <m3dFileIO.h>
+#include <m3dtextureHandler.h>
+#include <m3dmeshHandler.h>
+#include <m3duploadingInterface.h>
+
+typedef std::chrono::high_resolution_clock Clock;
+ using namespace m3d;
+
+class sceneManager{
+public:
+    sceneManager(m3d::Renderer* ren, synchlib::renderNode* node);
+    ~sceneManager();
+    void displayFunction();
+    void keyboardFunction(char key, int x, int y);
+    void keyReleaseFunction(char key, int x, int y);
+    void setCDPSyncher(std::shared_ptr<synchlib::SynchObject<glm::ivec2> > sy){m_pCurrentDataPosSyncher = sy; m_pCurrentDataPosSyncher->setData(glm::ivec2(0,0));}
+    void setCDTPSyncher(std::shared_ptr<synchlib::SynchObject<int> > sy){m_pCurrentDataTimeSyncher = sy; m_pCurrentDataTimeSyncher->setData(0);}
+
+
+private:
+    m3d::Renderer* m_ren;
+    synchlib::renderNode* m_node;
+
+    std::shared_ptr<Node> m_world;
+    std::shared_ptr<Node> m_core;
+//    std::shared_ptr<Node> m_border410;
+    std::shared_ptr<Node> m_border660;
+    std::shared_ptr<Node> m_skydome;
+    std::shared_ptr<Node> m_dataGroup;
+    std::shared_ptr<Node> m_posData;
+    std::shared_ptr<Node> m_NegData;
+
+
+    GLuint m_worldTexId;
+//    std::vector<std::shared_ptr<Node> > m_dataNegVec;
+//    std::vector<std::shared_ptr<Node> > m_dataPosVec;
+
+    int counter = 0;
+    Clock::time_point t1 = Clock::now();
+
+
+//
+//    cwc::glShaderManager sm;
+//    cwc::glShader* m_pCoreShader;
+//    cwc::glShader* m_pPhongSecondShader;
+//    cwc::glShader* m_pPhongShader;
+
+
+    glm::mat4 m_preMat;
+    glm::mat4 m_scalemat;
+    glm::mat4 m_scalematSky;
+    std::shared_ptr<UploadingInterface> m_uploading;
+
+
+
+GLUquadric* qobj;
+std::shared_ptr<synchlib::SynchObject<glm::ivec2> > m_pCurrentDataPosSyncher;
+std::shared_ptr<synchlib::SynchObject<int> > m_pCurrentDataTimeSyncher;
+
+
+glm::ivec2 m_oldDataPos = glm::ivec2(0,0);
+int m_oldTime = 0;
+};
+
+
+sceneManager::sceneManager(m3d::Renderer* ren, synchlib::renderNode* node){
+
+
+     m_ren = ren;// m_th = th;
+    m_node = node;
+
+    m_preMat = glm::mat4_cast(glm::rotation(glm::vec3(0.,0.,1.),glm::vec3(0.,1.,0.)));
+//    m_preMat = glm::translate(glm::vec3(0.,0.,-13000.)) * m_preMat;
+   m_scalemat = glm::scale(m_scalemat,glm::vec3(0.1,0.1,0.1));
+   m_scalematSky = glm::scale(m_scalematSky,glm::vec3(0.05,0.05,0.05));
+
+qobj = gluNewQuadric();
+GLenum err;
+
+
+
+//	std::vector<Object*> dataVec;
+//	m_dataPosVec.resize(64);
+//	m_dataNegVec.resize(64);
+
+
+	M3DFileIO fileio;
+	std::shared_ptr<Node> UploadingRoot = Node::create();
+
+	if(!fileio.load(m_world,"/home/demos/m_demos/demoBunge2/datasets/world_plus0.m3d",false))
+		std::cout<<"world loading failed"<<std::endl;
+	fileio.load(m_skydome,"/home/demos/m_demos/demoBunge2/datasets/skydome_stars.m3d",false);
+	fileio.load(m_core,"/home/demos/m_demos/demoBunge2/datasets/earth_core.m3d",false);
+	fileio.load(m_border660,"/home/demos/m_demos/demoBunge2/datasets/660km_border.m3d",false);
+
+	std::cout<<"loading allpos"<<std::endl;
+	fileio.load(m_posData,"/home/demos/m_demos/demoBunge2/datasets/smallDataPos.m3d",false);
+	std::cout<<"loading allneg"<<std::endl;
+	fileio.load(m_NegData,"/home/demos/m_demos/demoBunge2/datasets/smallDataNeg.m3d",false);
+
+//	fileio.load(m_posData,"/home/demos/m_demos/demoBunge2/datasets/10lowPos.m3d",false);
+//	fileio.load(m_NegData,"/home/demos/m_demos/demoBunge2/datasets/10lowNeg.m3d",false);
+
+
+	UploadingRoot->addChild(m_posData);
+	UploadingRoot->addChild(m_NegData);
+
+	UploadingRoot->addChild(m_skydome);
+	UploadingRoot->addChild(m_world);
+	UploadingRoot->addChild(m_core);
+	UploadingRoot->addChild(m_border660);
+
+
+	float scale = 630.;
+	(*m_posData->getSceneMat()) = glm::scale(glm::vec3(scale,scale,scale)) * m_preMat;
+	(*m_NegData->getSceneMat()) = glm::scale(glm::vec3(scale,scale,scale)) * m_preMat;
+
+	(*m_world->getSceneMat()) = m_scalemat * m_preMat;
+	(*m_core->getSceneMat()) = m_scalemat * m_preMat;
+	(*m_border660->getSceneMat()) = m_scalemat * m_preMat;
+	(*m_skydome->getSceneMat()) = m_scalematSky;
+
+	while ((err = glGetError()) != GL_NO_ERROR) {
+		std::cerr << "construktor 1: "<<__FUNCTION__<<" OpenGL error" << err << std::endl;
+	}
+
+//
+	if(!m_posData->initDefaultShader(2,false))
+		std::cout<<"shader pos failed"<<std::endl;
+	if(!m_NegData->initDefaultShader(2,false))
+		std::cout<<"shader neg failed"<<std::endl;
+
+	m_NegData->setShininess(100.,true);
+	m_NegData->setSpecular(glm::vec4(1.f,1.f,1.0f,1.f),true);
+	m_NegData->setLightPos(0,glm::vec4(0.f,3000.f,0.0f,1.f),true);
+	m_NegData->setLightPos(1,glm::vec4(0.f,-3000.f,.0f,1.f),true);
+	m_posData->setShininess(100.,true);
+	m_posData->setSpecular(glm::vec4(1.f,1.f,1.0f,1.f),true);
+//	m_posData->setDiffuse(glm::vec4(0.2f,.2f,.2f,1.f),true);
+//	m_posData->setAmbient(glm::vec4(0.8f,.8f,.8f,1.f),true);
+	m_posData->setLightPos(0,glm::vec4(0.f,3000.f,0.0f,1.f),true);
+	m_posData->setLightPos(1,glm::vec4(0.f,-3000.f,.0f,1.f),true);
+
+	while ((err = glGetError()) != GL_NO_ERROR) {
+		std::cerr << "construktor nach shader zeug: "<<__FUNCTION__<<" OpenGL error" << err << std::endl;
+	}
+	if(!m_world->initDefaultShader(0))
+		std::cout<<"m_world failed"<<std::endl;
+	if(!m_core->initDefaultShader(0,false))
+		std::cout<<"m_core failed"<<std::endl;
+	if(!m_border660->initDefaultShader(0))
+		std::cout<<"m_border660 failed"<<std::endl;
+	if(!m_skydome->initDefaultShader(0))
+		std::cout<<"m_skydome failed"<<std::endl;
+
+	while ((err = glGetError()) != GL_NO_ERROR) {
+		std::cerr << "construktor 2: "<<__FUNCTION__<<" OpenGL error" << err << std::endl;
+	}
+    std::shared_ptr<m3d::MeshHandler> mHandler = std::make_shared<MeshHandler>(ren->getDisplay(),*(ren->getContext()),true,false);
+    std::shared_ptr<TextureHandler> tHandler = std::make_shared<TextureHandler>((ren->getDisplay()),*(ren->getContext()),true);
+    mHandler->start();
+    tHandler->start();
+
+
+
+    m_uploading = std::make_shared<UploadingInterface>(mHandler,tHandler);
+    m_uploading->setRootNode(UploadingRoot);
+
+	while ((err = glGetError()) != GL_NO_ERROR) {
+		std::cerr << "construktor nach set root: "<<__FUNCTION__<<" OpenGL error" << err << std::endl;
+	}
+    std::cout<<"start"<<std::endl;
+    m_uploading->start();
+    std::cout<<"started"<<std::endl;
+    sleep(2);
+	while ((err = glGetError()) != GL_NO_ERROR) {
+		std::cerr << "construktor nach start: "<<__FUNCTION__<<" OpenGL error" << err << std::endl;
+	}
+
+}
+
+sceneManager::~sceneManager(){
+m_uploading->quit();
+
+}
+
+
+
+void sceneManager::displayFunction(){
+	GLenum err;
+	while ((err = glGetError()) != GL_NO_ERROR) {
+		std::cerr << "disp 1: "<<__FUNCTION__<<" OpenGL error" << err << std::endl;
+	}
+	bool ttt = false;
+    glm::mat4 pvmatL, pvmatR;
+    m_node->getProjectionMatrices(pvmatL,pvmatR);
+    glm::mat4 viewMat;
+    m_node->getSceneTrafo(viewMat);
+    glm::ivec2 curDataPos;
+    m_pCurrentDataPosSyncher->getData(curDataPos);
+    int timePos;
+    m_pCurrentDataTimeSyncher->getData(timePos);
+    if(m_oldTime != timePos){
+    	m_oldTime = timePos;
+    }
+    auto t2 = Clock::now();
+    auto dur = std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count();
+    if(dur > 1000){
+        std::cout<<"################################ fps: "<<(double)counter/((double) dur / (double) 1000)<<std::endl;
+        counter = 0;
+        t1 = Clock::now();
+        std::cout<<"time: "<<timePos<<" lod: "<<curDataPos[0]<<" , "<<curDataPos[1]<<std::endl;
+    }
+
+    m_posData->setTimeStep(timePos);
+    m_NegData->setTimeStep(timePos);
+    if(m_oldDataPos[0] != curDataPos[0]){
+    	m_posData->setLOD(curDataPos[0]);
+    	m_oldDataPos[0] = curDataPos[0];
+    }
+    if(m_oldDataPos[1] != curDataPos[1]){
+    	m_NegData->setLOD(curDataPos[1]);
+    	m_oldDataPos[1] = curDataPos[1];
+    }
+    glm::mat4 user; m_node->getUserTrafo(user);
+    m_posData->getShader()->setUserPos(glm::vec3(user[3]));
+    m_NegData->getShader()->setUserPos(glm::vec3(user[3]));
+
+
+    glm::mat4 viewRotOnly = viewMat;
+    viewRotOnly[3] = glm::vec4(0.,0.,0.,1.);
+
+
+    glDrawBuffer(GL_BACK_LEFT);
+    {
+       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+   	while ((err = glGetError()) != GL_NO_ERROR) {
+   		std::cerr << "disp vor draw: "<<__FUNCTION__<<" OpenGL error" << err << std::endl;
+   	}
+       m_posData->draw(pvmatL, viewMat, glm::mat4(1));
+       m_NegData->draw(pvmatL, viewMat, glm::mat4(1));
+       m_world->draw(pvmatL, viewMat, glm::mat4(1));
+//       m_border660->draw(pvmatL, viewMat, glm::mat4(1));
+       m_skydome->draw(pvmatL, viewRotOnly, glm::mat4(1));
+       m_core->draw(pvmatL, viewMat, glm::mat4(1));
+    }
+
+    glDrawBuffer(GL_BACK_RIGHT);
+    {
+       glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+       m_posData->draw(pvmatR, viewMat, glm::mat4(1));
+       m_NegData->draw(pvmatR, viewMat, glm::mat4(1));
+       m_world->draw(pvmatR, viewMat, glm::mat4(1));
+//       m_border660->draw(pvmatR, viewMat, glm::mat4(1));
+       m_skydome->draw(pvmatR, viewRotOnly, glm::mat4(1));
+       m_core->draw(pvmatR, viewMat, glm::mat4(1));
+    }
+   GLsync fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,0);
+   glClientWaitSync(fence,GL_SYNC_FLUSH_COMMANDS_BIT,GL_TIMEOUT_IGNORED);
+
+
+    if(!m_node->synchFrame()){
+
+       m_ren->stopMainLoop();
+       return;
+    }
+
+    m_ren->swapBuffer();
+
+
+    ++counter;
+
+}
+
+
+void sceneManager::keyboardFunction(char key, int x, int y){
+
+switch(key){
+
+
+case 27:
+    m_ren->stopMainLoop();
+    break;
+}
+}
+
+void sceneManager::keyReleaseFunction(char key, int x, int y){
+    switch(key){
+
+    }
+}
+
+
+
+void InitGraphics(void)
+{
+
+	    glClearColor (1.0, 1.0, 1.0, 1.0);
+	    glClearDepth(1.0f);				// Depth Buffer Setup
+	    glEnable(GL_DEPTH_TEST);		// Enables Depth Testing
+	    glDepthFunc(GL_LEQUAL);			// The Type Of Depth Test To Do
+	    glDisable(GL_BLEND);
+		glEnable(GL_SMOOTH);
+//		glEnable(GL_MULTISAMPLE);
+//		glShadeModel(GL_SMOOTH);
+
+
+}
+
+
+
+
+
+int main(int argc, char** argv){
+	if(argc < 3){
+		std::cout<<"Not enough arguments! Start with "<<argv[0]<<" <own hostname/IP> <path to configfile>"<<std::endl;
+		exit(0);
+	}
+
+
+    bool stereo = true;
+    bool debug = true;
+    m3d::Renderer* ren = new m3d::Renderer(stereo,debug);
+
+    std::string file =argv[2];
+    synchlib::caveConfig conf(file);
+    std::stringstream ownIP;
+    ownIP<< argv[1];
+    if(argc > 3){
+    	ownIP<<"_"<<argv[3];
+    }
+
+    synchlib::renderNode* node = new synchlib::renderNode(file,ownIP.str());
+    std::cout<<conf.m_wall_conf[ownIP.str()].wall_geo[0]<<"    "<<conf.m_wall_conf[ownIP.str()].wall_geo[1]<<std::endl;
+    ren->createWindow("demoBunge",conf.m_wall_conf[ownIP.str()].wall_geo[0],conf.m_wall_conf[ownIP.str()].wall_geo[1]);
+    GLenum err = glewInit();
+    if (GLEW_OK != err)
+    {
+      /* Problem: glewInit failed, something is seriously wrong. */
+      fprintf(stderr, "Error: %s\n", glewGetErrorString(err));
+
+    }
+
+
+
+	{
+		sceneManager sceneM(ren,node);
+
+
+		std::shared_ptr<synchlib::SynchObject<glm::ivec2> > currentDataPosSyncher = synchlib::SynchObject<glm::ivec2>::create();
+		sceneM.setCDPSyncher(currentDataPosSyncher);
+		node->addSynchObject(currentDataPosSyncher,synchlib::renderNode::RECEIVER,50000);
+
+		std::shared_ptr<synchlib::SynchObject<int> > currentDataTimeSyncher = synchlib::SynchObject<int>::create();
+		sceneM.setCDTPSyncher(currentDataTimeSyncher);
+		node->addSynchObject(currentDataTimeSyncher,synchlib::renderNode::RECEIVER,50001);
+
+
+
+		std::function<void(void)> dispFunc = std::bind(&sceneManager::displayFunction,&sceneM);
+		std::function<void(char,int,int)>  keyFunc = std::bind(&sceneManager::keyboardFunction,&sceneM,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3);
+		std::function<void(char,int,int)>  keyRFunc = std::bind(&sceneManager::keyReleaseFunction,&sceneM,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3);
+		ren->setDisplayFunction(dispFunc);
+		ren->setIdleFunction(dispFunc);
+		ren->setKeyPressFunction(keyFunc);
+		ren->setAllowKeyboardAutoRepressing(false);
+		ren->setKeyReleaseFunction(keyRFunc);
+		ren->toggleFullscreen();
+		node->init();
+
+		node->startSynching();
+		while ((err = glGetError()) != GL_NO_ERROR) {
+			std::cerr <<" vor init: "<<__FUNCTION__<<" OpenGL error" << err << std::endl;
+		}
+		InitGraphics();
+		while ((err = glGetError()) != GL_NO_ERROR) {
+			std::cerr << "initGraphics: "<<__FUNCTION__<<" OpenGL error" << err << std::endl;
+		}
+		ren->mainLoop();
+	}
+    delete ren;
+
+    node->stopSynching();
+    delete node;
+
+}

@@ -10,7 +10,7 @@ const char * const AtomShaders [] = {
 
 	// vertex shader
 //Android 21 gives error: only supports up to '310 es'
-#ifdef WIN32
+#if defined(WIN32) || defined(CAVE)
 	"#version 410\n"
 #else
 "#version 310 es\n"
@@ -30,7 +30,7 @@ const char * const AtomShaders [] = {
 	"}\n",
 
 	//fragment shader
-#ifdef WIN32
+#if defined(WIN32) || defined(CAVE)
 	"#version 410 core\n"
 #else
 "#version 310 es\n"
@@ -52,7 +52,7 @@ const char * const AtomShaders [] = {
 	"}\n",
 
 	//tess eval
-#ifdef WIN32
+#if defined(WIN32) || defined(CAVE)
 	"#version 400\n"
 #else
 "#version 320 es\n"
@@ -87,7 +87,7 @@ const char * const AtomShadersNoTess [] = {
 	//No Tess means smooth shading looks very strange. Better use per-face lighting
 		// vertex shader
 //Android 21 gives error: only supports up to '310 es'
-#ifdef WIN32
+#if defined(WIN32) || defined(CAVE)
 	"#version 410\n"
 #else
 "#version 310 es\n"
@@ -111,7 +111,7 @@ const char * const AtomShadersNoTess [] = {
 	"}\n",
 
 	//fragment shader
-#ifdef WIN32
+#if defined(WIN32) || defined(CAVE)
 	"#version 410 core\n"
 #else
 "#version 310 es\n"

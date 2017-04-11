@@ -358,7 +358,6 @@ if (out==nullptr) {
 conn.request( "GET", url, 0, 0,0 );
 while( conn.outstanding() )
 	conn.pump();
-fclose(out);
 } catch (const happyhttp::Wobbly& w) {
 #ifdef _MSC_VER
 	int e=	WSAGetLastError();
@@ -366,7 +365,7 @@ fclose(out);
 #else
 	eprintf( "error %s\n", w.what());
 #endif
-
+	fclose(out);
 	return -3;
 }
 fclose(out);

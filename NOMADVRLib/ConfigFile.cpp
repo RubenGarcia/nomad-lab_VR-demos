@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <errno.h>
+#include <string.h>
 
 #include "ConfigFile.h"
 #include "atoms.hpp"

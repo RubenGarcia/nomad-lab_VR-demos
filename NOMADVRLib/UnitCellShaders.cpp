@@ -2,7 +2,7 @@
 
 const char * const UnitCellShaders [] = {"Unit Cell Renderer",
 	//vertex
-	#ifdef WIN32
+#if defined(WIN32) || defined(CAVE)
 	"#version 410\n"
 #else
 	"#version 300 es\n"
@@ -15,7 +15,7 @@ const char * const UnitCellShaders [] = {"Unit Cell Renderer",
 	"}\n"
 	,
 	//fragment
-	#ifdef WIN32
+#if defined(WIN32) || defined(CAVE)
 	"#version 410\n"
 #else
 	"#version 300 es\n"
