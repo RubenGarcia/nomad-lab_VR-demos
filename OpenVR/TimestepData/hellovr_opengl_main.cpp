@@ -40,16 +40,8 @@
 
 #include "NOMADVRLib/polyhedron.h"
 
-static int vertex_cb(p_ply_argument argument);
-static int face_cb(p_ply_argument argument);
+#include "NOMADVRLib/IsosurfacesGL.h"
 
-static float *CubeVertices;
-static int *CubeIndices;
-static int CurrentVertex;
-static int CurrentIndex;
-
-//#define SOLID Tetrahedron //not nicely uniform distribution
-//#define SOLID Icosahedron
 #define TESSSUB 16
 
 //TTF_Font* font;
@@ -65,12 +57,9 @@ static int CurrentIndex;
 */
 #define ZLAYERS 12
 
-//number of components in our vertices data xyz+nxnynz+rgba
-#define numComponents 10
+
 
 #define MAXGPU 300
-//use 32 or 16 bits for index (in case more than 64k vertices / mesh
-#define INDICESGL32 
 
 //shown on https://www.vbw-bayern.de/vbw/Aktionsfelder/Innovation-F-T/Forschung-und-Technologie/Zukunft-digital-Big-Data.jsp
 
@@ -132,14 +121,6 @@ public:
 	void SetupIsosurfaces();
 	void SetupAtoms();
 	void SetupUnitCell();
-
-	bool AddModelToScene(Matrix4 mat, std::vector<float> &vertdata, 
-#ifndef INDICESGL32
-		std::vector<short> & vertindices, 
-#else
-		std::vector<GLuint> & vertindices,
-#endif
-		const char *const data, bool water, bool colours, int set);
 
 	void DrawControllers();
 
@@ -1561,7 +1542,6 @@ void CMainApplication::SetupIsosurfaces()
 			dprintf("opengl error %d, glGenBuffers\n", e);
 
 	}
-	GLsizei stride = sizeof(float) * numComponents; //sizeof(VertexDataScene);
 
 	char tmpname[250];
 	for (int currentlod = 0; currentlod < NUMLODS; currentlod++) {
@@ -1590,7 +1570,8 @@ void CMainApplication::SetupIsosurfaces()
 			Matrix4 matFinal;
 			matFinal.translate(translations[p%ISOS][0], translations[p%ISOS][1], translations[p%ISOS][2]);
 			matFinal = mat*matFinal;
-			if (!AddModelToScene(matFinal, vertdataarray[currentlod][p], vertindicesarray[currentlod][p],
+
+			if (!AddModelToScene(matFinal.get(), vertdataarray[currentlod][p], vertindicesarray[currentlod][p],
 				tmpname, false, isocolours[p%ISOS][0]<0, p%ISOS))
 			{
 				dprintf("Error loading ply file %s\n", tmpname);
@@ -1607,69 +1588,11 @@ void CMainApplication::SetupIsosurfaces()
 #endif
 			m_uiVertcount[currentlod][p] = vertindicesarray[currentlod][p].size();  //rgh: now pos, normal, color
 
-			glBindVertexArray(m_unSceneVAO[currentlod][p]);
+			if (GL_NO_ERROR!=PrepareGLiso(m_unSceneVAO[currentlod][p], m_glSceneVertBuffer[currentlod][p], 
+				vertdataarray[currentlod][p], m_unSceneVAOIndices[currentlod][p], vertindicesarray[currentlod][p]))
+				eprintf ("PrepareGLiso, GL error");
+			
 
-			glBindBuffer(GL_ARRAY_BUFFER, m_glSceneVertBuffer[currentlod][p]);
-			glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertdataarray[currentlod][p].size(), &vertdataarray[currentlod][p][0],
-				GL_STATIC_DRAW);
-
-			if ((e = glGetError()) != GL_NO_ERROR)
-				dprintf("opengl error %d, glBufferData, l %d\n", e, __LINE__);
-			int offset = 0;
-
-			//now pos[3], normal[3], color[4]
-			//pos
-			glEnableVertexAttribArray(0);
-			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
-
-			if (glGetError() != GL_NO_ERROR)
-				dprintf("opengl error attrib pointer 0\n");
-
-			//normal
-			offset += 3 * sizeof(GLfloat); //3 floats
-			glEnableVertexAttribArray(1);
-			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
-
-			if (glGetError() != GL_NO_ERROR)
-				dprintf("opengl error attrib pointer 1\n");
-
-			//color
-			offset += 3 * sizeof(GLfloat); //6 floats
-			glEnableVertexAttribArray(2);
-			glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
-
-			if (glGetError() != GL_NO_ERROR)
-				dprintf("opengl error attrib pointer 2\n");
-
-			//uv
-			/*offset += 4 * sizeof(GLfloat); //10 floats
-			glEnableVertexAttribArray(3);
-			glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
-
-			if (glGetError() != GL_NO_ERROR)
-			dprintf("opengl error attrib pointer 3\n");*/
-
-			// populate the index buffer
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_unSceneVAOIndices[currentlod][p]);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, 
-#ifndef INDICESGL32
-				sizeof(uint16_t)
-#else
-				sizeof(GLuint)
-#endif
-				* vertindicesarray[currentlod][p].size(),
-				&vertindicesarray[currentlod][p][0], GL_STATIC_DRAW);
-
-
-
-			glBindVertexArray(0);
-			glDisableVertexAttribArray(0);
-			glDisableVertexAttribArray(1);
-			glDisableVertexAttribArray(2);
-			//glDisableVertexAttribArray(3);
-
-			if (glGetError() != GL_NO_ERROR)
-				dprintf("opengl error\n");
 
 			//FIXME: after we go to 64 bits, keep the data in ram
 			vertdataarray[currentlod][p].clear();
@@ -1700,102 +1623,6 @@ void CMainApplication::SetupIsosurfaces()
 	glDisableVertexAttribArray(0);
 	glDisableVertexAttribArray(1);
 }
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Load a ply file
-//-----------------------------------------------------------------------------
-
-
-bool CMainApplication::AddModelToScene( Matrix4 mat, std::vector<float> &vertdata, 
-#ifndef INDICESGL32
-	std::vector<short> & vertindices, 
-#else
-	std::vector<GLuint> & vertindices,
-#endif
-	const char * model, bool water, bool colours, int set) 
-{
-
-	CurrentVertex=-1;
-	CurrentIndex=0;
-	 p_ply ply = ply_open(model, NULL, 0, NULL);
-	 //p_ply ply = ply_open("Y:\\v2t\\media\\visual_designs\\logos_3d\\v2c\\v2cSchrift.ply", NULL, 0, NULL);
-        if (!ply) {
-            dprintf("ply returned null: file %s\n", model);
-            return false;
-        }
-        if (!ply_read_header(ply)) {
-            dprintf("ply: bad header in ply: file %s\n", model);
-            return false;
-        }
-
-        int nvertices = ply_set_read_cb(ply, "vertex", "x", vertex_cb, this, 0);
-        ply_set_read_cb(ply, "vertex", "y", vertex_cb, this, 1);
-        ply_set_read_cb(ply, "vertex", "z", vertex_cb, this, 2);
-
-        ply_set_read_cb(ply, "vertex", "nx", vertex_cb, this, 3);
-        ply_set_read_cb(ply, "vertex", "ny", vertex_cb, this, 4);
-        ply_set_read_cb(ply, "vertex", "nz", vertex_cb, this, 5);
-
-		ply_set_read_cb(ply, "vertex", "red", vertex_cb, this, 6);
-        ply_set_read_cb(ply, "vertex", "green", vertex_cb, this, 7);
-        ply_set_read_cb(ply, "vertex", "blue", vertex_cb, this, 8);
-        ply_set_read_cb(ply, "vertex", "alpha", vertex_cb, this, 9);
-
-		//ply_set_read_cb(ply, "vertex", "texture_u", vertex_cb, this, 10);
-		//ply_set_read_cb(ply, "vertex", "texture_v", vertex_cb, this, 11);
-
-		CubeVertices = new float[nvertices*numComponents]; //xyz, nx, ny, nz, uv, rgba
-
-        int ntriangles = ply_set_read_cb(ply, "face", "vertex_indices", face_cb, NULL, 0);
-
-        CubeIndices=new int[3*ntriangles];
-
-        //dprintf("PLY %s: v=%ld, t=%ld\n", model, nvertices, ntriangles);
-        if (!ply_read(ply)) {
-            dprintf("Problem in ply_read");
-            return false;
-        }
-        ply_close(ply);
-
-		for (int i = 0; i < 3* ntriangles; i++) {
-			vertindices.push_back(CubeIndices[i]);
-		}
-
-	
-		for (int i = 0; i < nvertices; i++) {
-			//pos
-			Vector4 V1 = Vector4(CubeVertices[i * numComponents + 0],
-				CubeVertices[i * numComponents + 1],
-				CubeVertices[i * numComponents + 2], 1);
-			Vector4 V = mat * V1;
-			vertdata.push_back(V.x);
-			vertdata.push_back(V.y);
-			vertdata.push_back(V.z);
-			//normals (FIXME should transform with inverse transform, but we think the matrix has uniform scaling and inv transpose = m)
-			//rgh beware: normals are (nx, ny, nz, 0) to avoid being translated !!!
-			V1 = Vector4(CubeVertices[i * numComponents + 3],
-				CubeVertices[i * numComponents + 4],
-				CubeVertices[i * numComponents + 5], 0);
-			V = (mat * V1).normalize();
-			vertdata.push_back(V.x);
-			vertdata.push_back(V.y);
-			vertdata.push_back(V.z);
-			//colors (untransformed)
-			if (!colours) {
-				for (int j = 0; j < 4; j++)
-					vertdata.push_back(isocolours[set][j]);
-			} else {
-				for (int j = 0; j < 4; j++)
-					vertdata.push_back(CubeVertices[i * numComponents + 6 + j]);
-			}
-		}
-		delete[] CubeVertices;
-		delete[] CubeIndices;
-		return true;
-}
-
-
 
 //-----------------------------------------------------------------------------
 // Purpose: Draw all of the controllers as X/Y/Z lines
@@ -3027,31 +2854,3 @@ int main(int argc, char *argv[])
 }
 
 
-static int vertex_cb(p_ply_argument argument) {
-    long what;
-    int ret=ply_get_argument_user_data(argument, NULL, &what);
-	if (!ret)
-		return 0;
-	if (what == 0)
-		CurrentVertex++;
-    if (what <=5 /* || what >=10*/ ){ //no uvs in these meshes.
-		CubeVertices[CurrentVertex*numComponents+what]=(float)ply_get_argument_value(argument);
-    } else {
-        CubeVertices[CurrentVertex*numComponents+what]=(float)(ply_get_argument_value(argument)/255.0);
-    }
-
-    return 1;
-}
-
-static int face_cb(p_ply_argument argument) {
-    long length, value_index;
-//	int v;
-    ply_get_argument_property(argument, NULL, &length, &value_index);
-    //discard the first call with a 3
-	//if (value_index == 0 && 3 != (v = (int)ply_get_argument_value(argument)))
-	//	dprintf("Non-triangular face: %d vertices\n", v);
-    if (value_index>=0 && value_index<=2)
-        CubeIndices[CurrentIndex++]=(int)(ply_get_argument_value(argument));
-
-    return 1;
-}

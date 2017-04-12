@@ -74,6 +74,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <OutDir>$(SolutionDir)..\bin\win64</OutDir>
+    <RunCodeAnalysis>false</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -108,9 +109,10 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_CRT_NONSTDC_NO_DEPRECATE;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..;../../headers;../thirdparty/glew/glew-1.11.0/include;../thirdparty/sdl2-2.0.3/include;Y:\v2t\software\rapidjson\include;Y:\v2t\software\curl\include</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_CRT_NONSTDC_NO_DEPRECATE;_DEBUG;_WINDOWS;INDICESGL32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..;../../headers;../thirdparty/glew/glew-1.11.0/include;../thirdparty/sdl2-2.0.3/include;Y:\v2t\software\rapidjson\include;Y:\v2t\software\curl\include;Y:\v2t\software\openvr\openvr-0.9.19\samples\TimestepData</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <EnablePREfast>false</EnablePREfast>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -150,7 +152,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;_CRT_NONSTDC_NO_DEPRECATE;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_CRT_NONSTDC_NO_DEPRECATE;NDEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;INDICESGL32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <AdditionalIncludeDirectories>..;../../headers;../thirdparty/glew/glew-1.11.0/include;..\thirdparty\sdl2-2.0.3\include;Y:\v2t\software\rapidjson\include;Y:\v2t\software\openvr\openvr-0.9.19\samples\TimestepData</AdditionalIncludeDirectories>
       <EnablePREfast>false</EnablePREfast>
@@ -176,6 +178,7 @@
     <ClCompile Include="NOMADVRLib\atomsGL.cpp" />
     <ClCompile Include="NOMADVRLib\CompileGLShader.cpp" />
     <ClCompile Include="NOMADVRLib\ConfigFile.cpp" />
+    <ClCompile Include="NOMADVRLib\IsosurfacesGL.cpp" />
     <ClCompile Include="NOMADVRLib\polyhedron.cpp" />
     <ClCompile Include="NOMADVRLib\TessShaders.cpp" />
     <ClCompile Include="NOMADVRLib\UnitCellShaders.cpp" />
@@ -193,6 +196,7 @@
     <ClInclude Include="NOMADVRLib\CompileGLShader.h" />
     <ClInclude Include="NOMADVRLib\ConfigFile.h" />
     <ClInclude Include="NOMADVRLib\eprintf.h" />
+    <ClInclude Include="NOMADVRLib\IsosurfacesGL.h" />
     <ClInclude Include="NOMADVRLib\MyGL.h" />
     <ClInclude Include="NOMADVRLib\polyhedron.h" />
     <ClInclude Include="NOMADVRLib\TessShaders.h" />
