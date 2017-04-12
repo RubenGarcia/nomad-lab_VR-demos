@@ -31,6 +31,8 @@
 
 #include "NOMADVRLib/CompileGLShader.h"
 
+#include "NOMADVRLib/IsosurfacesGL.h"
+
 #include "defines.h"
 
 #define TESSSUB 16
@@ -57,7 +59,7 @@ public:
     void displayFunction();
     void keyboardFunction(char key, int x, int y);
     void keyReleaseFunction(char key, int x, int y);
-    void setCDPSyncher(std::shared_ptr<synchlib::SynchObject<int> > sy){m_pCurrentDataPosSyncher = sy; m_pCurrentDataPosSyncher->setData(0);}
+    void setCDPSyncher(std::shared_ptr<synchlib::SynchObject<int> > sy){m_pCurrentDataPosSyncher = sy; m_pCurrentDataPosSyncher->setData(-1);}
     void setCDTPSyncher(std::shared_ptr<synchlib::SynchObject<int> > sy){m_pCurrentDataTimeSyncher = sy; m_pCurrentDataTimeSyncher->setData(0);}
     void setCDPtSyncher(std::shared_ptr<synchlib::SynchObject<SelectedPoints> > sy)
 	{
@@ -102,16 +104,24 @@ configFile=f;
 int error=0;
 GLuint textures[2]; // white, atoms
 	//if no tesselation is available, we still need the tess atoms for the trajectories!
-	GLuint *AtomTVAO=0, *AtomTBuffer=0, *AtomVAO=0, *AtomBuffer=0, *AtomIndices=0,//[2], atoms, extraatoms
+	GLuint *AtomTVAO=nullptr, *AtomTBuffer=nullptr, 
+		*AtomVAO=nullptr, *AtomBuffer=nullptr, *AtomIndices=nullptr,//[2], atoms, extraatoms
 		UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer;
 GLuint			AtomsP, UnitCellP; // framework does not provide support for tesselation and provides many things we don't need.
 	GLint		AtomMatrixLoc, UnitCellMatrixLoc, UnitCellColourLoc;
 bool hasTess=true;
 
+GLuint *ISOVAO=nullptr/*[ISOS*TIMESTEPS]*/, *ISOBuffer=nullptr/*[ISOS*TIMESTEPS]*/,
+	*ISOIndices=nullptr/*[ISOS*TIMESTEPS]*/;
+GLuint ISOP;
+GLint ISOMatrixLoc;
+int *numISOIndices=nullptr/*[ISOS*TIMESTEPS]*/;
+
 void RenderAtoms(const float *m);
 void RenderUnitCell(const glm::mat4 eyeViewProjection);
 void RenderAtomTrajectoriesUnitCell();
 void RenderAtomTrajectories(const glm::mat4 eyeViewProjection);
+void RenderIsos(const glm::mat4 eyeViewProjection, int curDataPos);
 };
 
 
@@ -205,6 +215,73 @@ glGenTextures(2, textures);
 		error=-406;
 	}
 
+//now isosurfaces
+	if (ISOS) {
+		PrepareISOShader(&ISOP, &ISOMatrixLoc);
+
+		std::vector<float> vertices;
+#ifndef INDICESGL32
+		std::vector<short> indices;
+#else
+		std::vector<GLuint> indices;
+#endif
+		numISOIndices=new int[TIMESTEPS*ISOS];
+		ISOVAO=new GLuint[TIMESTEPS*ISOS];
+		ISOBuffer=new GLuint[TIMESTEPS*ISOS];
+		ISOIndices=new GLuint[TIMESTEPS*ISOS];
+
+		glGenBuffers(TIMESTEPS*ISOS, ISOBuffer);
+		glGenVertexArrays(TIMESTEPS*ISOS, ISOVAO);
+		glGenBuffers(TIMESTEPS*ISOS, ISOIndices);
+
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("opengl error %d, glGenBuffers\n", e);
+
+		char tmpname[250];
+		int timestep=1;
+		for (int p = 0; p < TIMESTEPS*ISOS; p++) {
+			sprintf(tmpname, "%s%d-%s.ply", PATH, timestep, 
+				plyfiles[p % ISOS]);
+		//add the rotateX(-90)
+			glm::mat4 trans;
+			trans=glm::rotate(trans, (float)-M_PI_2, glm::vec3(1.f,0.f,0.f));
+			glm::mat4 matFinal;
+			matFinal=glm::translate(matFinal, 
+				glm::vec3(translations[p%ISOS][0],
+					translations[p%ISOS][1],
+					translations[p%ISOS][2]));
+			matFinal=trans*matFinal;
+			float mat[16];
+			for (int i=0;i<4;i++)
+				for (int j=0;j<4;j++)
+					mat[j*4+i]=matFinal[j][i];
+			if (!AddModelToScene(mat, vertices, indices,
+				tmpname, false, isocolours[p%ISOS][0]<0, p%ISOS))
+			{
+				eprintf("Error loading ply file %s\n", tmpname);
+				//return; 
+			}
+#ifndef INDICESGL32
+			if (vertices.size() > 65535 * numComponents)
+			{
+				eprintf("Mesh has more than 64k vertices (%d), unsupported\n", vertdataarray[currentlod][p].size() / numComponents);
+				return;
+			}
+#endif
+			numISOIndices[p] = indices.size();
+			if (GL_NO_ERROR!=PrepareGLiso(ISOVAO[p], ISOBuffer[p], 
+				vertices, ISOIndices[p], indices))
+				eprintf ("PrepareGLiso, GL error");
+			
+			vertices.clear();
+			indices.clear();
+
+			if (p % ISOS == ISOS - 1) {
+				eprintf ("timestep %d", timestep);
+				timestep++;
+			}
+		}
+	}
 //for painting selected points 
 	glGenVertexArrays(1, &PointVAO);
 	glGenBuffers(1, &PointVBO);
@@ -305,6 +382,9 @@ if (has_abc) {
 	RenderAtomTrajectories(pvmat*st);
 }
 
+if (ISOS)
+	RenderIsos(pvmat*st, curDataPos);
+
 }
 
 void sceneManager::displayFunction(){
@@ -320,6 +400,9 @@ void sceneManager::displayFunction(){
     m_node->getSceneTrafo(viewMat);
     int curDataPos;
     m_pCurrentDataPosSyncher->getData(curDataPos);
+    curDataPos=curDataPos%(ISOS+1);
+    if (curDataPos<0)
+	curDataPos+=ISOS+1;
     int timePos;
     m_pCurrentDataTimeSyncher->getData(timePos);
     if(m_oldTime != timePos){
@@ -728,6 +811,29 @@ for (unsigned int i=0;i<atomtrajectories.size();i++) {
 
 } //sceneManager::RenderAtomTrajectoriesUnitCell()
 
+
+void sceneManager::RenderIsos(const glm::mat4 eyeViewProjection, int curDataPos)
+{
+GLenum e;
+float t[16];
+for (int i=0;i<4;i++)
+	for (int j=0;j<4;j++)
+		t[j*4+i]=eyeViewProjection[j][i];
+glUseProgram(ISOP);
+glUniformMatrix4fv(ISOMatrixLoc, 1, GL_FALSE, t);
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d\n", e);
+
+if (curDataPos!=ISOS) {
+	glBindVertexArray(ISOVAO[m_oldTime*ISOS+curDataPos]);
+	glDrawElements(GL_TRIANGLES,numISOIndices[m_oldTime*ISOS+curDataPos] , GL_UNSIGNED_INT, 0);
+} else {
+	for (int i=0;i<ISOS;i++) {
+		glBindVertexArray(ISOVAO[m_oldTime*ISOS+i]);
+		glDrawElements(GL_TRIANGLES,numISOIndices[m_oldTime*ISOS+i] , GL_UNSIGNED_INT, 0);		
+	}
+}
+}
 
 void sceneManager::RenderUnitCell(const glm::mat4 eyeViewProjection)
 {

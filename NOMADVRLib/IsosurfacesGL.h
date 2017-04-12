@@ -22,4 +22,7 @@ GLenum PrepareGLiso (GLuint vao, GLuint vertbuffer, const std::vector<float> &ve
 #endif
 	);
 
-#endif
+GLenum PrepareISOShader (GLuint *p, GLint *mat);
+
+
+#endif // __ISOSURFACESGL_H

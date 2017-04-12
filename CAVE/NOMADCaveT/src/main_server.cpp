@@ -62,7 +62,7 @@ private:
 
     bool m_stop = false;
     int m_swapIsoSurface = 0;
-    int m_curData = 0; //ISOS;
+    int m_curData = -1; //ISOS;
     std::thread* m_updateButtonsThread;
     int m_mode = 0; //0 both, 1 negative and 2 positive iso swap
     bool m_pressB0 = false;
@@ -133,7 +133,7 @@ bool longpress=false;
 			{//ms //rgh: change isos in a more discrete manner.
 					std::cout << "Changing iso!!\n";
 					 m_curData += m_swapIsoSurface;
-//rgh: unused for now
+//rgh: isos only in clients
 //					 m_curData = (m_curData > ISOS) ? 0 : m_curData;
 //					 m_curData = (m_curData < 0) ? ISOS : m_curData;
 					 synch();

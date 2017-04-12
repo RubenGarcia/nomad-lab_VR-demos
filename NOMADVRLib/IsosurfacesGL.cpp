@@ -1,10 +1,15 @@
 //#if 0
 
 #include <vector>
+#include <math.h>
+
 #include "MyGL.h"
 #include "eprintf.h"
 #include "ConfigFile.h" //for isocolours
+#include "TessShaders.h" //for SHADERNAME, etc
 #include "IsosurfacesGL.h"
+#include "IsoShaders.h"
+#include "CompileGLShader.h"
 
 float *CubeVertices=0;
 int *CubeIndices=0;
@@ -219,4 +224,18 @@ GLenum PrepareGLiso (GLuint vao, GLuint vertbuffer, const std::vector<float> &ve
 	return e;
 }
 
-//#endif
+GLenum PrepareISOShader (GLuint *p, GLint *mat) {
+	*p= CompileGLShader(
+		IsoShaders[SHADERNAME],
+		IsoShaders[SHADERVERTEX],
+		IsoShaders[SHADERFRAGMENT],
+		IsoShaders[SHADERTESSEVAL]
+		);
+	*mat=glGetUniformLocation(*p, "matrix");
+	if( *mat == -1 )
+	{
+		eprintf( "Unable to find matrix uniform in ISO shader\n" );
+		
+	}
+return glGetError();
+}
