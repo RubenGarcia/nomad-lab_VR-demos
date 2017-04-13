@@ -21,6 +21,7 @@ Copyright   :   Copyright 2014 Oculus VR, LLC. All Rights reserved.
 #include "NOMADVRLib/UnitCellShaders.h"
 #include "NOMADVRLib/TessShaders.h"
 #include "NOMADVRLib/polyhedron.h"
+#include "NOMADVRLib/IsosurfacesGL.h"
 
 using namespace OVR;
 
@@ -209,6 +210,69 @@ LOG("OneTimeInit, 4");
 	if (e!=GL_NO_ERROR)
 		eprintf ("SetupUnitCell error %d", e);
 
+	if (ISOS) {
+		PrepareISOShader(&ISOP, &ISOMatrixLoc);
+
+		std::vector<float> vertices;
+#ifndef INDICESGL32
+		std::vector<short> indices;
+#else
+		std::vector<GLuint> indices;
+#endif
+		numISOIndices=new int[TIMESTEPS*ISOS];
+		ISOVAO=new GLuint[TIMESTEPS*ISOS];
+		ISOBuffer=new GLuint[TIMESTEPS*ISOS];
+		ISOIndices=new GLuint[TIMESTEPS*ISOS];
+
+		glGenBuffers(TIMESTEPS*ISOS, ISOBuffer);
+		glGenVertexArrays(TIMESTEPS*ISOS, ISOVAO);
+		glGenBuffers(TIMESTEPS*ISOS, ISOIndices);
+
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("opengl error %d, glGenBuffers\n", e);
+
+		char tmpname[250];
+		int timestep=1;
+		for (int p = 0; p < TIMESTEPS*ISOS; p++) {
+			sprintf(tmpname, "%s%d-%s.ply", PATH, timestep, 
+				plyfiles[p % ISOS]);
+			Matrix4f matFinal=Matrix4f::RotationX(-M_PI_2) *
+				Matrix4f::Translation(translations[p%ISOS][0],
+					translations[p%ISOS][1],
+					translations[p%ISOS][2]);
+			float t[16];
+			for (int i=0;i<4;i++)
+				for (int j=0;j<4;j++)
+					t[j*4+i]=matFinal.M[i][j];
+				
+			if (!AddModelToScene(t, vertices, indices, tmpname, false, 
+				isocolours[p%ISOS][0]<0, p%ISOS))
+			{
+				eprintf("Error loading ply file %s\n", tmpname);
+				//return; 
+			}
+#ifndef INDICESGL32
+			if (vertices.size() > 65535 * numComponents)
+			{
+				eprintf("Mesh has more than 64k vertices (%d), unsupported\n", vertdataarray[currentlod][p].size() / numComponents);
+				return;
+			}
+#endif
+			numISOIndices[p] = indices.size();
+			if (GL_NO_ERROR!=PrepareGLiso(ISOVAO[p], ISOBuffer[p], 
+				vertices, ISOIndices[p], indices))
+				eprintf ("PrepareGLiso, GL error");
+			
+			vertices.clear();
+			indices.clear();
+
+			if (p % ISOS == ISOS - 1) {
+				eprintf ("timestep %d", timestep);
+				timestep++;
+			}
+		}
+	}
+	
 //	LOG("End of OneTimeInit");
 }
 
@@ -290,6 +354,53 @@ Matrix4f OvrApp::Frame( const VrFrame & vrFrame )
 
     return CenterEyeViewMatrix;
 }
+
+void OvrApp::RenderIsos(const OVR::Matrix4f eyeViewProjection, int iso) {
+	GLenum e;
+	Matrix4f trans=Matrix4f::Translation(UserTranslation[0], UserTranslation[1], UserTranslation[2]);
+	//trans.translate(iPos).rotateX(-90).translate(UserPosition);
+	Matrix4f transform = eyeViewProjection*trans*Matrix4f::Scaling(0.2);
+	float t[16];
+	for (int i=0;i<4;i++)
+		for (int j=0;j<4;j++)
+			t[j*4+i]=transform.M[i][j];
+	glUseProgram(ISOP);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("1 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+glUniformMatrix4fv(ISOMatrixLoc, 1, GL_FALSE, t);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("2 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+
+	if (iso!=ISOS) {
+		glBindVertexArray(ISOVAO[currentSet*ISOS+iso]);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("3 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+		eprintf ("Drawing %d vertices, isos", numISOIndices[currentSet*ISOS+iso]);
+		glDrawElements(GL_TRIANGLES,numISOIndices[currentSet*ISOS+iso], GL_UNSIGNED_INT, 0);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("4 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+	} else {
+		for (int i=0;i<ISOS;i++) {
+			glBindVertexArray(ISOVAO[currentSet*ISOS+i]);
+			glBindBuffer(GL_ARRAY_BUFFER, ISOBuffer[currentSet*ISOS+i]);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ISOIndices[currentSet*ISOS+i]);
+			glEnableVertexAttribArray(0);
+			glEnableVertexAttribArray(1);
+			glEnableVertexAttribArray(2);
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(0*sizeof(float)));
+			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(3*sizeof(float)));
+			glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(6*sizeof(float)));
+			if ((e = glGetError()) != GL_NO_ERROR)
+				eprintf("5 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+			eprintf ("Drawing %d vertices, isos", numISOIndices[currentSet*ISOS+i]);
+			glDrawElements(GL_TRIANGLES,numISOIndices[currentSet*ISOS+i] , GL_UNSIGNED_INT, 0);		
+			if ((e = glGetError()) != GL_NO_ERROR)
+				eprintf("6 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+		}
+	}
+}
+
+
 
 void OvrApp::RenderAtoms(const float *m) //m[16]
 {
@@ -454,6 +565,10 @@ Matrix4f OvrApp::DrawEyeView( const int eye, const float fovDegreesX, const floa
 	//LOG ("DrawEyeView 2");
 	RenderUnitCell(eyeViewProjection);
 	//LOG ("DrawEyeView 3");
+	
+	if (ISOS)
+		RenderIsos(eyeViewProjection, ISOS);
+	
     GL( glBindVertexArray( 0 ) );
     GL( glUseProgram( 0 ) );
 
@@ -466,33 +581,4 @@ Matrix4f OvrApp::DrawEyeView( const int eye, const float fovDegreesX, const floa
 
 } // namespace OvrTemplateApp
 
-/*
-static int vertex_cb(p_ply_argument argument) {
-    long what;
-    ply_get_argument_user_data(argument, NULL, &what);
-    if (what <=2 ) {
-        if (what==0)
-            OvrTemplateApp::currentVertex++;
-        OvrTemplateApp::cubeVertices.positions[OvrTemplateApp::currentVertex][what]=ply_get_argument_value(argument);
-    } else if (what <=5 ){
-        OvrTemplateApp::cubeVertices.normals[OvrTemplateApp::currentVertex][what-3]=ply_get_argument_value(argument);
-    } else if (what >9) {
-        OvrTemplateApp::cubeVertices.uvs[OvrTemplateApp::currentVertex][what-10]=ply_get_argument_value(argument);
-    } else {
-        OvrTemplateApp::cubeVertices.colors[OvrTemplateApp::currentVertex][what-6]=ply_get_argument_value(argument)/255.0;
-        //if (what==9)
-        //    OvrTemplateApp::currentVertex++;
-    }
-    return 1;
-}
 
-static int face_cb(p_ply_argument argument) {
-    long length, value_index;
-    ply_get_argument_property(argument, NULL, &length, &value_index);
-    //discard the first call with a 3
-    if (value_index>=0 && value_index<=2)
-        OvrTemplateApp::cubeIndices[OvrTemplateApp::currentCubeIndex++]=(int)(ply_get_argument_value(argument));
-
-    return 1;
-}
-*/

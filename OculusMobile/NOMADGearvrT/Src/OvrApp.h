@@ -54,13 +54,20 @@ private:
     int animateCounter=0;
     GLuint textures[2]; // white, atoms
 	//if no tesselation is available, we still need the tess atoms for the trajectories!
-	GLuint *AtomTVAO=0, *AtomTBuffer=0, *AtomVAO=0, *AtomBuffer=0, *AtomIndices=0,//[2], atoms, extraatoms
+	GLuint *AtomTVAO=nullptr, *AtomTBuffer=nullptr, *AtomVAO=nullptr, *AtomBuffer=nullptr, *AtomIndices=nullptr,//[2], atoms, extraatoms
 		UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer;
+
+	GLuint *ISOVAO=nullptr/*[ISOS*TIMESTEPS]*/, *ISOBuffer=nullptr/*[ISOS*TIMESTEPS]*/,
+		*ISOIndices=nullptr/*[ISOS*TIMESTEPS]*/;
+	GLuint ISOP;
+	GLint ISOMatrixLoc;
+	int *numISOIndices=nullptr/*[ISOS*TIMESTEPS]*/;
 		
 	void RenderAtoms(const float *m);
 	void RenderUnitCell(const OVR::Matrix4f eyeViewProjection);
 	void RenderAtomTrajectoriesUnitCell();
 	bool hasTess=true;
+	void RenderIsos(const OVR::Matrix4f eyeViewProjection, int iso);
 };
 
 } // namespace OvrTemplateApp
