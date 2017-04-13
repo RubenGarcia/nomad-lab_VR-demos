@@ -23,15 +23,15 @@
 #include <cmath>
 #include <random>
 
-#include <GLES2/gl2ext.h>
+#include "NOMADVRLib/MyGL.h"
 
-//#include <plyloader.h>
 #include "NOMADVRLib/atoms.hpp"
 #include "NOMADVRLib/ConfigFile.h"
 #include "NOMADVRLib/atomsGL.h"
 #include "NOMADVRLib/UnitCellShaders.h"
 #include "NOMADVRLib/TessShaders.h"
 #include "NOMADVRLib/polyhedron.h"
+#include "NOMADVRLib/IsosurfacesGL.h"
 
 #define LOG_TAG "TreasureHuntCPP"
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
@@ -346,9 +346,7 @@ TreasureHuntRenderer::TreasureHuntRenderer(
 		solid=new Solid(Solid::Type::Icosahedron);
 	}
 	eprintf("after config load, timesteps=%d", TIMESTEPS);
-	//for (int i=0;i<TIMESTEPS;i++)
-	//	eprintf("after config load, numatoms[%d]=%d", i, numAtoms[i]);
-////
+	
   ResumeControllerApiAsNeeded();
   if (gvr_viewer_type_ == GVR_VIEWER_TYPE_CARDBOARD) {
     LOGD("Viewer type: CARDBOARD");
@@ -428,6 +426,85 @@ glGenTextures(2, textures);
 	if (e!=GL_NO_ERROR) {
 		eprintf ("SetupUnitCell error %d", e);
 		error=-406;
+	}
+
+//isosurfaces
+	if (ISOS) {
+		PrepareISOShader(&ISOP, &ISOMatrixLoc);
+
+		std::vector<float> vertices;
+#ifndef INDICESGL32
+		std::vector<short> indices;
+#else
+		std::vector<GLuint> indices;
+#endif
+		numISOIndices=new int[TIMESTEPS*ISOS];
+		ISOVAO=new GLuint[TIMESTEPS*ISOS];
+		ISOBuffer=new GLuint[TIMESTEPS*ISOS];
+		ISOIndices=new GLuint[TIMESTEPS*ISOS];
+
+		glGenBuffers(TIMESTEPS*ISOS, ISOBuffer);
+		glGenVertexArrays(TIMESTEPS*ISOS, ISOVAO);
+		glGenBuffers(TIMESTEPS*ISOS, ISOIndices);
+
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("opengl error %d, glGenBuffers\n", e);
+
+		char tmpname[250];
+		int timestep=1;
+		for (int p = 0; p < TIMESTEPS*ISOS; p++) {
+			sprintf(tmpname, "%s%d-%s.ply", PATH, timestep, 
+				plyfiles[p % ISOS]);
+			gvr::Mat4f trans, matFinal;
+//rotateX(-90)
+			trans.m[0][0]=1;trans.m[0][1]=0;trans.m[0][2]=0; trans.m[0][3]=0;
+			trans.m[1][0]=0;trans.m[1][1]=0;trans.m[1][2]=1;trans.m[1][3]=0;
+			trans.m[2][0]=0;trans.m[2][1]=-1;trans.m[2][2]=0; trans.m[2][3]=0;
+			trans.m[3][0]=0;trans.m[3][1]=0;trans.m[3][2]=0; trans.m[3][3]=1;
+
+			for (int i=0;i<4;i++)
+					for(int j=0;j<4;j++)
+					matFinal.m[i][j]=(i==j);
+			for (int i=0;i<3;i++)
+				matFinal.m[i][3]=translations[p%ISOS][i];
+
+			matFinal=MatrixMul(trans, matFinal);
+
+			trans.m[0][0]=0.2;trans.m[0][1]=0;trans.m[0][2]=0; trans.m[0][3]=0;
+			trans.m[1][0]=0;trans.m[1][1]=0.2;trans.m[1][2]=0;trans.m[1][3]=0; 
+			trans.m[2][0]=0;trans.m[2][1]=0;trans.m[2][2]=0.2; trans.m[2][3]=0;
+			trans.m[3][0]=0;trans.m[3][1]=0;trans.m[3][2]=0; trans.m[3][3]=1;
+			matFinal=MatrixMul(trans, matFinal);
+			float mat[16];
+			for (int i=0;i<4;i++)
+				for (int j=0;j<4;j++)
+					mat[j*4+i]=matFinal.m[i][j];
+			if (!AddModelToScene(mat, vertices, indices,
+	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              			tmpname, false, isocolours[p%ISOS][0]<0, p%ISOS))
+			{
+				eprintf("Error loading ply file %s\n", tmpname);
+				//return; 
+			}
+#ifndef INDICESGL32
+			if (vertices.size() > 65535 * numComponents)
+			{
+				eprintf("Mesh has more than 64k vertices (%d), unsupported\n", vertdataarray[currentlod][p].size() / numComponents);
+				return;
+			}
+#endif
+			numISOIndices[p] = indices.size();
+			if (GL_NO_ERROR!=PrepareGLiso(ISOVAO[p], ISOBuffer[p], 
+				vertices, ISOIndices[p], indices))
+				eprintf ("PrepareGLiso, GL error");
+			
+			vertices.clear();
+			indices.clear();
+
+			if (p % ISOS == ISOS - 1) {
+				eprintf ("timestep %d", timestep);
+				timestep++;
+			}
+		}
 	}
 
   // Because we are using 2X MSAA, we can render to half as many pixels and
@@ -666,6 +743,60 @@ if (has_abc) {
 	RenderAtomTrajectories(modelview_projection_cube_);
 }
 
+if (ISOS)
+	RenderIsos(modelview_projection_cube_, ISOS);
+
+}
+
+void TreasureHuntRenderer::RenderIsos(const gvr::Mat4f eyeViewProjection, int curDataPos)
+{
+GLenum e;
+gvr::Mat4f trans={1,0,0,UserTranslation[0],
+		0,1,0,UserTranslation[1],
+		0,0,1,UserTranslation[2],
+		0,0,0,1};
+					
+//trans.translate(iPos).rotateX(-90).translate(UserPosition);
+gvr::Mat4f transform = MatrixMul(eyeViewProjection,trans);
+float t[16];
+for (int i=0;i<4;i++)
+	for (int j=0;j<4;j++)
+		t[j*4+i]=transform.m[i][j];
+
+glUseProgram(ISOP);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("1 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+glUniformMatrix4fv(ISOMatrixLoc, 1, GL_FALSE, t);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("2 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+
+if (curDataPos!=ISOS) {
+	glBindVertexArray(ISOVAO[currentSet*ISOS+curDataPos]);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("3 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+	eprintf ("Drawing %d vertices, isos", numISOIndices[currentSet*ISOS+curDataPos]);
+	glDrawElements(GL_TRIANGLES,numISOIndices[currentSet*ISOS+curDataPos] , GL_UNSIGNED_INT, 0);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("4 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+} else {
+	for (int i=0;i<ISOS;i++) {
+		glBindVertexArray(ISOVAO[currentSet*ISOS+i]);
+		glBindBuffer(GL_ARRAY_BUFFER, ISOBuffer[currentSet*ISOS+i]);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ISOIndices[currentSet*ISOS+i]);
+		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
+		glEnableVertexAttribArray(2);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(0*sizeof(float)));
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(3*sizeof(float)));
+		glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(6*sizeof(float)));
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("5 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+		eprintf ("Drawing %d vertices, isos", numISOIndices[currentSet*ISOS+i]);
+		glDrawElements(GL_TRIANGLES,numISOIndices[currentSet*ISOS+i] , GL_UNSIGNED_INT, 0);		
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("6 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+	}
+}
 }
 
 void TreasureHuntRenderer::RenderAtoms(const float *m) //m[16]

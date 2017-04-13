@@ -26,8 +26,8 @@ const char * const IsoShaders [] = {"Iso Renderer",
 #else
 	"#version 300 es\n"
 #endif
-	"in vec4 vcolor;\n"
-	"in vec3 vnormal;\n"
+	"in lowp vec4 vcolor;\n"
+	"in lowp vec3 vnormal;\n"
 	"out lowp vec4 outputColor;\n"
 	"void main()\n"
 	"{\n"

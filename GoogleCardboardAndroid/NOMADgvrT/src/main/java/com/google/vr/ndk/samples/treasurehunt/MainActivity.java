@@ -105,23 +105,25 @@ public static void verifyStoragePermissions(Activity activity) {
 					while((bytesRead = input.read()) != -1){
 						output.write(buffer, 0, bytesRead);
 					}
-				} finally {
+				} catch (Exception e) {
+					 android.util.Log.d("NOMADgvrT","Exception writing intent to disk, "+e);
+				}finally {
 					try{
 						output.close();
 					} catch (Exception e) {
 						uriString=null;
-						android.util.Log.d("NOMADgvrT","Exception closing output stream");
+						android.util.Log.d("NOMADgvrT","Exception closing output stream, "+e);
 					}
 					try {
 						input.close();
 					} catch (java.io.IOException e) {
 						uriString=null;
-						android.util.Log.d("NOMADgvrT","Exception closing input stream");
+						android.util.Log.d("NOMADgvrT","Exception closing input stream, "+e);
 					}
 				}
 			} catch (java.io.IOException e) {
 				uriString=null;
-				android.util.Log.d("NOMADgvrT","Exception saving intent to disk");
+				android.util.Log.d("NOMADgvrT","Exception saving intent to disk, "+e);
 			} 
 		if (uriString!=null)
 			nativeSetConfigFile(uriString, externalsd);
