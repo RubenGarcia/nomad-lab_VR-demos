@@ -178,6 +178,7 @@
     <ClCompile Include="NOMADVRLib\atomsGL.cpp" />
     <ClCompile Include="NOMADVRLib\CompileGLShader.cpp" />
     <ClCompile Include="NOMADVRLib\ConfigFile.cpp" />
+    <ClCompile Include="NOMADVRLib\IsoShaders.cpp" />
     <ClCompile Include="NOMADVRLib\IsosurfacesGL.cpp" />
     <ClCompile Include="NOMADVRLib\polyhedron.cpp" />
     <ClCompile Include="NOMADVRLib\TessShaders.cpp" />

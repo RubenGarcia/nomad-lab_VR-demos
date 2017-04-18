@@ -52,6 +52,7 @@ const char * loadConfigFileErrors[] =
 	"No basis vectors, but repetitions requested", //-13
 	"Error loading config file",// -14
 	"Error reading atomglyph", //-15
+	"Error reading token", //-16
 	"Error loading xyz file, add 100 to see the error",//<-100
 	"Error loading cube file, add 100 to see the error",//<-200
 	"Error loading json file, add 200 to see the error",//<-300
@@ -67,9 +68,9 @@ else
 
 int readString(FILE *f, char *s)
 {
-	char s2[100];
+	char s2[2048];
 	int r, c;
-	r = fscanf(f, "%99s", s2);
+	r = fscanf(f, "%2047s", s2);
 	if (r!=1)
 		return -1;
 	if (s2[0]!='"') {
@@ -135,6 +136,7 @@ int loadConfigFile(const char * f)
 	for (int i=0;i<3;i++)
 		userpos[i] = 0;
 	solid=0;
+	char *token=0;
 	//
 	FILE *F = fopen(f, "r");
 	if (F == 0)
@@ -312,7 +314,7 @@ int loadConfigFile(const char * f)
 			sprintf (url, "%s%s", base_url, material);
 			//rgh fixme, we know only one
 			eprintf ("load config file start, before readAtomsJsonURL");
-			e = readAtomsJsonURL (url, &numAtoms, &timesteps, &atoms, abc, &clonedAtoms);
+			e = readAtomsJsonURL (url, &numAtoms, &timesteps, &atoms, abc, &clonedAtoms, token);
 			eprintf ("load config file start, after readAtomsJsonURL");
 			if (e<0)
 				return e-300;
@@ -348,6 +350,13 @@ int loadConfigFile(const char * f)
 				solid=new Solid(Solid::Type::Tetrahedron);
 			else
 				return -15;
+		} else if (!strcmp (s, "token")) {
+			if (token)
+				delete (token);
+			token=new char [2048];
+			r=readString (F, token);
+			if (r!=0)
+				return -16;
 		} else if (!strcmp (s, "\x0d")) { //discard windows newline (problem in Sebastian Kokott's phone (?!)
 			continue;
 		} else {

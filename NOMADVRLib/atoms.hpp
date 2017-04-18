@@ -15,10 +15,10 @@ extern const char * TMPDIR;
 
 int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float ***pos);
 int readAtomsCube(const char *const file, int **numatoms, int *timesteps, float ***pos);
-int readAtomsJson (const char *const file, int **numatoms, int *timesteps, float ***pos, float abc[3][3],  std::vector<float>** clonedAtoms);
-int readAtomsJsonURL (const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3],  std::vector<float>** clonedAtoms);
+int readAtomsJson (const char *const file, int **numatoms, int *timesteps, float ***pos, float abc[3][3],  std::vector<float>** clonedAtoms, const char *const token=0);
+int readAtomsJsonURL (const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3],  std::vector<float>** clonedAtoms, const char *const token=0);
 #if defined(WIN32)
-int readAtomsJsonURLwget (const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3],  std::vector<float>** clonedAtoms);
+int readAtomsJsonURLwget (const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3],  std::vector<float>** clonedAtoms, const char *const token=0);
 #endif
 const float MISSINGRADIUS=0.2f;
 const float MISSINGR=1.f;

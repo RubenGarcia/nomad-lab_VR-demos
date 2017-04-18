@@ -312,7 +312,7 @@ const char * readAtomsJsonErrors[] = {
 };
 
 int readAtomsJsonURL (const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3],
-					  std::vector<float>** clonedAtoms)
+					  std::vector<float>** clonedAtoms, const char *const token)
 {
 eprintf ("readAtomsJsonURL start");
 
@@ -327,12 +327,12 @@ if (r==1)
 if (r<2) { 
 #if defined(WIN32)
 	//possibly https or other unsupported protocol, fall back to wget 
-	return readAtomsJsonURLwget (f, numatoms, timesteps, pos, abc, clonedAtoms);
+	return readAtomsJsonURLwget (f, numatoms, timesteps, pos, abc, clonedAtoms, token);
 #else
 	return -3;
 #endif
 }
-sprintf (url, "%s%s", page, "/cells");
+sprintf (url, "%s%s", page, "/cells?pagination=off");
 sprintf (file, "%s%s", TMPDIR, "material_cells.json");
 out=fopen(file , "w");
 if (out==nullptr) {
@@ -341,13 +341,27 @@ if (out==nullptr) {
 }
 happyhttp::Connection conn( host, port );
 conn.setcallbacks( nullptr, OnData, nullptr, 0 );
-conn.request( "GET", url, 0, 0,0 );
+
+//https://github.com/Zintinio/HappyHTTP/issues/9
+
+const char*headers[3];
+char base64[2048];
+if (token) {
+	headers[0]="Authorization";
+	sprintf (base64, "Basic %s", token);
+	headers[1]=base64;
+	headers[2]=0;
+	conn.request( "GET", url, headers, 0,0 );
+} else {
+	conn.request( "GET", url, 0, 0,0 );
+}
+
 
 while( conn.outstanding() )
 	conn.pump();
 fclose(out);
 conn.close();
-sprintf (url, "%s%s", page, "/elements");
+sprintf (url, "%s%s", page, "/elements?pagination=off");
 sprintf (file, "%s%s", TMPDIR, "material_elements.json");
 out=fopen(file , "w");
 
@@ -355,7 +369,13 @@ if (out==nullptr) {
 	eprintf ("Could not open file for writing: %s", file);
 	return -1;
 }
-conn.request( "GET", url, 0, 0,0 );
+
+if (token) {
+	conn.request( "GET", url, headers, 0,0 );
+} else {
+	conn.request( "GET", url, 0, 0,0 );
+}
+
 while( conn.outstanding() )
 	conn.pump();
 } catch (const happyhttp::Wobbly& w) {
@@ -366,6 +386,10 @@ while( conn.outstanding() )
 	eprintf( "error %s\n", w.what());
 #endif
 	fclose(out);
+
+#if defined(WIN32)
+	return readAtomsJsonURLwget (f, numatoms, timesteps, pos, abc, clonedAtoms, token);
+#endif
 	return -3;
 }
 fclose(out);
@@ -376,23 +400,31 @@ fclose(out);
 char file [2048];
 sprintf (file, "%s%s", TMPDIR, "material");
 eprintf ("readAtomsJsonURL before return");
-return readAtomsJson (file, numatoms, timesteps, pos, abc, clonedAtoms);
+return readAtomsJson (file, numatoms, timesteps, pos, abc, clonedAtoms, token);
 }
 
 #if defined(WIN32)
+//base64 encoded token
 int readAtomsJsonURLwget (const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3],
-						  std::vector<float>** clonedAtoms)
+						  std::vector<float>** clonedAtoms, const char *const token)
 {
 char cmd[2048];
 int ret;
-sprintf (cmd, "wget %s/cells -O material_cells.json", f);
+if (token)
+	sprintf (cmd, "wget  --header \"Authorization:Basic %s\" %s/cells?pagination=off -O material_cells.json", token, f);
+else
+	sprintf (cmd, "wget %s/cells?pagination=off -O material_cells.json", f);
 ret=system(cmd);
 if (ret!=0) 
 	return (-3);
-sprintf (cmd, "wget %s/elements -O material_elements.json", f);
+if (token)
+	sprintf (cmd, "wget --header \"Authorization:Basic %s\" %s/elements?pagination=off -O material_elements.json", token, f);
+else
+	sprintf (cmd, "wget %s/elements?pagination=off -O material_elements.json", f);
 ret=system(cmd);
+if (ret!=0) 
 	return(-3);
-return readAtomsJson ("material", numatoms, timesteps, pos, abc, clonedAtoms);
+return readAtomsJson ("material", numatoms, timesteps, pos, abc, clonedAtoms, token);
 }
 #endif
 
@@ -410,7 +442,7 @@ void add (std::vector<float> *v, float x, float y, float z, float a)
 }
 
 int readAtomsJson (const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3], 
-				   std::vector<float>** clonedAtoms)
+				   std::vector<float>** clonedAtoms, const char *const token)
 {
 	eprintf ("readAtomsJson start");
 	char file[512];
