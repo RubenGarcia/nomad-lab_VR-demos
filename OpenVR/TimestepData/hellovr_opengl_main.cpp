@@ -2069,12 +2069,7 @@ void CMainApplication::RenderAtoms(const vr::Hmd_Eye &nEye)
 
 void CMainApplication::CleanDepthTexture ()
 {
-int e;
-GLuint clearColor = 0;
-glBindTexture(GL_TEXTURE_2D, m_iTexture[1]);
-if ((e = glGetError()) != GL_NO_ERROR)
-	dprintf("Gl error after bindtexture: %d, %s\n", e, gluErrorString(e));
-glClearTexImage(m_iTexture[1], 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, &clearColor);
+::ClearDepthTexture(m_iTexture[1]);
 }
 
 //-----------------------------------------------------------------------------
@@ -2117,19 +2112,8 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 			glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &dfb);
 
 			for (int zl = 0; zl < ZLAYERS; zl++) {
-				glUseProgram(m_unSceneProgramID);
-
-				if ((e = glGetError()) != GL_NO_ERROR)
-					dprintf("Gl error after useprogram: %d, %s\n", e, gluErrorString(e));
-
-
-				glBindFramebuffer(GL_FRAMEBUFFER, peelingFramebuffer);
-				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_iTexture[3 + zl], 0);
-				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_iTexture[2-zl%2], 0);
-				glBindTexture(GL_TEXTURE_2D, m_iTexture[1+zl%2]);
-				glClearColor(BACKGROUND[0], BACKGROUND[1], BACKGROUND[2], 1);
-				glDepthMask(GL_TRUE);
-				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+				EnableDepthFB(zl, m_unSceneProgramID, 
+					peelingFramebuffer, m_iTexture+1);
 
 				for (int i = ISOS - 1; i >= 0; i--) {
 					PaintGrid(nEye, i);
@@ -2148,7 +2132,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 			glDisable(GL_DEPTH_TEST);
 
 			glUseProgram(m_unRenderModelProgramID);
-			float mat[] = { 1, 0, 0, 0,
+			const float mat[] = { 1, 0, 0, 0,
 				0, 1, 0, 0,
 				0, 0, 1, 0,
 				0, 0, 0, 1 };
@@ -2163,7 +2147,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 
 			glDisable(GL_CULL_FACE);
 			float z = 0.0f; //(m_fNearClip + m_fFarClip) / 2.0f;
-			float points[] = {
+			const float points[] = {
 				-1, -1, z, 1, 0, 0, -1, 0, 0,
 				-1, 1, z, 1, 0, 0, -1, 0, 1,
 				1, 1, z, 1, 0, 0, -1, 1, 1,

@@ -27,5 +27,8 @@ GLenum PrepareISOTransShader (GLuint *p, GLint *mat);
 #if defined(WIN32) || defined (CAVE)
 bool SetupDepthPeeling(int renderWidth, int renderHeight, int zlayers, GLuint *textures /*[zlayers+2 (2 depth, zlayers colour)]*/,
 					   GLuint *peelingFramebuffer);
+void CleanDepthTexture (GLuint t);
+GLenum EnableDepthFB(unsigned int zl, const GLuint transP, 
+	const GLuint peelingFramebuffer, const GLuint *texture /*[2+ZLAYERS]*/);
 #endif
 #endif // __ISOSURFACESGL_H

@@ -91,45 +91,47 @@ bool AddModelToScene( const float *mat/*[16]*/, std::vector<float> &vertdata,
         }
         ply_close(ply);
 
-		for (int i = 0; i < 3* ntriangles; i++) {
-			vertindices.push_back(CubeIndices[i]);
-		}
+	for (int i = 0; i < 3* ntriangles; i++) {
+		vertindices.push_back(CubeIndices[i]);
+	}
 
 	
-		for (int i = 0; i < nvertices; i++) {
-			//pos
-			float V1[4];
-			for (int j=0;j<3;j++)
-				V1[j] = CubeVertices[i * numComponents +j];
-			V1[3]=1;
-			float V[4];
-			mult(V, mat, V1);
-			for (int j=0;j<3;j++)
-					vertdata.push_back(V[j]);
+	for (int i = 0; i < nvertices; i++) {
+		//pos
+		float V1[4];
+		for (int j=0;j<3;j++)
+			V1[j] = CubeVertices[i * numComponents +j];
+		V1[3]=1;
+		float V[4];
+		mult(V, mat, V1);
+		for (int j=0;j<3;j++)
+			vertdata.push_back(V[j]);
 			
-			//normals (FIXME should transform with inverse transform, but we think the matrix has uniform scaling and inv transpose = m)
-			//rgh beware: normals are (nx, ny, nz, 0) to avoid being translated !!!
-			for (int j=0;j<3;j++)
-				V1[j] = 0.f; //CubeVertices[i * numComponents + 3+j];
-			V1[3]=0;
-			mult (V, mat, V1);
-			normalize(V);
-			for (int j=0;j<3;j++)
-				vertdata.push_back(V[j]);
-			//colors (untransformed)
-			if (!colours) {
-				for (int j = 0; j < 4; j++)
-					vertdata.push_back(isocolours[set][j]);
-			} else {
-				for (int j = 0; j < 4; j++)
-					vertdata.push_back(CubeVertices[i * numComponents + 6 + j]);
-			}
+	//normals (FIXME should transform with inverse transform, but we think the matrix has uniform scaling and inv transpose = m)
+	//rgh beware: normals are (nx, ny, nz, 0) to avoid being translated !!!
+		for (int j=0;j<3;j++)
+			V1[j] = CubeVertices[i * numComponents + 3+j];
+		V1[3]=0;
+		mult (V, mat, V1);
+		normalize(V);
+		for (int j=0;j<3;j++) {
+			vertdata.push_back(V[j]);
+			//eprintf ("normal %d %d %f", i, j, V[j]);
 		}
-		delete[] CubeVertices;
-		delete[] CubeIndices;
-		CubeVertices=0;
-		CubeIndices=0;
-		return true;
+		//colors (untransformed)
+		if (!colours) {
+			for (int j = 0; j < 4; j++)
+				vertdata.push_back(isocolours[set][j]);
+		} else {
+			for (int j = 0; j < 4; j++)
+				vertdata.push_back(CubeVertices[i * numComponents + 6 + j]);
+		}
+	}
+	delete[] CubeVertices;
+	delete[] CubeIndices;
+	CubeVertices=0;
+	CubeIndices=0;
+	return true;
 }
 
 int vertex_cb(p_ply_argument argument) {
@@ -265,7 +267,7 @@ bool SetupDepthPeeling(int renderWidth, int renderHeight, int zlayers, GLuint *t
 	GLenum e;
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("opengl error %d, start SetupDepthPeeling\n", e);
-	GLuint clearColor = 0;
+
 	for (int i = 0; i < 2; i++) {
 		glBindTexture(GL_TEXTURE_2D, textures[i]);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -280,7 +282,7 @@ bool SetupDepthPeeling(int renderWidth, int renderHeight, int zlayers, GLuint *t
 		if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("opengl error %d, SetupDepthPeeling b\n", e);
 
-		glClearTexImage(textures[i], 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, &clearColor);
+		CleanDepthTexture(textures[i]);
 
 		if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("opengl error %d, SetupDepthPeeling c\n", e);
@@ -311,5 +313,37 @@ bool SetupDepthPeeling(int renderWidth, int renderHeight, int zlayers, GLuint *t
 
 
 	return (e == GL_NO_ERROR);
+}
+
+void CleanDepthTexture (GLuint t)
+{
+int e;
+GLuint clearColor = 0;
+//glBindTexture(GL_TEXTURE_2D, t);
+glClearTexImage(t, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, &clearColor);
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("Gl error after glClearTexImage: %d, %s\n", e, gluErrorString(e));
+
+}
+
+GLenum EnableDepthFB(unsigned int zl, const GLuint transP, 
+	const GLuint peelingFramebuffer, const GLuint *texture /*[2+ZLAYERS]*/) 
+{
+GLenum e;
+glUseProgram(transP);
+if ((e = glGetError()) != GL_NO_ERROR) {
+	eprintf("Gl error after useprogram: %d, %s\n", e, gluErrorString(e));
+	return e;
+}
+glBindFramebuffer(GL_FRAMEBUFFER, peelingFramebuffer);
+glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 
+	texture[2 + zl], 0);
+glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, 
+	texture[1-zl%2], 0);
+glBindTexture(GL_TEXTURE_2D, texture[zl%2]);
+glClearColor(BACKGROUND[0], BACKGROUND[1], BACKGROUND[2], 1);
+glDepthMask(GL_TRUE);
+glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+return glGetError();
 }
 #endif
