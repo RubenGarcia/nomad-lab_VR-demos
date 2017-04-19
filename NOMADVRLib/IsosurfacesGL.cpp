@@ -110,7 +110,7 @@ bool AddModelToScene( const float *mat/*[16]*/, std::vector<float> &vertdata,
 			//normals (FIXME should transform with inverse transform, but we think the matrix has uniform scaling and inv transpose = m)
 			//rgh beware: normals are (nx, ny, nz, 0) to avoid being translated !!!
 			for (int j=0;j<3;j++)
-				V1[j] = 0.f; //CubeVertices[i * numComponents + 3+j];
+				V1[j] = CubeVertices[i * numComponents + 3+j];
 			V1[3]=0;
 			mult (V, mat, V1);
 			normalize(V);
