@@ -197,6 +197,7 @@
     <ClInclude Include="NOMADVRLib\CompileGLShader.h" />
     <ClInclude Include="NOMADVRLib\ConfigFile.h" />
     <ClInclude Include="NOMADVRLib\eprintf.h" />
+    <ClInclude Include="NOMADVRLib\IsoShaders.h" />
     <ClInclude Include="NOMADVRLib\IsosurfacesGL.h" />
     <ClInclude Include="NOMADVRLib\MyGL.h" />
     <ClInclude Include="NOMADVRLib\polyhedron.h" />

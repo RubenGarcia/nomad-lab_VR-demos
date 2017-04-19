@@ -113,7 +113,7 @@ while (*file!='\0') {
 int loadConfigFile(const char * f)
 {
 	//default values
-	eprintf ("load config file start");
+	//eprintf ("load config file start");
 	bool nonperiodic=false;
 	char base_url[1024]="http://enc-testing-nomad.esc.rzg.mpg.de/v1.0/materials/";
 	char material[1024]="";
@@ -313,9 +313,9 @@ int loadConfigFile(const char * f)
 			char url[2048];
 			sprintf (url, "%s%s", base_url, material);
 			//rgh fixme, we know only one
-			eprintf ("load config file start, before readAtomsJsonURL");
+			//eprintf ("load config file start, before readAtomsJsonURL");
 			e = readAtomsJsonURL (url, &numAtoms, &timesteps, &atoms, abc, &clonedAtoms, token);
-			eprintf ("load config file start, after readAtomsJsonURL");
+			//eprintf ("load config file start, after readAtomsJsonURL");
 			if (e<0)
 				return e-300;
 			numClonedAtoms=clonedAtoms[0].size()/4;

@@ -35,7 +35,7 @@
 
 #include "NOMADVRLib/TessShaders.h"
 #include "NOMADVRLib/UnitCellShaders.h"
-
+#include "NOMADVRLib/IsoShaders.h"
 #include "NOMADVRLib/CompileGLShader.h"
 
 #include "NOMADVRLib/polyhedron.h"
@@ -64,7 +64,7 @@
 //shown on https://www.vbw-bayern.de/vbw/Aktionsfelder/Innovation-F-T/Forschung-und-Technologie/Zukunft-digital-Big-Data.jsp
 
 #define GRID 1
-#define GRIDSTR "1"
+
 #define NUMLODS 1
 
 
@@ -1089,61 +1089,9 @@ void CMainApplication::RenderFrame()
 //-----------------------------------------------------------------------------
 bool CMainApplication::CreateAllShaders()
 {
-	m_unSceneProgramID = CompileGLShader(
-		"Scene",
-
-		//rgh FIXME, multiply normals by modelview!!
-		// Vertex Shader
-		"#version 410\n"
-		"uniform mat4 matrix;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec3 normalsIn;\n"
-		"layout(location = 2) in vec4 colorIn;\n"
-		//		"layout(location = 3) in vec2 uvIn;\n"
-		"out vec4 color;\n"
-		"out vec3 n;\n"
-		"out highp vec4 pos;\n"
-		//		"out vec2 uv;\n"
-		"void main()\n"
-		"{\n"
-		"	color = vec4(colorIn.rgba);\n"
-		"   n=normalize(normalsIn);\n"
-		//		"   uv=uvIn;\n"
-		"int i=gl_InstanceID / " GRIDSTR ";\n"
-		"int j=gl_InstanceID % " GRIDSTR ";\n"
-		"	pos = matrix * (position + vec4 (float(i)*0.15*101.0, 0, float(j)*0.15*101.0, 0));\n"
-		"   gl_Position = pos;\n"
-		//"	gl_Position = matrix * position;\n"
-		"}\n",
-
-		// Fragment Shader
-		"#version 410 core\n"
-		"uniform sampler2D diffuse;\n" //now extra depth texture for peeling
-		"in vec4 color;\n"
-		"in vec3 n;\n"
-		"in highp vec4 pos;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"vec4 mytex=texture(diffuse, vec2(pos.x/pos.w*0.5+0.5, pos.y/pos.w*0.5+0.5));\n"
-		//http://www.gamedev.net/topic/556521-glsl-manual-shadow-map-biasscale/
-		//"vec2 d=vec2(dFdx(pos.z), dFdy(pos.z));\n"
-		//"highp float m=sqrt(d.x*d.x + d.y*d.y);\n"
-		"if ((pos.z/pos.w+1)/2 <= mytex.r+0.0001 ) discard;\n"
-
-		"lowp vec3 nn=normalize(n);"
-		"lowp float a=max(0.0, dot(nn, vec3(0,sqrt(2.0)/2.0,sqrt(2.0)/2.0)));\n"
-		"lowp float b=max(0.0, dot(nn, vec3(0,0,1)));\n"
-		"highp vec4 res=color;\n"
-		//"outputColor = vec4(pos.x/pos.w*0.5+0.5, pos.y/pos.w*0.5+0.5, 0,1);\n"
-		"	outputColor = vec4 ((res.rgb) * (0.2 + 0.2*a + 0.3*b), color.a);\n" 
-		
-		"}\n"
-		);
-	m_nSceneMatrixLocation = glGetUniformLocation( m_unSceneProgramID, "matrix" );
-	if( m_nSceneMatrixLocation == -1 )
+	if (GL_NO_ERROR!=PrepareISOTransShader (&m_unSceneProgramID, &m_nSceneMatrixLocation))
 	{
-		dprintf( "Unable to find matrix uniform in scene shader\n" );
+		dprintf( "Error Preparing Transparency shader\n" );
 		return false;
 	}
 	/*m_nBlendingIntLocation = glGetUniformLocation(m_unSceneProgramID, "blending");
@@ -1328,59 +1276,12 @@ bool CMainApplication::SetupTexturemaps()
 
 bool CMainApplication::SetupDepthPeeling()
 {
-	//https://www.opengl.org/wiki/Common_Mistakes
-	//Until this is resolved in NVIDIA's drivers, it is advised to make sure that all textures have mipmap levels, and that all glTexParameteri​ 
-	//values are properly set up for the format of the texture. For example, integral textures are not complete if the mag and min filters have any LINEAR fields.
+	bool e;
+	e=::SetupDepthPeeling(m_nRenderWidth, m_nRenderHeight, ZLAYERS, m_iTexture+1, &peelingFramebuffer);
+	if (!e)
+		dprintf("Errir setting up DepthPeeling\n");
 
-	GLenum e;
-	if ((e = glGetError()) != GL_NO_ERROR)
-		dprintf("opengl error %d, start SetupDepthPeeling\n", e);
-	GLuint clearColor = 0;
-	for (int i = 0; i < 2; i++) {
-		glBindTexture(GL_TEXTURE_2D, m_iTexture[1 + i]);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		if ((e = glGetError()) != GL_NO_ERROR)
-			dprintf("opengl error %d, %s SetupDepthPeeling a\n", e, gluErrorString(e));
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, m_nRenderWidth, m_nRenderHeight, 0, 
-			GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
-
-		if ((e = glGetError()) != GL_NO_ERROR)
-			dprintf("opengl error %d, %s SetupDepthPeeling b\n", e, gluErrorString(e));
-
-		glClearTexImage(m_iTexture[1], 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, &clearColor);
-
-		if ((e = glGetError()) != GL_NO_ERROR)
-			dprintf("opengl error %d, SetupDepthPeeling c\n", e);
-	}
-
-	for (int i = 0; i < ZLAYERS; i++) {
-		glBindTexture(GL_TEXTURE_2D, m_iTexture[3+i]);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_nRenderWidth, m_nRenderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-	}
-
-	if ((e = glGetError()) != GL_NO_ERROR)
-		dprintf("opengl error %d, %s SetupDepthPeeling textures end\n", e, gluErrorString(e));
-
-	//now create framebuffer
-	GLint dfb;
-	glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &dfb);
-	glGenFramebuffers(1, &peelingFramebuffer);
-	glBindFramebuffer(GL_FRAMEBUFFER, peelingFramebuffer);
-	if ((e = glGetError()) != GL_NO_ERROR)
-		dprintf("Gl error: %d, %s l %d\n", e, gluErrorString(e), __LINE__);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, dfb);
-
-
-
-	return (e == GL_NO_ERROR);
+	return (e);
 }
 
 //-----------------------------------------------------------------------------
@@ -2068,16 +1969,6 @@ void CMainApplication::RenderUnitCell(const vr::Hmd_Eye &nEye)
 						dprintf("Gl error after RenderUnitCell: %d, %s\n", e, gluErrorString(e));
 				}
 }
-
-/*
-Vector3 CMainApplication::GetDisplacement(int p[3])
-{
-Vector3 delta[3];
-for (int ss=0;ss<3;ss++)
-	delta[ss]=static_cast<float>(p[ss])*Vector3(abc[ss][0], abc[ss][1], abc[ss][2]);
-Vector3 f=delta[0]+delta[1]+delta[2];
-return (f);
-}*/
 
 void CMainApplication::RenderAtomsUnitCell(const vr::Hmd_Eye &nEye, int p[3])
 {

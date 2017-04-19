@@ -314,7 +314,7 @@ const char * readAtomsJsonErrors[] = {
 int readAtomsJsonURL (const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3],
 					  std::vector<float>** clonedAtoms, const char *const token)
 {
-eprintf ("readAtomsJsonURL start");
+//eprintf ("readAtomsJsonURL start");
 
 try {
 char host[2048], page[2048], url[2048], file[2048];
@@ -399,7 +399,7 @@ fclose(out);
 //system(cmd);
 char file [2048];
 sprintf (file, "%s%s", TMPDIR, "material");
-eprintf ("readAtomsJsonURL before return");
+//eprintf ("readAtomsJsonURL before return");
 return readAtomsJson (file, numatoms, timesteps, pos, abc, clonedAtoms, token);
 }
 
@@ -444,7 +444,7 @@ void add (std::vector<float> *v, float x, float y, float z, float a)
 int readAtomsJson (const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3], 
 				   std::vector<float>** clonedAtoms, const char *const token)
 {
-	eprintf ("readAtomsJson start");
+//	eprintf ("readAtomsJson start");
 	char file[512];
 	int r;
 	sprintf (file, "%s_cells.json", f);
@@ -540,7 +540,7 @@ int readAtomsJson (const char *const f, int **numatoms, int *timesteps, float **
 		}
 		TransformAtoms(*clonedAtoms, abc);
 
-eprintf ("readAtomsJson, end");
+//eprintf ("readAtomsJson, end");
 return 0;
 }
 

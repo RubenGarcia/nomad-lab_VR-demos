@@ -1,4 +1,4 @@
-//#if 0
+﻿//#if 0
 
 #include <vector>
 #include <math.h>
@@ -177,28 +177,25 @@ GLenum PrepareGLiso (GLuint vao, GLuint vertbuffer, const std::vector<float> &ve
 	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertdata.size(), &vertdata[0], GL_STATIC_DRAW);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("opengl error %d, glBufferData, l %d\n", e, __LINE__);
-				int offset = 0;
 
 	//now pos[3], normal[3], color[4]
 	//pos
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (const void *)(0));
 
 	if (glGetError() != GL_NO_ERROR)
 		eprintf("opengl error attrib pointer 0\n");
 
 	//normal
-	offset += 3 * sizeof(GLfloat); //3 floats
 	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (const void *)(3 * sizeof(float)));
 
 	if ((e=glGetError()) != GL_NO_ERROR)
 		eprintf("opengl error attrib pointer 1\n");
 
 	//color
-	offset += 3 * sizeof(GLfloat); //6 floats
 	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
+	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, stride, (const void *)(6 * sizeof(float)));
 
 	if (glGetError() != GL_NO_ERROR)
 		eprintf("opengl error attrib pointer 2\n");
@@ -239,3 +236,80 @@ GLenum PrepareISOShader (GLuint *p, GLint *mat) {
 	}
 return glGetError();
 }
+
+GLenum PrepareISOTransShader (GLuint *p, GLint *mat) {
+	*p= CompileGLShader(
+		IsoTransparentShaders[SHADERNAME],
+		IsoTransparentShaders[SHADERVERTEX],
+		IsoTransparentShaders[SHADERFRAGMENT],
+		IsoTransparentShaders[SHADERTESSEVAL]
+		);
+	*mat=glGetUniformLocation(*p, "matrix");
+	if( *mat == -1 )
+	{
+		eprintf( "Unable to find matrix uniform in ISO shader\n" );
+		
+	}
+return glGetError();
+}
+
+//code not opengl es ready yet
+#if defined(WIN32) || defined (CAVE)
+bool SetupDepthPeeling(int renderWidth, int renderHeight, int zlayers, GLuint *textures /*[zlayers+2 (2 depth, zlayers colour)]*/,
+					   GLuint *peelingFramebuffer) 
+{
+	//https://www.opengl.org/wiki/Common_Mistakes
+	//Until this is resolved in NVIDIA's drivers, it is advised to make sure that all textures have mipmap levels, and that all glTexParameteri​ 
+	//values are properly set up for the format of the texture. For example, integral textures are not complete if the mag and min filters have any LINEAR fields.
+
+	GLenum e;
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("opengl error %d, start SetupDepthPeeling\n", e);
+	GLuint clearColor = 0;
+	for (int i = 0; i < 2; i++) {
+		glBindTexture(GL_TEXTURE_2D, textures[i]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("opengl error %d, SetupDepthPeeling a\n", e);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, renderWidth, renderHeight, 0, 
+			GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
+
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("opengl error %d, SetupDepthPeeling b\n", e);
+
+		glClearTexImage(textures[i], 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, &clearColor);
+
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("opengl error %d, SetupDepthPeeling c\n", e);
+	}
+
+	for (int i = 0; i < zlayers; i++) {
+		glBindTexture(GL_TEXTURE_2D, textures[2+i]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, renderWidth, renderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+	}
+
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("opengl error %d, SetupDepthPeeling textures end\n", e);
+
+	//now create framebuffer
+	GLint dfb;
+	glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &dfb);
+	glGenFramebuffers(1, peelingFramebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, *peelingFramebuffer);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("Gl error: %d, l %d\n", e, __LINE__);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, dfb);
+
+
+
+	return (e == GL_NO_ERROR);
+}
+#endif
