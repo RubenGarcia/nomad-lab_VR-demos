@@ -2069,7 +2069,7 @@ void CMainApplication::RenderAtoms(const vr::Hmd_Eye &nEye)
 
 void CMainApplication::CleanDepthTexture ()
 {
-::ClearDepthTexture(m_iTexture[1]);
+::CleanDepthTexture(m_iTexture[1]);
 }
 
 //-----------------------------------------------------------------------------
