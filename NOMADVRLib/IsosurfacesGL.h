@@ -22,8 +22,9 @@ GLenum PrepareGLiso (GLuint vao, GLuint vertbuffer, const std::vector<float> &ve
 #endif
 	);
 
+GLenum SetupBlending (GLuint *vao, GLuint *vertex, GLuint *indices);
 GLenum PrepareISOShader (GLuint *p, GLint *mat);
-GLenum PrepareISOTransShader (GLuint *p, GLint *mat);
+GLenum PrepareISOTransShader (GLuint *p, GLint *mat, GLuint *b);
 #if defined(WIN32) || defined (CAVE)
 bool SetupDepthPeeling(int renderWidth, int renderHeight, int zlayers, GLuint *textures /*[zlayers+2 (2 depth, zlayers colour)]*/,
 					   GLuint *peelingFramebuffer);

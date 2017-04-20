@@ -293,7 +293,7 @@ int main( int argc, char **argv )
 {
 	if(argc < 3){
 		std::cout<<"Not enough arguments! Start with "<<argv[0]<<
-			" <path to mlib configfile> <path to NOMAD configfile"<<std::endl;
+			" <path to mlib configfile> <path to NOMAD configfile>"<<std::endl;
 		exit(0);
 	}
     std::string file =argv[1];

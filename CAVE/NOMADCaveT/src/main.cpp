@@ -54,7 +54,8 @@ typedef std::chrono::high_resolution_clock Clock;
 
 class sceneManager{
 public:
-    sceneManager(m3d::Renderer* ren, synchlib::renderNode* node, const char *NOMADconfigFile);
+    sceneManager(m3d::Renderer* ren, synchlib::renderNode* node, 
+	const char *NOMADconfigFile, const unsigned int geo[2]);
     ~sceneManager();
     void displayFunction();
     void keyboardFunction(char key, int x, int y);
@@ -103,18 +104,24 @@ configFile=f;
 }
 int error=0;
 GLuint textures[2]; // white, atoms
+GLuint textDepthPeeling[ZLAYERS+2]; 
+GLuint peelingFramebuffer;
+unsigned int geo[0]; //window width, height
 	//if no tesselation is available, we still need the tess atoms for the trajectories!
-	GLuint *AtomTVAO=nullptr, *AtomTBuffer=nullptr, 
-		*AtomVAO=nullptr, *AtomBuffer=nullptr, *AtomIndices=nullptr,//[2], atoms, extraatoms
-		UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer;
-GLuint			AtomsP, UnitCellP; // framework does not provide support for tesselation and provides many things we don't need.
-	GLint		AtomMatrixLoc, UnitCellMatrixLoc, UnitCellColourLoc;
+GLuint *AtomTVAO=nullptr, *AtomTBuffer=nullptr, 
+	*AtomVAO=nullptr, *AtomBuffer=nullptr, *AtomIndices=nullptr,//[2], atoms, extraatoms
+	UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer;
+GLuint	AtomsP, UnitCellP; 
+GLint	AtomMatrixLoc, UnitCellMatrixLoc, UnitCellColourLoc;
+GLuint	TransP=0, BlendP=0;
+GLint	TransMatrixLoc=-1;
 bool hasTess=true;
 
 GLuint *ISOVAO=nullptr/*[ISOS*TIMESTEPS]*/, *ISOBuffer=nullptr/*[ISOS*TIMESTEPS]*/,
 	*ISOIndices=nullptr/*[ISOS*TIMESTEPS]*/;
 GLuint ISOP;
 GLint ISOMatrixLoc;
+GLuint BlendVAO=0, BlendBuffer=0, BlendIndices=0;
 int *numISOIndices=nullptr/*[ISOS*TIMESTEPS]*/;
 
 void RenderAtoms(const float *m);
@@ -126,12 +133,15 @@ void RenderIsos(const glm::mat4 eyeViewProjection, int curDataPos);
 
 
 sceneManager::sceneManager(m3d::Renderer* ren, synchlib::renderNode* node,
-	const char *c){
+	const char *c, const unsigned int geometry[2]){
 GLenum err;
 
 	while ((err = glGetError()) != GL_NO_ERROR) {
 		std::cerr << "construktor 0: "<<__FUNCTION__<<" OpenGL error " << err << std::endl;
 	}
+
+	geo[0]=geometry[0];
+	geo[1]=geometry[1];
 
      m_ren = ren;// m_th = th;
     m_node = node;
@@ -161,6 +171,8 @@ GLenum err;
 	}
 
 glGenTextures(2, textures);
+glGenTextures(2+ZLAYERS, textDepthPeeling);
+
     //white
     unsigned char data2[4]={255,255,255,255}; //white texture for non-textured meshes
     glBindTexture(GL_TEXTURE_2D, textures[0]);
@@ -196,6 +208,9 @@ glGenTextures(2, textures);
 		error=-403;
 	}
 
+bool er;
+
+
 	e=SetupAtoms(&AtomTVAO, &AtomTBuffer);
 	if (e!=GL_NO_ERROR) {
 		eprintf ("SetupAtoms error %d", e);
@@ -217,6 +232,21 @@ glGenTextures(2, textures);
 
 //now isosurfaces
 	if (ISOS) {
+		er=::SetupDepthPeeling(geo[0], geo[1], ZLAYERS, 
+			textDepthPeeling, &peelingFramebuffer);
+		if (!er) {
+			eprintf("Error setting up DepthPeeling\n");
+			error=-407;
+		}
+
+
+		if (GL_NO_ERROR!=(e=PrepareISOTransShader (&TransP, 
+			&TransMatrixLoc, &BlendP)))
+		{
+			eprintf( "Error Preparing Transparency shader, %d\n", e );
+			error=-408;
+		}
+		SetupBlending(&BlendVAO, &BlendBuffer, &BlendIndices);
 		PrepareISOShader(&ISOP, &ISOMatrixLoc);
 
 		std::vector<float> vertices;
@@ -346,8 +376,11 @@ m_uploading->quit();
 
 void sceneManager::glDraw(glm::mat4 pvmat, glm::mat4 viewMat, int curDataPos,
 	const SelectedPoints& selectedPoints) {
-
 	GLenum err;
+
+if ((err = glGetError()) != GL_NO_ERROR) 
+	eprintf ("begin of glDraw, error %d\n", err);
+
        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
    	while ((err = glGetError()) != GL_NO_ERROR) {
    		std::cerr << "disp vor draw: "<<__FUNCTION__<<" OpenGL error " << err << std::endl;
@@ -384,6 +417,10 @@ if (has_abc) {
 
 if (ISOS)
 	RenderIsos(pvmat*st, curDataPos);
+
+
+if ((err = glGetError()) != GL_NO_ERROR) 
+	eprintf ("end of glDraw, error %d\n", err);
 
 }
 
@@ -523,8 +560,12 @@ int main(int argc, char** argv){
 
 	synchlib::renderNode* node = new synchlib::renderNode(file,argc, argv);
 
-    std::cout<<conf.m_wall_conf[ownIP.str()].wall_geo[0]<<"    "<<conf.m_wall_conf[ownIP.str()].wall_geo[1]<<std::endl;
-    ren->createWindow("NOMADCaveT",conf.m_wall_conf[ownIP.str()].wall_geo[0],conf.m_wall_conf[ownIP.str()].wall_geo[1]);
+const unsigned int geo[2]={static_cast<unsigned int>(conf.m_wall_conf[ownIP.str()].wall_geo[0]),
+	static_cast<unsigned int>(conf.m_wall_conf[ownIP.str()].wall_geo[1])};
+
+    std::cout<<geo[0]<<"    "<<geo[1]<<std::endl;
+
+    ren->createWindow("NOMADCaveT",geo[0],geo[1]);
 //http://stackoverflow.com/questions/8302625/segmentation-fault-at-glgenvertexarrays-1-vao
 	glewExperimental = GL_TRUE; 
     GLenum err = glewInit();
@@ -538,7 +579,7 @@ int main(int argc, char** argv){
 
 
 	{
-		sceneManager sceneM(ren,node, argv[4]);
+		sceneManager sceneM(ren,node, argv[4], geo);
 
 
 		std::shared_ptr<synchlib::SynchObject<int> > currentDataPosSyncher = synchlib::SynchObject<int>::create();
@@ -819,20 +860,46 @@ float t[16];
 for (int i=0;i<4;i++)
 	for (int j=0;j<4;j++)
 		t[j*4+i]=eyeViewProjection[j][i];
-glUseProgram(ISOP);
-glUniformMatrix4fv(ISOMatrixLoc, 1, GL_FALSE, t);
-if ((e = glGetError()) != GL_NO_ERROR)
-	eprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d\n", e);
+
 
 if (curDataPos!=ISOS) {
+	glDisable(GL_BLEND);
+	glUseProgram(ISOP);
+	glUniformMatrix4fv(ISOMatrixLoc, 1, GL_FALSE, t);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d\n", e);
 	glBindVertexArray(ISOVAO[m_oldTime*ISOS+curDataPos]);
 	glDrawElements(GL_TRIANGLES,numISOIndices[m_oldTime*ISOS+curDataPos] , GL_UNSIGNED_INT, 0);
-} else {
-	for (int i=0;i<ISOS;i++) {
-		glBindVertexArray(ISOVAO[m_oldTime*ISOS+i]);
-		glDrawElements(GL_TRIANGLES,numISOIndices[m_oldTime*ISOS+i] , GL_UNSIGNED_INT, 0);		
+} else {//transparency
+	glDisable(GL_BLEND);
+	glDepthMask(GL_TRUE);
+	//do depth peeling
+	CleanDepthTexture(textDepthPeeling[0]);
+	GLint dfb;
+	glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &dfb);
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("Gl error RenderIsos, before zl loop: %d\n", e);
+	for (int zl = 0; zl < ZLAYERS; zl++) {
+		EnableDepthFB(zl, TransP, 
+			peelingFramebuffer, textDepthPeeling);
+		glUniformMatrix4fv(TransMatrixLoc, 1, GL_FALSE, t);
+		for (int i=0;i<ISOS;i++) {
+			glBindVertexArray(ISOVAO[m_oldTime*ISOS+i]);
+			glDrawElements(GL_TRIANGLES,numISOIndices[m_oldTime*ISOS+i] , GL_UNSIGNED_INT, 0);	
+		}
 	}
+	glUseProgram(BlendP);
+	glBindFramebuffer(GL_FRAMEBUFFER, dfb);
+	glBindVertexArray(BlendVAO);
+	BlendTextures(textDepthPeeling, ZLAYERS);
+//old code for no transparency
+//	for (int i=0;i<ISOS;i++) {
+//		glBindVertexArray(ISOVAO[m_oldTime*ISOS+i]);
+//		glDrawElements(GL_TRIANGLES,numISOIndices[m_oldTime*ISOS+i] , GL_UNSIGNED_INT, 0);		
+//	}
 }
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("Gl error after RenderIsos: %d\n", e);
 }
 
 void sceneManager::RenderUnitCell(const glm::mat4 eyeViewProjection)

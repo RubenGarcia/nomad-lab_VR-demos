@@ -7,4 +7,6 @@
 
 #define PATHSIZE 256
 
+#define ZLAYERS 8
+
 #endif

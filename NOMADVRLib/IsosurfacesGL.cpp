@@ -239,7 +239,7 @@ GLenum PrepareISOShader (GLuint *p, GLint *mat) {
 return glGetError();
 }
 
-GLenum PrepareISOTransShader (GLuint *p, GLint *mat) {
+GLenum PrepareISOTransShader (GLuint *p, GLint *mat, GLuint *b) {
 	*p= CompileGLShader(
 		IsoTransparentShaders[SHADERNAME],
 		IsoTransparentShaders[SHADERVERTEX],
@@ -252,6 +252,12 @@ GLenum PrepareISOTransShader (GLuint *p, GLint *mat) {
 		eprintf( "Unable to find matrix uniform in ISO shader\n" );
 		
 	}
+	*b=CompileGLShader(
+		IsoBlendShaders[SHADERNAME],
+		IsoBlendShaders[SHADERVERTEX],
+		IsoBlendShaders[SHADERFRAGMENT],
+		IsoBlendShaders[SHADERTESSEVAL]
+		);
 return glGetError();
 }
 
@@ -388,6 +394,7 @@ GLenum SetupBlending (GLuint *vao, GLuint *vertex, GLuint *indices)
 
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("Gl error: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
+	glBindVertexArray(0);
 	return e;
 }
 
