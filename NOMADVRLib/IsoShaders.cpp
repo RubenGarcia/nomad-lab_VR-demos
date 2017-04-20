@@ -102,7 +102,7 @@ const char *const IsoTransparentShaders [] = {"Iso Transparent Renderer",
 	nullptr
 };
 
-const char *const IsoBlendShaders [] = {
+const char *const IsoBlendShaders [] = {"Iso Transparent Blend",
 // vertex shader
 #if defined(WIN32) || defined(CAVE)
 	"#version 410 core\n"
@@ -110,13 +110,13 @@ const char *const IsoBlendShaders [] = {
 	"#version 300 es\n"
 #endif
 	"uniform mat4 matrix;\n"
-	"layout(location = 0) in vec4 position;\n"
+	"layout(location = 0) in vec3 position;\n"
 	"layout(location = 1) in vec2 v2TexCoordsIn;\n"
 	"out vec2 v2TexCoord;\n"
 	"void main()\n"
 	"{\n"
 	"	v2TexCoord = v2TexCoordsIn;\n"
-	"	gl_Position = matrix * vec4(position.xyz, 1);\n"
+	"	gl_Position = matrix * vec4(position, 1);\n"
 	"}\n",
 	//fragment shader
 	"#version 410 core\n"
