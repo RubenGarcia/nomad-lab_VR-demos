@@ -30,5 +30,7 @@ bool SetupDepthPeeling(int renderWidth, int renderHeight, int zlayers, GLuint *t
 void CleanDepthTexture (GLuint t);
 GLenum EnableDepthFB(unsigned int zl, const GLuint transP, 
 	const GLuint peelingFramebuffer, const GLuint *texture /*[2+ZLAYERS]*/);
+void DeleteBlendingBuffers(GLuint *vao, GLuint *vertex, GLuint *indices);
+void BlendTextures(GLuint *textures, int zlayers);
 #endif
 #endif // __ISOSURFACESGL_H

@@ -2194,19 +2194,13 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 			if ((e = glGetError()) != GL_NO_ERROR)
 				dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
 			
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-			for (int zl = ZLAYERS - 1; zl >= 0; zl--) {
-				glBindTexture(GL_TEXTURE_2D, m_iTexture[3+zl]);
-				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-			}
+			BlendTextures(m_iTexture + 1, ZLAYERS);
 
 			if ((e = glGetError()) != GL_NO_ERROR)
 				dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
-			glDeleteBuffers(1, &testBuf);
-			glDeleteBuffers(1, &indexBufferID);
-			glDeleteVertexArrays(1, &myvao);
+
+			DeleteBlendingBuffers(&myvao, &testBuf, &indexBufferID);
+			
 			if ((e = glGetError()) != GL_NO_ERROR)
 				dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
 			glUseProgram(0);

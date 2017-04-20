@@ -349,14 +349,17 @@ return glGetError();
 
 GLenum SetupBlending (GLuint *vao, GLuint *vertex, GLuint *indices)
 {
+	GLenum e;
 	float z = 0.0f; //(m_fNearClip + m_fFarClip) / 2.0f;
 	const float points[] = {
 		-1, -1, z, 0, 0,
 		-1, 1, z, 0, 1,
 		1, 1, z, 1, 1,
 		1, -1, z, 1, 0 };
-	glGenVertexArrays(1, myvao);
-	glBindVertexArray(*myvao);
+	const GLuint iData[] = { 0, 1, 2,
+		2, 3, 0 };
+	glGenVertexArrays(1, vao);
+	glBindVertexArray(*vao);
 	glGenBuffers(1, vertex);
 	glBindBuffer(GL_ARRAY_BUFFER, *vertex);
 	glBufferData(GL_ARRAY_BUFFER, 4 * 5 * sizeof(GLfloat), points, GL_STATIC_DRAW);
@@ -375,10 +378,10 @@ GLenum SetupBlending (GLuint *vao, GLuint *vertex, GLuint *indices)
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("Gl error: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
 
-	glGenBuffers(1, index);
+	glGenBuffers(1, indices);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("Gl error: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *index);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *indices);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("Gl error: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(iData), iData, GL_STATIC_DRAW);
@@ -395,12 +398,12 @@ void DeleteBlendingBuffers(GLuint *vao, GLuint *vertex, GLuint *indices)
 	glDeleteVertexArrays(1, vao);
 }
 
-void BlendTextures(GLuint textures)
+void BlendTextures(GLuint *textures, int zlayers)
 {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	for (int zl = ZLAYERS - 1; zl >= 0; zl--) {
+	for (int zl = zlayers - 1; zl >= 0; zl--) {
 		glBindTexture(GL_TEXTURE_2D, textures[2 + zl]);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	}
