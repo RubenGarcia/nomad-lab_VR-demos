@@ -17,7 +17,7 @@ int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float *
 int readAtomsCube(const char *const file, int **numatoms, int *timesteps, float ***pos);
 int readAtomsJson (const char *const file, int **numatoms, int *timesteps, float ***pos, float abc[3][3],  std::vector<float>** clonedAtoms, const char *const token=0);
 int readAtomsJsonURL (const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3],  std::vector<float>** clonedAtoms, const char *const token=0);
-#if defined(WIN32)
+#if defined(WIN32) || defined(CAVE)
 int readAtomsJsonURLwget (const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3],  std::vector<float>** clonedAtoms, const char *const token=0);
 #endif
 const float MISSINGRADIUS=0.2f;
