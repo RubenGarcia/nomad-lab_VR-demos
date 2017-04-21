@@ -408,20 +408,20 @@ int readAtomsJsonURLwget (const char *const f, int **numatoms, int *timesteps, f
 char cmd[2048];
 int ret;
 if (token)
-	sprintf (cmd, "wget --no-check-certificate --header \"Authorization:Basic %s\" %s/cells?pagination=off -O %s/material_cells.json", token, f, TMPDIR);
+	sprintf (cmd, "wget --no-check-certificate --header \"Authorization:Basic %s\" %s/cells?pagination=off -O %smaterial_cells.json", token, f, TMPDIR);
 else
-	sprintf (cmd, "wget %s/cells?pagination=off -O %s/material_cells.json", f, TMPDIR);
+	sprintf (cmd, "wget %s/cells?pagination=off -O %smaterial_cells.json", f, TMPDIR);
 ret=system(cmd);
 if (ret!=0) 
 	return (-3);
 if (token)
-	sprintf (cmd, "wget --no-check-certificate --header \"Authorization:Basic %s\" %s/elements?pagination=off -O %s/material_elements.json", token, f, TMPDIR);
+	sprintf (cmd, "wget --no-check-certificate --header \"Authorization:Basic %s\" %s/elements?pagination=off -O %smaterial_elements.json", token, f, TMPDIR);
 else
-	sprintf (cmd, "wget %s/elements?pagination=off -O %s/material_elements.json", f, TMPDIR);
+	sprintf (cmd, "wget %s/elements?pagination=off -O %smaterial_elements.json", f, TMPDIR);
 ret=system(cmd);
 if (ret!=0) 
 	return(-3);
-sprintf (cmd, "%s/material", TMPDIR);
+sprintf (cmd, "%smaterial", TMPDIR);
 return readAtomsJson (cmd, numatoms, timesteps, pos, abc, clonedAtoms, token);
 }
 #endif

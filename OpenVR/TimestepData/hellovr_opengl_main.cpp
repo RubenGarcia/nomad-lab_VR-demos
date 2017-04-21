@@ -266,6 +266,7 @@ private: // OpenGL bookkeeping
 	GLuint m_unRenderModelProgramID;
 	GLuint m_unAtomsProgramID;
 	GLuint m_unUnitCellProgramID;
+	GLuint m_unBlendingProgramID;
 
 	GLint m_nSceneMatrixLocation;
 	GLint m_nBlendingIntLocation;
@@ -1089,7 +1090,7 @@ void CMainApplication::RenderFrame()
 //-----------------------------------------------------------------------------
 bool CMainApplication::CreateAllShaders()
 {
-	if (GL_NO_ERROR!=PrepareISOTransShader (&m_unSceneProgramID, &m_nSceneMatrixLocation))
+	if (GL_NO_ERROR!=PrepareISOTransShader (&m_unSceneProgramID, &m_nSceneMatrixLocation, &m_unBlendingProgramID))
 	{
 		dprintf( "Error Preparing Transparency shader\n" );
 		return false;
@@ -2666,6 +2667,7 @@ char * MainErrors [] = {
 };
 int main(int argc, char *argv[])
 {
+	TMPDIR=".\\";
 	//http://stackoverflow.com/questions/4991967/how-does-wsastartup-function-initiates-use-of-the-winsock-dll
 	WSADATA wsaData;
     if(WSAStartup(0x202, &wsaData) != 0)
