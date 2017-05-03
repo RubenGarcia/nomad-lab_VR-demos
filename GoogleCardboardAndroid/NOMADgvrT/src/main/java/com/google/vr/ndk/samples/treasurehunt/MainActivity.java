@@ -102,7 +102,7 @@ public static void verifyStoragePermissions(Activity activity) {
 				java.io.FileOutputStream output = new java.io.FileOutputStream(uriString);
 				try{
 					int bytesRead;
-					while((bytesRead = input.read()) != -1){
+					while((bytesRead = input.read(buffer)) != -1){
 						output.write(buffer, 0, bytesRead);
 					}
 				} catch (Exception e) {
