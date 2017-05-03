@@ -13,7 +13,7 @@ const char * const AtomShaders [] = {
 #if defined(WIN32) || defined(CAVE)
 	"#version 410\n"
 #else
-"#version 310 es\n"
+"#version 300 es\n"
 #endif
 	"uniform sampler2D atomData;\n"
 	"layout(location = 0) in vec3 center;\n"
@@ -33,7 +33,7 @@ const char * const AtomShaders [] = {
 #if defined(WIN32) || defined(CAVE)
 	"#version 410 core\n"
 #else
-"#version 310 es\n"
+"#version 300 es\n"
 #endif
 	"in lowp vec4 color;\n"
 //	"in highp vec3 vertex;"
@@ -90,7 +90,7 @@ const char * const AtomShadersNoTess [] = {
 #if defined(WIN32) || defined(CAVE)
 	"#version 410\n"
 #else
-"#version 310 es\n"
+"#version 300 es\n"
 #endif
 	"uniform sampler2D atomData;\n"
 	"uniform mat4 matrix;\n"
@@ -114,7 +114,7 @@ const char * const AtomShadersNoTess [] = {
 #if defined(WIN32) || defined(CAVE)
 	"#version 410 core\n"
 #else
-"#version 310 es\n"
+"#version 300 es\n"
 #endif
 	"in lowp vec4 color;\n"
 	"in highp vec3 vertex;"
