@@ -5,7 +5,8 @@
     android:versionName="1.20.0">
 
   <!-- The GVR SDK requires API 19+ and OpenGL ES 2+. -->
-  <uses-sdk android:minSdkVersion="19" android:targetSdkVersion="24" />
+  <!--https://inthecheesefactory.com/blog/how-to-share-access-to-file-with-fileprovider-on-android-nougat/en-->
+  <uses-sdk android:minSdkVersion="19" android:targetSdkVersion="23" />
   <uses-feature android:glEsVersion="0x00030000" android:required="true" />
 
   <!-- Required for vibration feedback when the trigger action is performed. -->
@@ -26,7 +27,7 @@
 
   <application
       android:allowBackup="true"
-      android:label="MainActivity"
+      android:label="NOMADgvrT"
       android:theme="@style/VrActivityTheme">
     <activity
         android:name=".MainActivity"
@@ -59,22 +60,30 @@
         <category android:name="com.google.intent.category.CARDBOARD" />
       </intent-filter>
 			<!--Test opening a NOMAD url-->
-			<intent-filter>
+			<intent-filter android:label="@string/app_name">
 				<action android:name="android.intent.action.VIEW" />
 				<category android:name="android.intent.category.DEFAULT" />
 				<category android:name="android.intent.category.BROWSABLE" />
+				<category android:name="android.intent.category.ALTERNATIVE" />
 				<data android:scheme="file" />
+				<data android:scheme="content" />
 				<data android:mimeType="*/*" />
 				<data android:pathPattern=".*\\.ncfg" />
 				<data android:host="*" />
 			</intent-filter>
-			<intent-filter>
+			<intent-filter android:label="@string/app_name">
 				<action android:name="android.intent.action.VIEW"/>
 				<category android:name="android.intent.category.BROWSABLE"/>
 				<category android:name="android.intent.category.DEFAULT"/>
 				<data android:scheme="content" android:pathPattern=".*\\.ncfg" 
 					  android:mimeType="application/octet-stream"/>
 			</intent-filter>
+			<intent-filter android:label="@string/app_name">
+   				<action android:name="android.intent.action.SEND" />
+				<category android:name="android.intent.category.DEFAULT" />
+				<data android:scheme="content" android:pathPattern=".*\\.ncfg"  android:mimeType="*/*" />
+			</intent-filter>
+<!--http://stackoverflow.com/questions/3760276/android-intent-filter-associate-app-with-file-extension-->
     </activity>
   </application>
 </manifest>
