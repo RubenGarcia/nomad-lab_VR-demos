@@ -25,13 +25,21 @@ GLenum PrepareGLiso (GLuint vao, GLuint vertbuffer, const std::vector<float> &ve
 GLenum SetupBlending (GLuint *vao, GLuint *vertex, GLuint *indices);
 GLenum PrepareISOShader (GLuint *p, GLint *mat);
 GLenum PrepareISOTransShader (GLuint *p, GLint *mat, GLuint *b);
-#if defined(WIN32) || defined (CAVE)
+//#if defined(WIN32) || defined (CAVE)
 bool SetupDepthPeeling(int renderWidth, int renderHeight, int zlayers, GLuint *textures /*[zlayers+2 (2 depth, zlayers colour)]*/,
 					   GLuint *peelingFramebuffer);
 void CleanDepthTexture (GLuint t);
+
+
+#if defined(WIN32) || defined(CAVE)
+void CleanDepthTexture (GLuint t);
+#else
+void CleanDepthTexture (GLuint t, int width, int height);
+#endif
+
 GLenum EnableDepthFB(unsigned int zl, const GLuint transP, 
 	const GLuint peelingFramebuffer, const GLuint *texture /*[2+ZLAYERS]*/);
 void DeleteBlendingBuffers(GLuint *vao, GLuint *vertex, GLuint *indices);
 void BlendTextures(GLuint *textures, int zlayers);
-#endif
+//#endif
 #endif // __ISOSURFACESGL_H

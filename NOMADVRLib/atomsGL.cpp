@@ -200,7 +200,7 @@ if (!solid) {
 
 	delete[] tmp;
 	delete[] tmpi;
-
+	glBindVertexArray(0);
 	return e;
 } //SetupAtomsNoTess
 

@@ -262,14 +262,14 @@ return glGetError();
 }
 
 //code not opengl es ready yet
-#if defined(WIN32) || defined (CAVE)
+//#if defined(WIN32) || defined (CAVE)
 bool SetupDepthPeeling(int renderWidth, int renderHeight, int zlayers, GLuint *textures /*[zlayers+2 (2 depth, zlayers colour)]*/,
 					   GLuint *peelingFramebuffer) 
 {
 	//https://www.opengl.org/wiki/Common_Mistakes
 	//Until this is resolved in NVIDIA's drivers, it is advised to make sure that all textures have mipmap levels, and that all glTexParameteri​ 
 	//values are properly set up for the format of the texture. For example, integral textures are not complete if the mag and min filters have any LINEAR fields.
-
+	//eprintf ("SetupDepthPeeling, w %d, h %d\n", renderWidth, renderHeight);
 	GLenum e;
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("opengl error %d, start SetupDepthPeeling\n", e);
@@ -282,13 +282,19 @@ bool SetupDepthPeeling(int renderWidth, int renderHeight, int zlayers, GLuint *t
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("opengl error %d, SetupDepthPeeling a\n", e);
+#if defined(WIN32) || defined(CAVE)
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, renderWidth, renderHeight, 0, 
 			GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
+#else // 32 unsupported in GLES 3.0
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, renderWidth, renderHeight, 0, 
+			GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+#endif
 
 		if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("opengl error %d, SetupDepthPeeling b\n", e);
 
-		CleanDepthTexture(textures[i]);
+		//cleaned at each frame
+		CleanDepthTexture(textures[i], renderWidth, renderHeight);
 
 		if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("opengl error %d, SetupDepthPeeling c\n", e);
@@ -321,6 +327,8 @@ bool SetupDepthPeeling(int renderWidth, int renderHeight, int zlayers, GLuint *t
 	return (e == GL_NO_ERROR);
 }
 
+//glClearTexImage available in OpenGL but not OpenGL ES
+#if defined(WIN32) || defined(CAVE)
 void CleanDepthTexture (GLuint t)
 {
 int e;
@@ -328,9 +336,25 @@ GLuint clearColor = 0;
 //glBindTexture(GL_TEXTURE_2D, t);
 glClearTexImage(t, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, &clearColor);
 if ((e = glGetError()) != GL_NO_ERROR)
-	eprintf("Gl error after glClearTexImage: %d, %s\n", e, gluErrorString(e));
+	eprintf("Gl error after glClearTexImage: %d\n", e);
 
 }
+#else
+void CleanDepthTexture (GLuint t, int width, int height)
+{
+//eprintf ("CleanDepthTexture, t %d, w %d, h %d\n", t, width, height);
+GLenum e;
+const std::vector<float> z(width * height * 4, 0.0f);
+glBindTexture(GL_TEXTURE_2D, t);
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("CleanDepthTexture: Gl error after glBindTexture: %d\n", e);
+//rgh FIXME: invalid operation here:
+glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, z.data());
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("CleanDepthTexture: Gl error after glTexSubImage2D: %d\n", e);
+
+}
+#endif
 
 GLenum EnableDepthFB(unsigned int zl, const GLuint transP, 
 	const GLuint peelingFramebuffer, const GLuint *texture /*[2+ZLAYERS]*/) 
@@ -338,18 +362,46 @@ GLenum EnableDepthFB(unsigned int zl, const GLuint transP,
 GLenum e;
 glUseProgram(transP);
 if ((e = glGetError()) != GL_NO_ERROR) {
-	eprintf("Gl error after useprogram: %d, %s\n", e, gluErrorString(e));
+	eprintf("EnableDepthFB: Gl error after useprogram %d: %d\n", transP, e);
 	return e;
 }
 glBindFramebuffer(GL_FRAMEBUFFER, peelingFramebuffer);
+if ((e = glGetError()) != GL_NO_ERROR) {
+	eprintf("EnableDepthFB: Gl error after glBindFramebuffer: %d\n", e);
+	return e;
+}
 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 
 	texture[2 + zl], 0);
+if ((e = glGetError()) != GL_NO_ERROR) {
+	eprintf("EnableDepthFB: Gl error after glFramebufferTexture2D color: %d\n", e);
+	return e;
+}
 glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, 
 	texture[1-zl%2], 0);
+if ((e = glGetError()) != GL_NO_ERROR) {
+	eprintf("EnableDepthFB: Gl error after glFramebufferTexture2D depth: %d\n", e);
+	return e;
+}
 glBindTexture(GL_TEXTURE_2D, texture[zl%2]);
+if ((e = glGetError()) != GL_NO_ERROR) {
+	eprintf("EnableDepthFB glBindTexture: Gl error %d\n", e);
+	return e;
+}
 glClearColor(BACKGROUND[0], BACKGROUND[1], BACKGROUND[2], 1);
+if ((e = glGetError()) != GL_NO_ERROR) {
+	eprintf("EnableDepthFB glClearColor: Gl error %d\n", e);
+	return e;
+}
 glDepthMask(GL_TRUE);
+if ((e = glGetError()) != GL_NO_ERROR) {
+	eprintf("EnableDepthFB glDepthMask: Gl error %d\n", e);
+	return e;
+}
 glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+if ((e = glGetError()) != GL_NO_ERROR) {
+	eprintf("EnableDepthFB end: Gl error %d\n", e);
+	return e;
+}
 return glGetError();
 }
 
@@ -370,30 +422,30 @@ GLenum SetupBlending (GLuint *vao, GLuint *vertex, GLuint *indices)
 	glBindBuffer(GL_ARRAY_BUFFER, *vertex);
 	glBufferData(GL_ARRAY_BUFFER, 4 * 5 * sizeof(GLfloat), points, GL_STATIC_DRAW);
 	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("Gl error after glBufferData: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
+		eprintf("Gl error after glBufferData: %d,  l %d\n", e, __LINE__);
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 	glDisableVertexAttribArray(2);
 	glDisableVertexAttribArray(3);
 	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("Gl error: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
+		eprintf("Gl error: %d, l %d\n", e, __LINE__);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
 	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("Gl error: %d, %s, l %d\n", e, gluErrorString(e), __LINE__); 
+		eprintf("Gl error: %d, l %d\n", e,  __LINE__); 
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("Gl error: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
+		eprintf("Gl error: %d, l %d\n", e,  __LINE__);
 
 	glGenBuffers(1, indices);
 	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("Gl error: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
+		eprintf("Gl error: %d, l %d\n", e,  __LINE__);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *indices);
 	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("Gl error: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
+		eprintf("Gl error: %d, l %d\n", e,  __LINE__);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(iData), iData, GL_STATIC_DRAW);
 
 	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("Gl error: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
+		eprintf("Gl error: %d, l %d\n", e, __LINE__);
 	glBindVertexArray(0);
 	return e;
 }
@@ -407,12 +459,19 @@ void DeleteBlendingBuffers(GLuint *vao, GLuint *vertex, GLuint *indices)
 
 void BlendTextures(GLuint *textures, int zlayers)
 {
+GLenum e;
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("Gl error BlendTextures begin: %d\n", e);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	for (int zl = zlayers - 1; zl >= 0; zl--) {
 		glBindTexture(GL_TEXTURE_2D, textures[2 + zl]);
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("Gl error BlendTextures glBindTexture: %d\n", e);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("Gl error BlendTextures glDrawElements: %d\n", e);
 	}
 }
-#endif
+//#endif
