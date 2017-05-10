@@ -458,7 +458,7 @@ int readAtomsJson (const char *const f, int **numatoms, int *timesteps, float **
 	fclose(fcells);
 
 	int total_results;
-	if (json.HasMember("total_results") && json["total_results"].IsInt())
+	if (!json.HasParseError() && json.HasMember("total_results") && json["total_results"].IsInt())
 		total_results=json["total_results"].GetInt();
 	else
 		return -2;
