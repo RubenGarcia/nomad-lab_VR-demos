@@ -163,6 +163,11 @@ float atomColours[][4] =
 {MISSINGR, MISSINGG, MISSINGB, MISSINGRADIUS},//Og
 };
 
+float atomRadius (int i)
+{
+	return atomColours[i][3];
+}
+
 void discardline (FILE *F)
 {
 int c;
@@ -173,9 +178,19 @@ do {
 
 int findAtom(const char *const s)
 {
+	//discard number at end
+	char x[10];
+	char *p=x; 
+	const char *q=s;
+	while (*q!=0) {
+		if (*q >='0' && *q <= '9')
+			break;
+		*p++=*q++;
+	}
+	*p=0;
 	//rgh FIXME, add caching
 	for (unsigned int i=0;i<sizeof(atomNames)/sizeof(const char *);i++)
-		if (!strcmp(s, atomNames[i]))
+		if (!strcmp(x, atomNames[i]))
 			return i;
 	return -1;
 }
@@ -215,8 +230,11 @@ int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float *
 			if (r<4)
 				return -2;
 			int a=findAtom(s);
-			if (a==-1)
-				return -3;
+			if (a==-1) {
+				eprintf ("Read atoms xyz, atom type unknown: %s", s);
+				a=83; //rgh fixme, this is unknown, unknown unknown, make a real unknown at the end.
+				//return -3;
+			}
 			(mypos.back())[4*i+3]=(float)a;
 		}
 	}

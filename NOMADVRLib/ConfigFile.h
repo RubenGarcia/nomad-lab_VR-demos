@@ -17,6 +17,8 @@ extern int* numAtoms; //[timesteps]
 extern float **atoms; //[timesteps][numAtoms[i]*4] //xyzu, u=atom number
 extern float atomScaling;
 extern std::vector<float> *clonedAtoms;
+extern std::vector<int> bonds;
+extern int *numBonds;
 extern int numClonedAtoms;
 extern int *basisvectorreps;
 

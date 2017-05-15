@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -29,7 +29,7 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -42,7 +42,7 @@
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -178,6 +178,7 @@
     <ClCompile Include="NOMADVRLib\atomsGL.cpp" />
     <ClCompile Include="NOMADVRLib\CompileGLShader.cpp" />
     <ClCompile Include="NOMADVRLib\ConfigFile.cpp" />
+    <ClCompile Include="NOMADVRLib\Grid.cpp" />
     <ClCompile Include="NOMADVRLib\IsoShaders.cpp" />
     <ClCompile Include="NOMADVRLib\IsosurfacesGL.cpp" />
     <ClCompile Include="NOMADVRLib\polyhedron.cpp" />
@@ -197,6 +198,7 @@
     <ClInclude Include="NOMADVRLib\CompileGLShader.h" />
     <ClInclude Include="NOMADVRLib\ConfigFile.h" />
     <ClInclude Include="NOMADVRLib\eprintf.h" />
+    <ClInclude Include="NOMADVRLib\Grid.h" />
     <ClInclude Include="NOMADVRLib\IsoShaders.h" />
     <ClInclude Include="NOMADVRLib\IsosurfacesGL.h" />
     <ClInclude Include="NOMADVRLib\MyGL.h" />

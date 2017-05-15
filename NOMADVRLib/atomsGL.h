@@ -4,7 +4,7 @@
 #include "MyGL.h"
 
 GLenum atomTexture(GLuint t);
-GLenum SetupAtoms(GLuint **AtomVAO, GLuint **AtomVertBuffer);
+GLenum SetupAtoms(GLuint **AtomVAO, GLuint **AtomVertBuffer, GLuint *BondIndices);
 GLenum SetupAtomsNoTess (GLuint **AtomVAO, GLuint **AtomVertBuffer, GLuint **AtomIndexBuffer);
 GLenum SetupUnitCell(GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *UnitCellIndexBuffer);
 

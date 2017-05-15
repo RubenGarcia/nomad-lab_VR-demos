@@ -8,6 +8,7 @@
 #include "ConfigFile.h"
 #include "CompileGLShader.h"
 #include "polyhedron.h"
+#include "Grid.h"
 
 GLenum atomTexture(GLuint t)
 {
@@ -39,7 +40,9 @@ GLenum atomTexture(GLuint t)
 //WARNING: This should be called after SetupAtoms
 //This means that numAtoms now has the cummulative distribution!
 //This should be called after the atom texture is prepared, and therefore has the atomscaling pre-multiplied
-GLenum SetupAtomsNoTess (GLuint **AtomVAO, GLuint **AtomVertBuffer, GLuint **AtomIndexBuffer)
+GLenum SetupAtomsNoTess (GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer/*[2]*/, GLuint **AtomIndexBuffer/*[3]*/)
+	//atoms, cloned atoms
+	//rgh: FIXME: add AtomVAO[2] for atom trajectories
 {
 	//eprintf ("SetupAtomsNoTess 1");
 if (!numAtoms)
@@ -59,11 +62,11 @@ if (!solid) {
 	int totalatoms=numAtoms[TIMESTEPS-1];
 	
 //eprintf ("SetupAtomsNoTess 2");
-	*AtomVAO = new GLuint[2]; //atoms, cloned atoms
-	*AtomIndexBuffer= new GLuint[2];
-	*AtomVertBuffer = new GLuint[2];
+	*AtomVAO = new GLuint[3]; //atoms, cloned atoms, bonds
+	*AtomIndexBuffer= new GLuint[3];//atoms, cloned atoms, bonds
+	*AtomVertBuffer = new GLuint[2];//atoms, cloned atoms
 
-	glGenVertexArrays(2, *AtomVAO);
+	glGenVertexArrays(3, *AtomVAO);
 	glGenBuffers(2, *AtomIndexBuffer);
 	glGenBuffers(2, *AtomVertBuffer);
 //eprintf ("SetupAtomsNoTess 3");
@@ -93,7 +96,7 @@ if (!solid) {
 	for (int p=0;p<TIMESTEPS;p++) {
 		for (int a = 0; a < numAtoms[p]-(p==0?0:numAtoms[p-1]); a++) {
 			const int atomNumber = static_cast<int>(atoms[p][4 * a + 3]);
-			const float radius = atomColours[atomNumber][3]*atomScaling;
+			const float radius = atomRadius(atomNumber)*atomScaling;
 			for (int i = 0; i < solid->nVerts; i++) { //verts
 				for (int k = 0; k < 3; k++) {
 					*current++ = solid->Verts[3 * i + k]* radius +atoms[p][4 * a + k]; //pos
@@ -152,7 +155,7 @@ if (!solid) {
 
 	for (int a = 0; a < numClonedAtoms; a++) {
 		const int atomNumber = static_cast<int>(clonedAtoms[0][4 * a + 3]);
-		const float radius = atomColours[atomNumber][3]*atomScaling;
+		const float radius = atomRadius(atomNumber)*atomScaling;
 		for (int i = 0; i < solid->nVerts; i++) { //verts
 				for (int k = 0; k < 3; k++) {
 					*current++ = solid->Verts[3 * i + k]* radius +clonedAtoms[0][4 * a + k]; //pos
@@ -200,15 +203,16 @@ if (!solid) {
 
 	delete[] tmp;
 	delete[] tmpi;
+
 	glBindVertexArray(0);
 	return e;
 } //SetupAtomsNoTess
 
 
-GLenum SetupAtoms(GLuint **AtomVAO, GLuint **AtomVertBuffer)
+GLenum SetupAtoms(GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer /*[2]*/, GLuint *BondIndices)
 {
 	if (!numAtoms)
-		return 0;
+		return glGetError();
 	//rgh FIXME: put this all in the same vao
 	
 	//http://prideout.net/blog/?p=48 //public domain code
@@ -221,10 +225,12 @@ GLenum SetupAtoms(GLuint **AtomVAO, GLuint **AtomVertBuffer)
 	}
 	eprintf("SetupAtoms: totalatoms=%d", totalatoms);
 
-	*AtomVAO = new GLuint[2]; //atoms, cloned atoms
+	*AtomVAO = new GLuint[3]; //atoms, cloned atoms, bonds
 	*AtomVertBuffer = new GLuint[2];
-	glGenVertexArrays(2, *AtomVAO);
+
+	glGenVertexArrays(3, *AtomVAO);
 	glGenBuffers(2, *AtomVertBuffer);
+	glGenBuffers(1, BondIndices);
 
 	glBindVertexArray((*AtomVAO)[0]);
 	glBindBuffer(GL_ARRAY_BUFFER, (*AtomVertBuffer)[0]);
@@ -233,26 +239,84 @@ GLenum SetupAtoms(GLuint **AtomVAO, GLuint **AtomVertBuffer)
 	glEnableVertexAttribArray(1);
 	glDisableVertexAttribArray(2);
 	glDisableVertexAttribArray(3);
+
+	e=glGetError();
+	if (e!=GL_NO_ERROR)
+		eprintf ("gl error %d, %s %d", e, __FILE__, __LINE__);
 	float *tmp = new float[4 * totalatoms];
 	float *current=tmp;
+	
+	const int atomlimit=30;
+
+	numBonds=new int[TIMESTEPS];
 	for (int p=0;p<TIMESTEPS;p++) {
 
-		for (int a = 0; a < numAtoms[p]; a++) {
-			for (int k = 0; k < 4; k++) {
-				*current++ = atoms[p][4 * a + k];
+			for (int a = 0; a < numAtoms[p]; a++) {
+				for (int k = 0; k < 4; k++) {
+					*current++ = atoms[p][4 * a + k];
+				}
+			} //a
+
+		if (numAtoms[0]<atomlimit) {
+		//eprintf ("searching bonds basic");
+		//bonds FIXME quadractic complexity	
+				for (int a1=0; a1 < numAtoms[p]; a1++) {
+					for (int a2=a1+1; a2 < numAtoms[p]; a2++) {
+						float d=0, r;
+						for (int k=0;k<3;k++) {
+							float dif=atoms[p][4 * a1 + k]-atoms[p][4 * a2 + k];
+							d+=dif*dif;
+						}
+						r=atomRadius(static_cast<int>(atoms[p][4 * a1 + 3]))+
+							atomRadius(static_cast<int>(atoms[p][4 * a2 + 3]));
+						if (d*0.9f<r*r) {// bond
+							bonds.push_back(a1+(p==0?0:numAtoms[p-1]));
+							bonds.push_back(a2+(p==0?0:numAtoms[p-1]));
+						}
+					}
+				}
+		} else { //more than 30 atoms, try grid optimization
+		//eprintf ("searching bonds grid");
+
+			float m[3];
+			float M[3];
+			for (int k=0; k<3;k++) {
+				m[k]=M[k]=tmp[k];
 			}
-		} //a
+			for (int a = 1; a < numAtoms[p]; a++) {
+				for (int k=0; k<3;k++) {
+					if (m[k]>tmp[4*a+k])
+						m[k]=tmp[4*a+k];
+					if (M[k]<tmp[4*a+k])
+						M[k]=tmp[4*a+k];
+				}
+			}
+			grid g(m, M, pow(numAtoms[p], 1.0/3), 0.9f);
+			for (int a = 1; a < numAtoms[p]; a++) 
+				g.add(tmp+4*a);
+			for (int a = 0; a < numAtoms[p]; a++) {
+				std::vector<float*> found=g.find(tmp+4*a);
+				for (int b=0;b<found.size();b++) {
+					//if (found[b] < tmp+4*a) // already got this bound
+					//	continue;
+					bonds.push_back(a+(p==0?0:numAtoms[p-1]));
+					bonds.push_back(((found[b]-tmp)/4)+(p==0?0:numAtoms[p-1]));
+				}
+			}
+		}
+		numBonds[p]=bonds.size();
 		if (p!=0)
 			numAtoms[p]+=numAtoms[p-1];
 	} //p
+
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
 	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(3 * sizeof(float)));
 	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * totalatoms * 4 , tmp,
-			GL_STATIC_DRAW);
-		if ((e = glGetError()) != GL_NO_ERROR)
-			eprintf( "opengl error %d, glBufferData, l %d\n", e, __LINE__);
+		GL_STATIC_DRAW);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf( "opengl error %d, glBufferData, l %d\n", e, __LINE__);
 
-		glBindVertexArray(0);
+	glBindVertexArray(0);
 
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf( "opengl error %d, end of SetupAtoms, l %d\n", e, __LINE__);
@@ -273,20 +337,32 @@ GLenum SetupAtoms(GLuint **AtomVAO, GLuint **AtomVertBuffer)
 			atomtrajectoryrestarts[t].push_back(0);
 			for (int p=1;p<TIMESTEPS;p++) {
 				int a=atomtrajectories[t];
-				if (fabs(atoms[p][a*4+0]-atoms[p-1][a*4+0])+
-					fabs(atoms[p][a*4+1]-atoms[p-1][a*4+1])+
-					fabs(atoms[p][a*4+2]-atoms[p-1][a*4+2])>max)
-						atomtrajectoryrestarts[t].push_back(p);
+				if (has_abc)
+					if (fabs(atoms[p][a*4+0]-atoms[p-1][a*4+0])+
+						fabs(atoms[p][a*4+1]-atoms[p-1][a*4+1])+
+						fabs(atoms[p][a*4+2]-atoms[p-1][a*4+2])>max)
+							atomtrajectoryrestarts[t].push_back(p);
 			}
 			atomtrajectoryrestarts[t].push_back(TIMESTEPS);
 		}
 	}
 	delete[] tmp;
+	//bonds
+	glBindVertexArray((*AtomVAO)[2]);
+	glBindBuffer(GL_ARRAY_BUFFER, (*AtomVertBuffer)[0]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *BondIndices);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int)*bonds.size(), bonds.data(), GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
+	glEnableVertexAttribArray(0);
+	glBindVertexArray(0);
+
+	e=glGetError();
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf( "opengl error %d, creating chemical bonds, l %d\n", e, __LINE__);
 
 	//now clones
 	if (basisvectorreps ||!clonedAtoms) //do not replicate
 		return e;
-
 
 
 	glBindVertexArray((*AtomVAO)[1]); //rgh FIXME, only works for TIMESTEPS=1
@@ -309,9 +385,11 @@ GLenum SetupAtoms(GLuint **AtomVAO, GLuint **AtomVertBuffer)
 
 GLenum SetupUnitCell(GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *UnitCellIndexBuffer)
 {
-	if (!has_abc)
-		return 0;
 	GLenum e;
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf( "opengl error %d, begin of SetupUnitCell\n", e, __LINE__);
+	if (!has_abc)
+		return e;
 	glGenVertexArrays(1, UnitCellVAO);
 	glGenBuffers(1, UnitCellVertBuffer);
 	glGenBuffers(1, UnitCellIndexBuffer);
@@ -356,10 +434,11 @@ GLenum SetupUnitCell(GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *Un
 	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3*8 , tmp,
 			GL_STATIC_DRAW);
 	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf( "opengl error %d, glBufferData, l %d\n", e, __LINE__);
+		eprintf( "opengl error %d, glBufferData vertex, l %d\n", e, __LINE__);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (const void *)(0));
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(tmpi), tmpi, GL_STATIC_DRAW);
-
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf( "opengl error %d, glBufferData index, l %d\n", e, __LINE__);
 	return e;
 }
 

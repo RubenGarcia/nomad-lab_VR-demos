@@ -21,6 +21,8 @@ int* numAtoms; //[timesteps]
 float **atoms; //[timesteps][numAtoms[i]*4] //xyzu, u=atom number
 float atomScaling;
 std::vector<float> *clonedAtoms;
+std::vector<int> bonds;
+int *numBonds;
 int numClonedAtoms;
 int *basisvectorreps;
 
@@ -127,6 +129,7 @@ int loadConfigFile(const char * f)
 	numAtoms=0;
 	atomScaling=1;
 	clonedAtoms=0;
+	bonds.clear();
 	showTrajectories = false;
 	basisvectorreps=0;
 	numClonedAtoms=0;
@@ -396,6 +399,11 @@ int loadConfigFile(const char * f)
 		for (int i=0;i<*numAtoms;i++)
 			atomtrajectories.push_back(i);
 	}
+
+	//chemical bonds
+	//if (numAtoms) {
+	//}
+
 	//eprintf ("Before returning, numatoms 0 =%d", numAtoms[0]);
 	return 0;
 }

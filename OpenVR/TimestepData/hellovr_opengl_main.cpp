@@ -216,6 +216,7 @@ private: // OpenGL bookkeeping
 	//for atoms
 	GLuint *m_glAtomVertBuffer; // [TIMESTEPS];
 	GLuint *m_unAtomVAO; //[TIMESTEPS];
+	GLuint BondIndices;
 
 	//for unit cells
 	GLuint m_glUnitCellVertBuffer; // primitive, possibly non-primitive in further. Deformed cube
@@ -327,6 +328,14 @@ void dprintf( const char *fmt, ... )
 //pure windows, no sdl
 void eprintf( const char *fmt, ... )
 {
+	static int numerrors=0;
+	numerrors++;
+	if (numerrors==25) {
+		MessageBoxA(0, "Max messages reached, no further reporting", "Warning", 0);
+	}
+	if (numerrors>15) {
+		return;
+	}
 	va_list args;
 	char buffer[ 2048 ];
 
@@ -619,11 +628,28 @@ bool CMainApplication::BInitGL()
 	if( !CreateAllShaders() )
 		return false;
 
+	GLenum e;
+
 	SetupTexturemaps();
+	e=glGetError();
+	if (e!=GL_NO_ERROR)
+		eprintf ("gl error %d, %s %d", e, __FILE__, __LINE__);
 	SetupScene();
+	e=glGetError();
+	if (e!=GL_NO_ERROR)
+		eprintf ("gl error %d, %s %d", e, __FILE__, __LINE__);
 	SetupCameras();
+	e=glGetError();
+	if (e!=GL_NO_ERROR)
+		eprintf ("gl error %d, %s %d", e, __FILE__, __LINE__);
 	SetupStereoRenderTargets();
+	e=glGetError();
+	if (e!=GL_NO_ERROR)
+		eprintf ("gl error %d, %s %d", e, __FILE__, __LINE__);
 	SetupDistortion();
+	e=glGetError();
+	if (e!=GL_NO_ERROR)
+		eprintf ("gl error %d, %s %d", e, __FILE__, __LINE__);
 	SetupDepthPeeling();
 
 	SetupRenderModels();
@@ -1311,7 +1337,7 @@ void CMainApplication::SetupUnitCell()
 void CMainApplication::SetupAtoms()
 {
 	GLenum e;
-	e=::SetupAtoms(&m_unAtomVAO, &m_glAtomVertBuffer);
+	e=::SetupAtoms(&m_unAtomVAO, &m_glAtomVertBuffer, &BondIndices);
 //	GLuint *vao, *buffer, *index;
 //	e=::SetupAtomsNoTess(&vao, &buffer, &index);
 	if (e!=GL_NO_ERROR)
@@ -2016,19 +2042,39 @@ if (numClonedAtoms!=0 && currentset==0) {
 		dprintf("Gl error after Render cloned Atom timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 }
 
+//now bonds
+if (numBonds) {
+	glBindVertexArray(m_unAtomVAO[2]);
+	glUseProgram(m_unUnitCellProgramID);
+	glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
+	float color[4]={0.5,0.5,1,1};
+	glUniform4fv(m_nUnitCellColourLocation, 1, color);
+	if (currentset==0)
+		glDrawElements(GL_LINES, numBonds[0],  GL_UNSIGNED_INT, (void*)0);
+	else
+		glDrawElements(GL_LINES, numBonds[currentset]-numBonds[currentset-1], GL_UNSIGNED_INT, 
+			(void*)(sizeof(int)*numBonds[currentset-1]) );
+
+	if ((e = glGetError()) != GL_NO_ERROR)
+			dprintf("Gl error after Render Atom bonds timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+}
+glBindVertexArray(m_unAtomVAO[0]);
+
 //now trajectories
 if (!showTrajectories)
 	return;
 
 glUseProgram(m_unUnitCellProgramID);
 glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
-float color[4]={1,0,0,1};
-glUniform4fv(m_nUnitCellColourLocation, 1, color);
+float color2[4]={1,0,0,1};
+glUniform4fv(m_nUnitCellColourLocation, 1, color2);
+
 if ((e = glGetError()) != GL_NO_ERROR)
 	dprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
 glEnableVertexAttribArray(0);
 glDisableVertexAttribArray(1);
-
+if ((e = glGetError()) != GL_NO_ERROR)
+	dprintf("Gl error after Render Atom trajectories timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 for (int i=0;i<atomtrajectories.size();i++) {
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float)*numAtoms[0], (const void *)(0+4*sizeof(float)*atomtrajectories[i]));
 	for (int j=1;j<atomtrajectoryrestarts[i].size();j++) {

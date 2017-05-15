@@ -29,6 +29,8 @@ extern const char * readAtomsXYZErrors[];
 extern const char * readAtomsCubeErrors[];
 extern const char * readAtomsJsonErrors[];
 
+float atomRadius (int i);
+
 //internal functions
 void discardline (FILE *F);
 void Clone (float tmppos[3], float k, std::vector<float>* clonedAtoms);

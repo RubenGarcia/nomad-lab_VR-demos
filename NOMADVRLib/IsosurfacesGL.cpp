@@ -294,8 +294,11 @@ bool SetupDepthPeeling(int renderWidth, int renderHeight, int zlayers, GLuint *t
 			eprintf("opengl error %d, SetupDepthPeeling b\n", e);
 
 		//cleaned at each frame
+#if defined(WIN32) || defined(CAVE)
+		CleanDepthTexture(textures[i]);
+#else
 		CleanDepthTexture(textures[i], renderWidth, renderHeight);
-
+#endif
 		if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("opengl error %d, SetupDepthPeeling c\n", e);
 	}
