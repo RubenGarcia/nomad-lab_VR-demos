@@ -228,7 +228,10 @@ int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float *
 		discardline (f); //comment
 		for (int i=0;i<mynumatoms;i++) {
 			float unused;
-			r=fscanf (f, "%s %f %f %f %f", s, mypos.back()+4*i+0, mypos.back()+4*i+1,mypos.back()+4*i+2, &unused);
+			//read by lines as otherwise it will swallow the new line to fill the unused
+			char line[512];
+			fgets(line, 512, f);
+			r=sscanf (line, "%s %f %f %f %f", s, mypos.back()+4*i+0, mypos.back()+4*i+1,mypos.back()+4*i+2, &unused);
 			if (r<4)
 				return -2;
 			int a=findAtom(s);
