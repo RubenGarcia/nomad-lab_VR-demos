@@ -10,6 +10,7 @@
 
 #include "eprintf.h"
 #include "atoms.hpp"
+#include "ConfigFile.h"
 #include "rapidjson/document.h" 
 #include "rapidjson/filereadstream.h"
 #include "happyhttp/happyhttp.h"
@@ -226,7 +227,8 @@ int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float *
 		mynum.push_back(mynumatoms);
 		discardline (f); //comment
 		for (int i=0;i<mynumatoms;i++) {
-			r=fscanf (f, "%s %f %f %f", s, mypos.back()+4*i+0, mypos.back()+4*i+1,mypos.back()+4*i+2);
+			float unused;
+			r=fscanf (f, "%s %f %f %f %f", s, mypos.back()+4*i+0, mypos.back()+4*i+1,mypos.back()+4*i+2, &unused);
 			if (r<4)
 				return -2;
 			int a=findAtom(s);
@@ -270,9 +272,14 @@ int readAtomsCube(const char *const file, int **numatoms, int *timesteps, float 
 		eprintf ("Error opening file %s", file);
 		return -1;
 	}
-	*timesteps = 1;
-	*pos = new float*[*timesteps];
-	*numatoms = new int[*timesteps];
+	if (!fixedAtoms) {
+		*timesteps = 1;
+		*pos = new float*[*timesteps];
+		*numatoms = new int[*timesteps];
+	} else {
+		*pos = new float*[1];
+		*numatoms = new int[1];
+	}
 
 	discardline(f); //two comments
 	discardline(f);

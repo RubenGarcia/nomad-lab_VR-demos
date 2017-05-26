@@ -176,7 +176,10 @@ GLenum PrepareGLiso (GLuint vao, GLuint vertbuffer, const std::vector<float> &ve
 
 	glBindVertexArray(vao);
 	glBindBuffer(GL_ARRAY_BUFFER, vertbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertdata.size(), &vertdata[0], GL_STATIC_DRAW);
+	if (vertdata.size() !=0)
+		glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertdata.size(), &vertdata[0], GL_STATIC_DRAW);
+	else 
+		eprintf("Warning: Iso has no data");
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("opengl error %d, glBufferData, l %d\n", e, __LINE__);
 

@@ -14,5 +14,7 @@ bool PrepareAtomShaderNoTess (GLuint *AtomP, GLint *AtomMatrixLocation);
 bool PrepareUnitCellShader (GLuint *cellP, GLint *UnitCellMatrixLocation,  GLint *UnitCellColourLocation);
 
 void GetDisplacement(int p[3], float f[3]);
+
+int getAtomTimesteps();
 #endif //__ATOMSGL_H
 

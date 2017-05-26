@@ -15,6 +15,7 @@ extern float userpos[3];
 extern float BACKGROUND[3];
 extern int* numAtoms; //[timesteps]
 extern float **atoms; //[timesteps][numAtoms[i]*4] //xyzu, u=atom number
+extern bool fixedAtoms; //all timesteps use the atoms for timestep 0. Used for excitons etc.
 extern float atomScaling;
 extern std::vector<float> *clonedAtoms;
 extern std::vector<int> bonds;

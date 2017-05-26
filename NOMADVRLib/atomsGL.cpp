@@ -10,6 +10,14 @@
 #include "polyhedron.h"
 #include "Grid.h"
 
+int getAtomTimesteps() 
+{
+	if (fixedAtoms)
+		return 1;
+	else
+		return TIMESTEPS;
+}
+
 GLenum atomTexture(GLuint t)
 {
 	GLenum e;
@@ -59,7 +67,7 @@ if (!solid) {
 	//xyz nxnynz u=atom type ; 7 floats
 	int e;
 
-	int totalatoms=numAtoms[TIMESTEPS-1];
+	int totalatoms=numAtoms[getAtomTimesteps() -1];
 	
 //eprintf ("SetupAtomsNoTess 2");
 	*AtomVAO = new GLuint[3]; //atoms, cloned atoms, bonds
@@ -93,7 +101,7 @@ if (!solid) {
 
 	float *current=tmp;
 	//eprintf ("Before For 1");
-	for (int p=0;p<TIMESTEPS;p++) {
+	for (int p=0;p<getAtomTimesteps() ;p++) {
 		for (int a = 0; a < numAtoms[p]-(p==0?0:numAtoms[p-1]); a++) {
 			const int atomNumber = static_cast<int>(atoms[p][4 * a + 3]);
 			const float radius = atomRadius(atomNumber)*atomScaling;
@@ -220,7 +228,7 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer /*[2]*/, GLu
 	int e;
 
 	int totalatoms=0;
-	for (int i=0;i<TIMESTEPS;i++) {
+	for (int i=0;i<getAtomTimesteps() ;i++) {
 		totalatoms += numAtoms[i];
 	}
 	eprintf("SetupAtoms: totalatoms=%d", totalatoms);
@@ -248,8 +256,8 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer /*[2]*/, GLu
 	
 	const int atomlimit=30;
 
-	numBonds=new int[TIMESTEPS];
-	for (int p=0;p<TIMESTEPS;p++) {
+	numBonds=new int[getAtomTimesteps() ];
+	for (int p=0;p<getAtomTimesteps() ;p++) {
 
 			for (int a = 0; a < numAtoms[p]; a++) {
 				for (int k = 0; k < 4; k++) {
@@ -281,26 +289,26 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer /*[2]*/, GLu
 			float m[3];
 			float M[3];
 			for (int k=0; k<3;k++) {
-				m[k]=M[k]=tmp[k];
+				m[k]=M[k]=atoms[p][k];
 			}
 			for (int a = 1; a < numAtoms[p]; a++) {
 				for (int k=0; k<3;k++) {
-					if (m[k]>tmp[4*a+k])
-						m[k]=tmp[4*a+k];
-					if (M[k]<tmp[4*a+k])
-						M[k]=tmp[4*a+k];
+					if (m[k]>atoms[p][4*a+k])
+						m[k]=atoms[p][4*a+k];
+					if (M[k]<atoms[p][4*a+k])
+						M[k]=atoms[p][4*a+k];
 				}
 			}
 			grid g(m, M, pow(numAtoms[p], 1.0/3), 0.9f);
 			for (int a = 1; a < numAtoms[p]; a++) 
-				g.add(tmp+4*a);
+				g.add(atoms[p]+4*a);
 			for (int a = 0; a < numAtoms[p]; a++) {
-				std::vector<float*> found=g.find(tmp+4*a);
+				std::vector<float*> found=g.find(atoms[p]+4*a);
 				for (int b=0;b<found.size();b++) {
 					//if (found[b] < tmp+4*a) // already got this bound
 					//	continue;
 					bonds.push_back(a+(p==0?0:numAtoms[p-1]));
-					bonds.push_back(((found[b]-tmp)/4)+(p==0?0:numAtoms[p-1]));
+					bonds.push_back(((found[b]-atoms[p])/4)+(p==0?0:numAtoms[p-1]));
 				}
 			}
 		}
@@ -335,7 +343,7 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer /*[2]*/, GLu
 		for (unsigned int t=0;t<atomtrajectories.size();t++) {
 			atomtrajectoryrestarts.push_back(std::vector<int>());
 			atomtrajectoryrestarts[t].push_back(0);
-			for (int p=1;p<TIMESTEPS;p++) {
+			for (int p=1;p<getAtomTimesteps() ;p++) {
 				int a=atomtrajectories[t];
 				if (has_abc)
 					if (fabs(atoms[p][a*4+0]-atoms[p-1][a*4+0])+
@@ -343,7 +351,7 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer /*[2]*/, GLu
 						fabs(atoms[p][a*4+2]-atoms[p-1][a*4+2])>max)
 							atomtrajectoryrestarts[t].push_back(p);
 			}
-			atomtrajectoryrestarts[t].push_back(TIMESTEPS);
+			atomtrajectoryrestarts[t].push_back(getAtomTimesteps() );
 		}
 	}
 	delete[] tmp;

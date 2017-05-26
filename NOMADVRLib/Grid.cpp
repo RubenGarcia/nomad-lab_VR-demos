@@ -43,11 +43,14 @@ bool grid::compare (float *a, float *b)
 {
 	if (a<=b) //already returned when searching a beforehand
 		return false;
+	float sqd=atomRadius(a[3])+atomRadius(b[3]);
+	sqd*=sqd;
 	float d=0;
 	for (int i=0;i<3;i++)
 		d+=(a[i]-b[i])*(a[i]-b[i]);
-	if (d*scale < (a[3]+b[3]))
+	if (d*scale < sqd)
 		return true;
+	return false;
 }
 
 std::vector<float*> grid::find (float *p) 
@@ -66,9 +69,10 @@ std::vector<float*> grid::find (float *p)
 	}
 	coordinates(mp, mc);
 	coordinates(Mp, Mc);
-	for (int x=mc[0];x<Mc[0];x++)
-		for (int y=mc[1];y<Mc[1];y++)
-			for (int z=mc[2];z<Mc[2];z++) {
+
+	for (int x=mc[0];x<=Mc[0];x++)
+		for (int y=mc[1];y<=Mc[1];y++)
+			for (int z=mc[2];z<=Mc[2];z++) {
 				const int c=x*dims*dims + y*dims+z;
 				for (int i=0;i<content[c].size();i++) {
 					if (compare (content[c][i], p))

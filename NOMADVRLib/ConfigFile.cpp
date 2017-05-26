@@ -19,6 +19,8 @@ float userpos[3];
 float BACKGROUND[3];
 int* numAtoms; //[timesteps]
 float **atoms; //[timesteps][numAtoms[i]*4] //xyzu, u=atom number
+bool fixedAtoms; 
+
 float atomScaling;
 std::vector<float> *clonedAtoms;
 std::vector<int> bonds;
@@ -129,6 +131,7 @@ int loadConfigFile(const char * f)
 	numAtoms=0;
 	atomScaling=1;
 	clonedAtoms=0;
+	fixedAtoms=false;
 	bonds.clear();
 	showTrajectories = false;
 	basisvectorreps=0;
@@ -262,7 +265,7 @@ int loadConfigFile(const char * f)
 			r=readString(F, s);
 			if (r!=0)
 				return -14;
-			int timesteps;
+			int timesteps=TIMESTEPS;
 			char file[256];
 			sprintf(file, "%s%s", PATH, s);
 			fixFile(file);
@@ -360,6 +363,8 @@ int loadConfigFile(const char * f)
 			r=readString (F, token);
 			if (r!=0)
 				return -16;
+		} else if (!strcmp (s, "fixedatoms")) {
+			fixedAtoms=true;
 		} else if (!strcmp (s, "\x0d")) { //discard windows newline (problem in Sebastian Kokott's phone (?!)
 			continue;
 		} else {

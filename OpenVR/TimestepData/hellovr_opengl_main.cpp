@@ -839,7 +839,7 @@ void CMainApplication::Shutdown()
 	}
 
 	if (numAtoms!=0) {
-		for (int i=0;i<TIMESTEPS;i++) {
+		for (int i=0;i<getAtomTimesteps();i++) {
 			delete[] atoms[i];
 		}
 		delete[] atoms;
@@ -2026,7 +2026,7 @@ glUniformMatrix4fv(m_nAtomMatrixLocation, 1, GL_FALSE, transform.get());
 //glUniformMatrix4fv(m_nAtomMVLocation, 1, GL_FALSE, mv.get());
 if ((e = glGetError()) != GL_NO_ERROR)
 	dprintf("Gl error 4 timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
-if (currentset==0)
+if (currentset==0 ||fixedAtoms)
 	glDrawArrays(GL_PATCHES, 0, numAtoms[0]);
 else
 	glDrawArrays(GL_PATCHES, numAtoms[currentset-1], numAtoms[currentset]-numAtoms[currentset-1]);
@@ -2035,7 +2035,7 @@ if ((e = glGetError()) != GL_NO_ERROR)
 	dprintf("Gl error after RenderAtoms timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 
 //now cloned atoms
-if (numClonedAtoms!=0 && currentset==0) {
+if (numClonedAtoms!=0 && (currentset==0||fixedAtoms)) {
 	glBindVertexArray(m_unAtomVAO[1]);
 	glDrawArrays(GL_PATCHES, 0, numClonedAtoms);
 	if ((e = glGetError()) != GL_NO_ERROR)
@@ -2049,7 +2049,7 @@ if (numBonds) {
 	glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
 	float color[4]={0.5,0.5,1,1};
 	glUniform4fv(m_nUnitCellColourLocation, 1, color);
-	if (currentset==0)
+	if (currentset==0||fixedAtoms)
 		glDrawElements(GL_LINES, numBonds[0],  GL_UNSIGNED_INT, (void*)0);
 	else
 		glDrawElements(GL_LINES, numBonds[currentset]-numBonds[currentset-1], GL_UNSIGNED_INT, 
