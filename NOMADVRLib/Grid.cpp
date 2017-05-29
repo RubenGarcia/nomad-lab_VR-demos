@@ -1,5 +1,6 @@
 #include "Grid.h"
 #include "atoms.hpp" //for radius
+#include <math.h>
 
 grid::grid (float *m, float *M, int dims, float s):scale(s) {
 	content = new std::vector<float*> [dims*dims*dims];

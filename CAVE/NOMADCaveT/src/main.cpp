@@ -108,7 +108,7 @@ GLuint textDepthPeeling[ZLAYERS+2];
 GLuint peelingFramebuffer;
 unsigned int geo[0]; //window width, height
 	//if no tesselation is available, we still need the tess atoms for the trajectories!
-GLuint *AtomTVAO=nullptr, *AtomTBuffer=nullptr, 
+GLuint *AtomTVAO=nullptr, *AtomTBuffer=nullptr, BondIndices=0,
 	*AtomVAO=nullptr, *AtomBuffer=nullptr, *AtomIndices=nullptr,//[2], atoms, extraatoms
 	UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer;
 GLuint	AtomsP, UnitCellP; 
@@ -211,7 +211,7 @@ glGenTextures(2+ZLAYERS, textDepthPeeling);
 bool er;
 
 
-	e=SetupAtoms(&AtomTVAO, &AtomTBuffer);
+	e=SetupAtoms(&AtomTVAO, &AtomTBuffer, &BondIndices);
 	if (e!=GL_NO_ERROR) {
 		eprintf ("SetupAtoms error %d", e);
 		error=-404;
@@ -667,7 +667,7 @@ void sceneManager::RenderAtoms(const float *m) //m[16]
 			eprintf("Gl error 4 timestep =%d: %d, %s\n", m_oldTime, 
 				e, gluErrorString(e));
 		//eprintf ("8");
-		if (m_oldTime==0)
+		if (m_oldTime==0 || fixedAtoms)
 			glDrawArrays(GL_PATCHES, 0, numAtoms[0]);
 		else
 			glDrawArrays(GL_PATCHES, numAtoms[m_oldTime-1], 
@@ -679,7 +679,7 @@ void sceneManager::RenderAtoms(const float *m) //m[16]
 				m_oldTime, e, gluErrorString(e));
 
 		//now cloned atoms
-		if (numClonedAtoms!=0 && m_oldTime==0) {
+		if (numClonedAtoms!=0 && (m_oldTime==0 || fixedAtoms)) {
 			//eprintf ("10");
 			glBindVertexArray(AtomTVAO[1]);
 			//eprintf ("11");
@@ -689,6 +689,8 @@ void sceneManager::RenderAtoms(const float *m) //m[16]
 				eprintf("Gl error after Render cloned Atom timestep =%d: %d, %s\n", 
 					m_oldTime, e, gluErrorString(e));
 		}
+
+
 
 	} else { //no tess
 		glBindVertexArray(AtomVAO[0]);
@@ -723,8 +725,8 @@ void sceneManager::RenderAtoms(const float *m) //m[16]
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("8 Gl error RenderAtom timestep =%d: %d\n", m_oldTime, e);
 
-		if (m_oldTime==0) {
-			glDrawElements(GL_TRIANGLES, numAtoms[m_oldTime]* 3 * solid->nFaces, 
+		if (m_oldTime==0 || fixedAtoms) {
+			glDrawElements(GL_TRIANGLES, numAtoms[0]* 3 * solid->nFaces, 
 #ifndef INDICESGL32				
 				GL_UNSIGNED_SHORT,
 #else
@@ -781,7 +783,7 @@ void sceneManager::RenderAtomTrajectories(const glm::mat4 eyeViewProjection)
 int e;
 if (!numAtoms)
 	return;
-eprintf ("RenderAtomTrajectories start");
+//eprintf ("RenderAtomTrajectories start");
 /*glm::mat4 trans={1,0,0,UserTranslation[0],
 		0,1,0,UserTranslation[1],
 		0,0,1,UserTranslation[2],
@@ -800,6 +802,30 @@ if ((e = glGetError()) != GL_NO_ERROR)
 	eprintf("Gl error after glUniform4fv 1 RenderAtomTrajectories: %d\n", e);
 RenderAtomTrajectoriesUnitCell();
 RenderAtoms(t);
+//now bonds
+//return;
+if (numBonds) {
+	glBindVertexArray(AtomTVAO[2]);
+	if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("Gl error after Render Atom bonds glBindVertexArray timestep =%d: %d, %s\n", m_oldTime, e, gluErrorString(e));
+	glUseProgram(UnitCellP);
+	if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("Gl error after Render Atom bonds glUseProgram timestep =%d: %d, %s\n", m_oldTime, e, gluErrorString(e));
+	glUniformMatrix4fv(UnitCellMatrixLoc, 1, GL_FALSE, t);
+	float color[4]={0.5,0.5,1,1};
+	glUniform4fv(UnitCellColourLoc, 1, color);
+
+	if (m_oldTime==0||fixedAtoms)
+		glDrawElements(GL_LINES, numBonds[0],  GL_UNSIGNED_INT, (void*)0);
+	else
+		glDrawElements(GL_LINES, numBonds[m_oldTime]-numBonds[m_oldTime-1], GL_UNSIGNED_INT, 
+			(void*)(sizeof(int)*numBonds[m_oldTime-1]) );
+
+	if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("Gl error after Render Atom bonds timestep =%d: %d, %s\n", m_oldTime, e, gluErrorString(e));
+}
+glBindVertexArray(0);
+
 } //RenderAtomTrajectories
 
 void sceneManager::RenderAtomTrajectoriesUnitCell()

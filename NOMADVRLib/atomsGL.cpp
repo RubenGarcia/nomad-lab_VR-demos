@@ -70,7 +70,7 @@ if (!solid) {
 	int totalatoms=numAtoms[getAtomTimesteps() -1];
 	
 //eprintf ("SetupAtomsNoTess 2");
-	*AtomVAO = new GLuint[3]; //atoms, cloned atoms, bonds
+	*AtomVAO = new GLuint[3]; //atoms, cloned atoms, unused (bonds use Tess atom positions)
 	*AtomIndexBuffer= new GLuint[3];//atoms, cloned atoms, bonds
 	*AtomVertBuffer = new GLuint[2];//atoms, cloned atoms
 
@@ -387,7 +387,7 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer /*[2]*/, GLu
 	//rgh: we will need these again if we don't have tesselation
 	//delete[] clonedAtoms;
 	//clonedAtoms=0;
-
+	glBindVertexArray(0);
 	return e;
 }
 
