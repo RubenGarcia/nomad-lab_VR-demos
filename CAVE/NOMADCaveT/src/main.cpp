@@ -125,6 +125,7 @@ GLuint BlendVAO=0, BlendBuffer=0, BlendIndices=0;
 int *numISOIndices=nullptr/*[ISOS*TIMESTEPS]*/;
 
 void RenderAtoms(const float *m);
+void RenderAtomBonds(const float *m);
 void RenderUnitCell(const glm::mat4 eyeViewProjection);
 void RenderAtomTrajectoriesUnitCell();
 void RenderAtomTrajectories(const glm::mat4 eyeViewProjection);
@@ -778,6 +779,32 @@ void sceneManager::RenderAtoms(const float *m) //m[16]
 //eprintf ("RenderAtoms, end");
 } // render atoms
 
+void sceneManager::RenderAtomBonds(const float *t)
+{
+GLenum e;
+if (numBonds) {
+	glBindVertexArray(AtomTVAO[2]);
+	if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("Gl error after Render Atom bonds glBindVertexArray timestep =%d: %d, %s\n", m_oldTime, e, gluErrorString(e));
+	glUseProgram(UnitCellP);
+	if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("Gl error after Render Atom bonds glUseProgram timestep =%d: %d, %s\n", m_oldTime, e, gluErrorString(e));
+	glUniformMatrix4fv(UnitCellMatrixLoc, 1, GL_FALSE, t);
+	float color[4]={0.5,0.5,1,1};
+	glUniform4fv(UnitCellColourLoc, 1, color);
+
+	if (m_oldTime==0||fixedAtoms)
+		glDrawElements(GL_LINES, numBonds[0],  GL_UNSIGNED_INT, (void*)0);
+	else
+		glDrawElements(GL_LINES, numBonds[m_oldTime]-numBonds[m_oldTime-1], GL_UNSIGNED_INT, 
+			(void*)(sizeof(int)*numBonds[m_oldTime-1]) );
+
+	if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("Gl error after Render Atom bonds timestep =%d: %d, %s\n", m_oldTime, e, gluErrorString(e));
+}
+glBindVertexArray(0);
+}
+
 void sceneManager::RenderAtomTrajectories(const glm::mat4 eyeViewProjection)
 {
 int e;
@@ -804,27 +831,7 @@ RenderAtomTrajectoriesUnitCell();
 RenderAtoms(t);
 //now bonds
 //return;
-if (numBonds) {
-	glBindVertexArray(AtomTVAO[2]);
-	if ((e = glGetError()) != GL_NO_ERROR)
-			eprintf("Gl error after Render Atom bonds glBindVertexArray timestep =%d: %d, %s\n", m_oldTime, e, gluErrorString(e));
-	glUseProgram(UnitCellP);
-	if ((e = glGetError()) != GL_NO_ERROR)
-			eprintf("Gl error after Render Atom bonds glUseProgram timestep =%d: %d, %s\n", m_oldTime, e, gluErrorString(e));
-	glUniformMatrix4fv(UnitCellMatrixLoc, 1, GL_FALSE, t);
-	float color[4]={0.5,0.5,1,1};
-	glUniform4fv(UnitCellColourLoc, 1, color);
-
-	if (m_oldTime==0||fixedAtoms)
-		glDrawElements(GL_LINES, numBonds[0],  GL_UNSIGNED_INT, (void*)0);
-	else
-		glDrawElements(GL_LINES, numBonds[m_oldTime]-numBonds[m_oldTime-1], GL_UNSIGNED_INT, 
-			(void*)(sizeof(int)*numBonds[m_oldTime-1]) );
-
-	if ((e = glGetError()) != GL_NO_ERROR)
-			eprintf("Gl error after Render Atom bonds timestep =%d: %d, %s\n", m_oldTime, e, gluErrorString(e));
-}
-glBindVertexArray(0);
+RenderAtomBonds(t);
 
 } //RenderAtomTrajectories
 
@@ -997,5 +1004,7 @@ void sceneManager::RenderUnitCell(const glm::mat4 eyeViewProjection)
 					//rgh: disable for now
 					RenderAtomTrajectoriesUnitCell();
 					RenderAtoms(t);
+					RenderAtomBonds(t);
+					
 				}
 }
