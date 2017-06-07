@@ -207,14 +207,15 @@ GLenum PrepareGLiso (GLuint vao, GLuint vertbuffer, const std::vector<float> &ve
 
 		// populate the index buffer
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indbuffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 
-#ifndef INDICESGL32
-		sizeof(uint16_t)
-#else
-		sizeof(GLuint)
-#endif
-		* vertindices.size(),
-		&vertindices[0], GL_STATIC_DRAW);
+	if (vertindices.size() !=0)
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, 
+	#ifndef INDICESGL32
+			sizeof(uint16_t)
+	#else
+			sizeof(GLuint)
+	#endif
+			* vertindices.size(),
+			&vertindices[0], GL_STATIC_DRAW);
 
 	if ((e=glGetError()) != GL_NO_ERROR)
 		eprintf("opengl error\n");

@@ -121,6 +121,8 @@ public:
 	void SetupIsosurfaces();
 	void SetupAtoms();
 	void SetupUnitCell();
+	void SetupMarker();
+
 
 	void DrawControllers();
 
@@ -215,13 +217,16 @@ private: // OpenGL bookkeeping
 
 	//for atoms
 	GLuint *m_glAtomVertBuffer; // [TIMESTEPS];
-	GLuint *m_unAtomVAO; //[TIMESTEPS];
+	GLuint *m_unAtomVAO; //[3]; //atoms, cloned atoms, bonds
 	GLuint BondIndices;
 
 	//for unit cells
 	GLuint m_glUnitCellVertBuffer; // primitive, possibly non-primitive in further. Deformed cube
 	GLuint m_glUnitCellIndexBuffer; // 
 	GLuint m_unUnitCellVAO; //
+	//for markers
+	GLuint m_glMarkerVertBuffer;
+	GLuint m_unMarkerVAO;
 
 	int currentset;
 	float elapsedtime;
@@ -268,6 +273,7 @@ private: // OpenGL bookkeeping
 	GLuint m_unAtomsProgramID;
 	GLuint m_unUnitCellProgramID;
 	GLuint m_unBlendingProgramID;
+	GLuint m_unMarkerProgramID;
 
 	GLint m_nSceneMatrixLocation;
 	GLint m_nBlendingIntLocation;
@@ -276,6 +282,7 @@ private: // OpenGL bookkeeping
 	GLint m_nAtomMatrixLocation;
 	GLint m_nAtomMVLocation;
 	GLint m_nUnitCellMatrixLocation, m_nUnitCellColourLocation;
+	GLint m_nMarkerMatrixLocation;
 
 	struct FramebufferDesc
 	{
@@ -405,7 +412,7 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 	, m_uiVertcount(0)
 	, m_glSceneVertBuffer(0)
 	//, UserPosition(Vector3(-101.0f * 0.15f*0.5f*GRID + 12.5f, -15.0f, -101.0f * 0.15f*0.5f*GRID + 101.0f * 0.15f*0.25f))
-	, UserPosition(Vector3(-userpos[0] * 0.04f, -userpos[1] * 0.04f, -userpos[2] * 0.04f))
+	, UserPosition(Vector3(-userpos[0] /** 0.04f*/, -userpos[1] /** 0.04f*/, -userpos[2] /** 0.04f*/))
 	, vertdataarray(0)
 	, vertindicesarray(0)
 	, pixels(0)
@@ -577,11 +584,11 @@ bool CMainApplication::BInit()
  	m_iSceneVolumeHeight = m_iSceneVolumeInit;
  	m_iSceneVolumeDepth = m_iSceneVolumeInit;
  		
- 	m_fScale = 0.04f; //0.15f; //rgh: original too big for room
+	m_fScale = 0.04f; //0.15f; //rgh: original too big for room
  	m_fScaleSpacing = 4.0f;
  
  	m_fNearClip = 0.2f;
- 	m_fFarClip = 50.0f;//rgh: original 30 too small for our skymap
+ 	m_fFarClip = 200.0f;//rgh: original 30 too small for our skymap
  
 
  
@@ -1192,8 +1199,8 @@ bool CMainApplication::CreateAllShaders()
 		return false;
 	}
 
-	if (!PrepareUnitCellAtomShader (&m_unAtomsProgramID, &m_unUnitCellProgramID, &m_nAtomMatrixLocation, 
-			&m_nUnitCellMatrixLocation,  &m_nUnitCellColourLocation))
+	if (!PrepareUnitCellAtomShader (&m_unAtomsProgramID, &m_unUnitCellProgramID, &m_unMarkerProgramID,
+		&m_nAtomMatrixLocation, &m_nUnitCellMatrixLocation,  &m_nUnitCellColourLocation, &m_nMarkerMatrixLocation))
 		return false;
 
 
@@ -1321,11 +1328,15 @@ void CMainApplication::SetupScene()
 	delete[] clonedAtoms;
 	clonedAtoms=0;
 	SetupUnitCell();
+	SetupMarker();
 }
 
-//-----------------------------------------------------------------------------
-// Purpose: Load the atoms into OpenGL
-//-----------------------------------------------------------------------------
+void CMainApplication::SetupMarker()
+{
+GLenum e;
+e=::SetupMarker(&m_unMarkerVAO, &m_glMarkerVertBuffer);
+}
+
 void CMainApplication::SetupUnitCell()
 {
 	GLenum e;
@@ -1333,7 +1344,9 @@ void CMainApplication::SetupUnitCell()
 	if (e!=GL_NO_ERROR)
 		dprintf("opengl error %d, SetupUnitCell, l %d\n", e, __LINE__);
 }
-
+//-----------------------------------------------------------------------------
+// Purpose: Load the atoms into OpenGL
+//-----------------------------------------------------------------------------
 void CMainApplication::SetupAtoms()
 {
 	GLenum e;
@@ -1496,8 +1509,31 @@ void CMainApplication::SetupIsosurfaces()
 			vertindicesarray[currentlod][p].clear();
 
 			Matrix4 matFinal;
-			matFinal.translate(translations[p%ISOS][0], translations[p%ISOS][1], translations[p%ISOS][2]);
-			matFinal = mat*matFinal;
+			//matFinal.translate(translations[p%ISOS][0]+cubetrans[0], translations[p%ISOS][1]+cubetrans[1], translations[p%ISOS][2]+cubetrans[2]);
+			Matrix4 matcubetrans, mvs;
+			if (voxelSize[0]!=-1) {
+			mvs.scale(1.0 / (double)voxelSize[0], 1.0 / (double)voxelSize[1], 1.0 / (double)voxelSize[2]);
+			matcubetrans.translate(cubetrans[0], cubetrans[1], cubetrans[2]); //angstrom
+			//if abc, in abc coordinates
+			/*Matrix4 abcm (abc[0][0], abc[1][0], abc[2][0], 0,
+				abc[0][1], abc[1][1], abc[2][1], 0,
+				abc[0][2], abc[1][2], abc[2][2], 0,
+				0, 0, 0, 1);*/
+			Matrix4 abcm (abc[0][0], abc[0][1], abc[0][2], 0,
+				abc[1][0], abc[1][1], abc[1][2], 0,
+				abc[2][0], abc[2][1], abc[2][2], 0,
+				0, 0, 0, 1);
+			Matrix4 rot;
+			rot.rotateX(-90);
+			Matrix4 sc;
+			sc.scale(supercell[0], supercell[1], supercell[2]);
+			Matrix4 sctrans;
+			sctrans.translate(-translations[p%ISOS][2], -translations[p%ISOS][1], -translations[p%ISOS][0]);
+			matFinal = rot*abcm*sctrans*sc*mvs;
+			} else {
+				matFinal.translate(translations[p%ISOS][0], translations[p%ISOS][1], translations[p%ISOS][2]);
+				matFinal=mat*matFinal;
+			}
 
 			if (!AddModelToScene(matFinal.get(), vertdataarray[currentlod][p], vertindicesarray[currentlod][p],
 				tmpname, false, isocolours[p%ISOS][0]<0, p%ISOS))
@@ -1961,9 +1997,11 @@ void CMainApplication::PaintGrid(const vr::Hmd_Eye &nEye, int iso) {
 
 void CMainApplication::RenderUnitCell(const vr::Hmd_Eye &nEye)
 {
-	if (!has_abc)
+	if (!has_abc||!displayunitcell)
 		return;
 	int e;
+	Matrix4 trans, transform;
+
 	glUseProgram(m_unUnitCellProgramID);
 	glBindVertexArray(m_unUnitCellVAO);
 	if (m_unUnitCellVAO==0)
@@ -1971,7 +2009,9 @@ void CMainApplication::RenderUnitCell(const vr::Hmd_Eye &nEye)
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("Gl error after glBindVertexArray RenderUnitCell: %d, %s\n", e, gluErrorString(e));
 
-	Matrix4 trans;
+
+	//unit cells
+
 	int p[3];
 	for (p[0]=0;p[0]<repetitions[0];(p[0])++)
 		for (p[1]=0;p[1]<repetitions[1];(p[1])++)
@@ -1983,11 +2023,11 @@ void CMainApplication::RenderUnitCell(const vr::Hmd_Eye &nEye)
 					trans.identity();
 		
 					trans.translate(iPos).rotateX(-90).translate(UserPosition);
-					Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans;
+					transform = GetCurrentViewProjectionMatrix(nEye)*trans;
 					glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
 					if ((e = glGetError()) != GL_NO_ERROR)
 						dprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
-					float color[4]={1,1,1,1};
+					const float color[4]={1,1,1,1};
 					glUniform4fv(m_nUnitCellColourLocation, 1, color);
 					if ((e = glGetError()) != GL_NO_ERROR)
 						dprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
@@ -1995,6 +2035,23 @@ void CMainApplication::RenderUnitCell(const vr::Hmd_Eye &nEye)
 					if ((e = glGetError()) != GL_NO_ERROR)
 						dprintf("Gl error after RenderUnitCell: %d, %s\n", e, gluErrorString(e));
 				}
+
+
+		//supercell
+	glEnable(GL_LINE_SMOOTH);
+	glLineWidth(2);
+	trans.identity();
+	trans.rotateX(-90).translate(UserPosition);
+	transform = GetCurrentViewProjectionMatrix(nEye)*trans;
+	glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after glUniform4fv 1 RenderUnitCell, supercell: %d, %s\n", e, gluErrorString(e));
+	const float colorsc[4]={0,1,1,1};
+	glUniform4fv(m_nUnitCellColourLocation, 1, colorsc);
+	glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, (void*) (24 *sizeof(int)));
+	glDisable(GL_LINE_SMOOTH);
+glBindVertexArray(0);
+
 }
 
 void CMainApplication::RenderAtomsUnitCell(const vr::Hmd_Eye &nEye, int p[3])
@@ -2012,28 +2069,31 @@ float levelsi[2] = { TESSSUB, TESSSUB};
 glPatchParameterfv(GL_PATCH_DEFAULT_OUTER_LEVEL,levelso);
 glPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL,levelsi);
 glPatchParameteri(GL_PATCH_VERTICES, 1);
-glBindVertexArray(m_unAtomVAO[0]);
-glEnableVertexAttribArray(0);
-glEnableVertexAttribArray(1);
-glBindBuffer(GL_ARRAY_BUFFER, m_glAtomVertBuffer[0]);
-glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
-glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(3 * sizeof(float)));
 
 trans.translate(iPos).rotateX(-90).translate(UserPosition);
 Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans;
-Matrix4 mv=GetCurrentViewMatrix(nEye)*trans;
-glUniformMatrix4fv(m_nAtomMatrixLocation, 1, GL_FALSE, transform.get());
-//glUniformMatrix4fv(m_nAtomMVLocation, 1, GL_FALSE, mv.get());
-if ((e = glGetError()) != GL_NO_ERROR)
-	dprintf("Gl error 4 timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
-if (currentset==0 ||fixedAtoms)
-	glDrawArrays(GL_PATCHES, 0, numAtoms[0]);
-else
-	glDrawArrays(GL_PATCHES, numAtoms[currentset-1], numAtoms[currentset]-numAtoms[currentset-1]);
-	
-if ((e = glGetError()) != GL_NO_ERROR)
-	dprintf("Gl error after RenderAtoms timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 
+if (numAtoms) {
+	glBindVertexArray(m_unAtomVAO[0]);
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glBindBuffer(GL_ARRAY_BUFFER, m_glAtomVertBuffer[0]);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
+	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(3 * sizeof(float)));
+
+	Matrix4 mv=GetCurrentViewMatrix(nEye)*trans;
+	glUniformMatrix4fv(m_nAtomMatrixLocation, 1, GL_FALSE, transform.get());
+	//glUniformMatrix4fv(m_nAtomMVLocation, 1, GL_FALSE, mv.get());
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error 4 timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+	if (currentset==0 ||fixedAtoms)
+		glDrawArrays(GL_PATCHES, 0, numAtoms[0]);
+	else
+		glDrawArrays(GL_PATCHES, numAtoms[currentset-1], numAtoms[currentset]-numAtoms[currentset-1]);
+	
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after RenderAtoms timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+}
 //now cloned atoms
 if (numClonedAtoms!=0 && (currentset==0||fixedAtoms)) {
 	glBindVertexArray(m_unAtomVAO[1]);
@@ -2043,7 +2103,7 @@ if (numClonedAtoms!=0 && (currentset==0||fixedAtoms)) {
 }
 
 //now bonds
-if (numBonds) {
+if (numBonds && displaybonds) {
 	glBindVertexArray(m_unAtomVAO[2]);
 	glUseProgram(m_unUnitCellProgramID);
 	glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
@@ -2058,12 +2118,24 @@ if (numBonds) {
 	if ((e = glGetError()) != GL_NO_ERROR)
 			dprintf("Gl error after Render Atom bonds timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 }
-glBindVertexArray(m_unAtomVAO[0]);
+
+
+//now markers
+if (markers && p[0]==0 &&p[1]==0 &&p[2]==0) {
+	glBindVertexArray(m_unMarkerVAO);
+	glUseProgram(m_unMarkerProgramID);
+	glUniformMatrix4fv(m_nMarkerMatrixLocation, 1, GL_FALSE, transform.get());
+	glDrawArraysInstanced(GL_PATCHES, currentset, 1, 3);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after Render Atom markers timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+	glBindVertexArray(0);
+}
 
 //now trajectories
 if (!showTrajectories)
 	return;
 
+glBindVertexArray(m_unAtomVAO[0]);
 glUseProgram(m_unUnitCellProgramID);
 glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
 float color2[4]={1,0,0,1};
@@ -2085,6 +2157,8 @@ for (int i=0;i<atomtrajectories.size();i++) {
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("Gl error after Render Atom trajectories timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 }
+glBindVertexArray(0);
+
 }
 
 void CMainApplication::RenderAtoms(const vr::Hmd_Eye &nEye)
@@ -2256,13 +2330,14 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 			glDisableVertexAttribArray(2);
 		} // if currentiso
 		else {
+			glEnable(GL_DEPTH_TEST);
+			glDisable(GL_BLEND);
 			if (numAtoms!=0) {
 				RenderAtoms(nEye);
 				RenderUnitCell(nEye);
 			}
-			glEnable(GL_DEPTH_TEST);
-			glDisable(GL_BLEND);
 			CleanDepthTexture();
+			glBindTexture(GL_TEXTURE_2D, 0);
 			glUseProgram(m_unSceneProgramID);
 			PaintGrid(nEye, currentiso);
 			RenderAllTrackedRenderModels(nEye);
@@ -2707,7 +2782,7 @@ void cleanConfig()
 //-----------------------------------------------------------------------------
 char * MainErrors [] = {
 	"No error, successful exit",
-	"Exactly one parameter should be provided",
+	"Exactly one parameter should be provided, please drag the .ncfg over the exe file",
 	"Out of memory starting application",
 	"Could not init application"
 };

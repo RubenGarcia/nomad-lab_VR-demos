@@ -15,6 +15,8 @@ float **isocolours; // [ISOS][4];
 const char **plyfiles;
 float **translations;
 float userpos[3];
+float scaling;
+float markerscaling;
 
 float BACKGROUND[3];
 int* numAtoms; //[timesteps]
@@ -25,6 +27,7 @@ float atomScaling;
 std::vector<float> *clonedAtoms;
 std::vector<int> bonds;
 int *numBonds;
+bool displaybonds;
 int numClonedAtoms;
 int *basisvectorreps;
 
@@ -34,10 +37,17 @@ std::vector<std::vector<int>> atomtrajectoryrestarts;
 
 float abc[3][3]; //basis vectors
 bool has_abc = false;
+bool displayunitcell;
+float supercell[3];
+int voxelSize[3];
 
 int repetitions[3];
 Solid *solid;
 
+//markers such as hole positions and electron positions
+float ** markers;
+float ** markercolours;
+float cubetrans[3];
 const char * loadConfigFileErrors[] =
 {
 	"All Ok",//0
@@ -57,6 +67,8 @@ const char * loadConfigFileErrors[] =
 	"Error loading config file",// -14
 	"Error reading atomglyph", //-15
 	"Error reading token", //-16
+	"markers with no previous correct timesteps parameter", //-17
+	"markercolours with no previous correct timesteps parameter", //-18
 	"Error loading xyz file, add 100 to see the error",//<-100
 	"Error loading cube file, add 100 to see the error",//<-200
 	"Error loading json file, add 200 to see the error",//<-300
@@ -133,6 +145,7 @@ int loadConfigFile(const char * f)
 	clonedAtoms=0;
 	fixedAtoms=false;
 	bonds.clear();
+	displaybonds=false;
 	showTrajectories = false;
 	basisvectorreps=0;
 	numClonedAtoms=0;
@@ -141,8 +154,20 @@ int loadConfigFile(const char * f)
 		repetitions[i]=1;
 	for (int i=0;i<3;i++)
 		userpos[i] = 0;
+	for (int i=0;i<3;i++)
+		supercell[i] = 1;
 	solid=0;
 	char *token=0;
+	markers=nullptr;
+	markercolours=nullptr;
+	displayunitcell=false;
+	scaling =1;
+	markerscaling=0.8;
+	for (int i=0;i<3;i++)
+		cubetrans[i]=0;
+	translations=nullptr;
+	for (int i=0;i<3;i++)
+		voxelSize[i]=-1;
 	//
 	FILE *F = fopen(f, "r");
 	if (F == 0)
@@ -279,6 +304,9 @@ int loadConfigFile(const char * f)
 		else if (!strcmp(s, "atomscaling")) {
 			r = fscanf(F, "%f", &atomScaling);
 		}
+		else if (!strcmp(s, "scaling")) {
+			r = fscanf(F, "%f", &scaling);
+		}
 		else if (!strcmp(s, "abc")) {
 			for (int i=0;i<3;i++)
 				for (int j=0;j<3;j++) {
@@ -365,6 +393,58 @@ int loadConfigFile(const char * f)
 				return -16;
 		} else if (!strcmp (s, "fixedatoms")) {
 			fixedAtoms=true;
+		} else if (!strcmp (s, "markers")) {
+			if (TIMESTEPS == 0) {
+				eprintf( "markers with no previous correct timesteps parameter\n");
+				fclose(F);
+				return -17;
+			}
+			markers=new float* [TIMESTEPS];
+			for (int i=0;i<TIMESTEPS;i++) {
+				markers[i]=new float[3];
+				//in abc coordinates if they exist
+				float tmp[3];
+				for (int j = 0; j < 3; j++) {
+					r = fscanf(F, "%f", &(tmp[j]));
+				}
+				if (has_abc) {
+					//for (int s=0;s<3;s++) 
+					//	tmp[s]-=translations[0][s]; //using translation of iso 0
+					//check if coordinates are outside of cell
+					for (int s=0;s<3;s++) {
+						while (tmp[s]<-translations[0][s])
+							tmp[s]+=supercell[2-s];
+					}
+					for (int s=0;s<3;s++) {
+						markers[i][s]=tmp[2]*abc[0][s]+tmp[1]*abc[1][s]+tmp[0]*abc[2][s]; //hole positions seem to be in zyx
+					}
+				}
+				else
+					for (int s=0;s<3;s++)
+						markers[i][s]=tmp[s];
+
+			}
+		} else if (!strcmp (s, "markercolours")) {
+		if (TIMESTEPS == 0) {
+			eprintf( "markecolours with no previous correct timesteps parameter\n");
+			fclose(F);
+			return -18;
+		}
+		markercolours=new float* [TIMESTEPS];
+		for (int i=0;i<TIMESTEPS;i++) {
+			markercolours[i]=new float[4];
+			for (int j = 0; j < 4; j++) {
+				r = fscanf(F, "%f", &(markercolours[i][j]));
+			}
+		}
+		} else if (!strcmp (s, "displaybonds")) {
+			displaybonds=true;
+		} else if (!strcmp (s, "markerscaling")) {
+			r = fscanf(F, "%f", &markerscaling);
+		} else if (!strcmp (s, "displayunitcell")) {
+			displayunitcell=true;
+		} else if (!strcmp (s, "supercell")) {
+			r=fscanf (F, "%f %f %f", supercell, supercell+1, supercell+2);
 		} else if (!strcmp (s, "\x0d")) { //discard windows newline (problem in Sebastian Kokott's phone (?!)
 			continue;
 		} else {
@@ -379,10 +459,10 @@ int loadConfigFile(const char * f)
 //verification and additional processing
 	fclose(F);
 
-	if (ISOS == 0 && numAtoms==0) {
+	/*if (ISOS == 0 && numAtoms==0) {
 		eprintf( "Missing isos and atomfile parameter\n");
 		return -6;
-	} 
+	} */
 	if (ISOS !=0 && plyfiles[0] == 0) {
 		eprintf( "Missing values parameter\n");
 		fclose(F);

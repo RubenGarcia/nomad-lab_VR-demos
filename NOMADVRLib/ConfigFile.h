@@ -11,6 +11,7 @@ extern float **isocolours; // [ISOS][4];
 extern const char **plyfiles;
 extern float **translations;
 extern float userpos[3];
+extern float scaling;
 
 extern float BACKGROUND[3];
 extern int* numAtoms; //[timesteps]
@@ -20,6 +21,7 @@ extern float atomScaling;
 extern std::vector<float> *clonedAtoms;
 extern std::vector<int> bonds;
 extern int *numBonds;
+extern bool displaybonds;
 extern int numClonedAtoms;
 extern int *basisvectorreps;
 
@@ -29,10 +31,19 @@ extern std::vector<std::vector<int>> atomtrajectoryrestarts;
 
 extern float abc[3][3]; //basis vectors
 extern bool has_abc;
+extern bool displayunitcell;
+extern float supercell[3];
+extern float markerscaling;
 
 extern int repetitions[3];
 
 extern Solid *solid;
+
+//markers such as hole positions and electron positions
+extern float ** markers;
+extern float ** markercolours;
+extern float cubetrans[3];
+extern int voxelSize[3];
 
 extern const char * loadConfigFileErrors[];
 

@@ -49,7 +49,7 @@
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v110</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -181,6 +181,7 @@
     <ClCompile Include="NOMADVRLib\Grid.cpp" />
     <ClCompile Include="NOMADVRLib\IsoShaders.cpp" />
     <ClCompile Include="NOMADVRLib\IsosurfacesGL.cpp" />
+    <ClCompile Include="NOMADVRLib\markerShaders.cpp" />
     <ClCompile Include="NOMADVRLib\polyhedron.cpp" />
     <ClCompile Include="NOMADVRLib\TessShaders.cpp" />
     <ClCompile Include="NOMADVRLib\UnitCellShaders.cpp" />
@@ -201,6 +202,7 @@
     <ClInclude Include="NOMADVRLib\Grid.h" />
     <ClInclude Include="NOMADVRLib\IsoShaders.h" />
     <ClInclude Include="NOMADVRLib\IsosurfacesGL.h" />
+    <ClInclude Include="NOMADVRLib\markerShaders.h" />
     <ClInclude Include="NOMADVRLib\MyGL.h" />
     <ClInclude Include="NOMADVRLib\polyhedron.h" />
     <ClInclude Include="NOMADVRLib\TessShaders.h" />

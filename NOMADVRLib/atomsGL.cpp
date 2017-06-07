@@ -3,6 +3,7 @@
 #include "eprintf.h"
 #include "TessShaders.h"
 #include "UnitCellShaders.h"
+#include "markerShaders.h"
 #include "atomsGL.h"
 #include "atoms.hpp"
 #include "ConfigFile.h"
@@ -233,7 +234,7 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer /*[2]*/, GLu
 	}
 	eprintf("SetupAtoms: totalatoms=%d", totalatoms);
 
-	*AtomVAO = new GLuint[3]; //atoms, cloned atoms, bonds
+	*AtomVAO = new GLuint[3]; //atoms, cloned atoms, bonds //rgh fixme: for trajectories, we want to create another vao 
 	*AtomVertBuffer = new GLuint[2];
 
 	glGenVertexArrays(3, *AtomVAO);
@@ -391,8 +392,50 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer /*[2]*/, GLu
 	return e;
 }
 
+GLenum SetupMarker(GLuint *MarkerVAO, GLuint *MarkerVertBuffer)
+{
+	if (!markers)
+		return glGetError();
+	GLenum e;
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf( "opengl error %d, begin of SetupMarker\n", e, __LINE__);
+
+	glGenVertexArrays(1, MarkerVAO);
+	glGenBuffers(1, MarkerVertBuffer);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf( "opengl error %d, glGenBuffers, l %d\n", e, __LINE__);
+
+	glBindVertexArray(*MarkerVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, *MarkerVertBuffer);
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glDisableVertexAttribArray(2);
+	glDisableVertexAttribArray(3);
+
+	const float size=atomRadius(0)*atomScaling*markerscaling;
+	float *tmp = new float [8*TIMESTEPS];
+	for (int i=0;i<TIMESTEPS;i++) {
+		for (int j=0;j<3;j++) { //center [3]
+			tmp[i*8+j]=markers[i][j];
+		}
+		tmp[i*8+3]=0.8*size; //size [1]
+		for (int j=0;j<4;j++) {//colour[4]
+			tmp[i*8+4+j]=markercolours[i][j];
+		}
+	}
+	
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * TIMESTEPS*8 , tmp,
+			GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (const void *)(0));
+	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (const void *)(4*sizeof(float)));
+	glBindVertexArray(0);
+	return glGetError();
+}
+
 GLenum SetupUnitCell(GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *UnitCellIndexBuffer)
 {
+	//add here both unit cell and supercell
 	GLenum e;
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf( "opengl error %d, begin of SetupUnitCell\n", e, __LINE__);
@@ -413,9 +456,9 @@ GLenum SetupUnitCell(GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *Un
 	glDisableVertexAttribArray(2);
 	glDisableVertexAttribArray(3);
 
-	float *tmp = new float[3*8];
+	float *tmp = new float[3*8*2];
 	//0, a, b, c, a+b+c, b+c, a+c, a+b
-	for (int i=0;i<3;i++) {
+	for (int i=0;i<3;i++) { //unit cell
 		tmp[0+i]=0;
 		for (int j=0;j<3;j++)
 			tmp[3*(j+1)+i]=abc[j][i];
@@ -424,8 +467,21 @@ GLenum SetupUnitCell(GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *Un
 		tmp[3*6+i]=abc[0][i]+		abc[2][i];
 		tmp[3*7+i]=abc[0][i]+abc[1][i];
 	}
-
-	int tmpi[12*2]={ //lines
+	float displ[3]={0,0,0};
+	if (translations && ISOS) 
+		for (int j=0;j<3;j++)
+			for (int i=0;i<3;i++)
+				displ[i]+=-translations[0][i]*abc[j][i];
+	for (int i=0;i<3;i++) { //rgh fixme, add displacement here as well
+		tmp[3*8+i]=displ[i];
+		for (int j=0;j<3;j++)
+			tmp[3*(j+8+1)+i]=abc[j][i]*supercell[j]+displ[i];
+		tmp[3*12+i]=abc[0][i]*supercell[0]+abc[1][i]*supercell[1]+abc[2][i]*supercell[2]+displ[i];
+		tmp[3*13+i]=			abc[1][i]*supercell[1]+abc[2][i]*supercell[2]+displ[i];
+		tmp[3*14+i]=abc[0][i]*supercell[0]+		abc[2][i]*supercell[2]+displ[i];
+		tmp[3*15+i]=abc[0][i]*supercell[0]+abc[1][i]*supercell[1]+displ[i];
+	}
+	int tmpi[12*2*2]={ //lines, unit cell, 
 		0,1, 
 		1,6,
 		6,3,
@@ -437,9 +493,21 @@ GLenum SetupUnitCell(GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *Un
 		0,2,
 		1,7,
 		6,4,
-		3,5
+		3,5, // supercell
+		0+8,1+8, 
+		1+8,6+8,
+		6+8,3+8,
+		3+8,0+8,
+		2+8,7+8,
+		7+8,4+8,
+		4+8,5+8,
+		5+8,2+8,
+		0+8,2+8,
+		1+8,7+8,
+		6+8,4+8,
+		3+8,5+8
 	};
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3*8 , tmp,
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3*8*2 , tmp,
 			GL_STATIC_DRAW);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf( "opengl error %d, glBufferData vertex, l %d\n", e, __LINE__);
@@ -447,15 +515,21 @@ GLenum SetupUnitCell(GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *Un
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(tmpi), tmpi, GL_STATIC_DRAW);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf( "opengl error %d, glBufferData index, l %d\n", e, __LINE__);
+	glBindVertexArray(0);
 	return e;
 }
 
 
-bool PrepareUnitCellAtomShader (GLuint *AtomP, GLuint *cellP, GLint *AtomMatrixLocation, GLint *UnitCellMatrixLocation,  GLint *UnitCellColourLocation){
+bool PrepareUnitCellAtomShader (GLuint *AtomP, GLuint *cellP, GLuint *MarkerP, 
+								GLint *AtomMatrixLocation, GLint *UnitCellMatrixLocation,  GLint *UnitCellColourLocation,
+								GLint *MarkerMatrixLocation){
 	if (!PrepareAtomShader(AtomP, AtomMatrixLocation))
 		return false;
 
 	if (!PrepareUnitCellShader(cellP, UnitCellMatrixLocation, UnitCellColourLocation))
+		return false;
+
+	if (!PrepareMarkerShader(MarkerP, MarkerMatrixLocation))
 		return false;
 
 	return true;
@@ -474,6 +548,26 @@ bool PrepareAtomShader (GLuint *AtomP, GLint *AtomMatrixLocation){
 		);
 	*AtomMatrixLocation=glGetUniformLocation(*AtomP, "matrix");
 	if( *AtomMatrixLocation == -1 )
+	{
+		eprintf( "Unable to find matrix uniform in atom shader\n" );
+		return false;
+	}
+	return true;
+}
+
+bool PrepareMarkerShader (GLuint *MP, GLint *MMatrixLocation){
+		//https://www.gamedev.net/topic/591110-geometry-shader-point-sprites-to-spheres/
+	//no rotation, only translations means we can do directional lighting in the shader.
+	//FIXME
+	//http://stackoverflow.com/questions/40101023/flat-shading-in-webgl
+	*MP = CompileGLShader(
+		MarkerShaders[SHADERNAME],
+		MarkerShaders[SHADERVERTEX],
+		MarkerShaders[SHADERFRAGMENT],
+		MarkerShaders[SHADERTESSEVAL]
+		);
+	*MMatrixLocation=glGetUniformLocation(*MP, "matrix");
+	if( *MMatrixLocation == -1 )
 	{
 		eprintf( "Unable to find matrix uniform in atom shader\n" );
 		return false;

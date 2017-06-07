@@ -48,7 +48,9 @@ const char * const AtomShaders [] = {
 	"lowp float a=abs(dot(nn, vec3(0,sqrt(2.0)/2.0,sqrt(2.0)/2.0)));\n"
 	"lowp float b=max(0.0, dot(nn, vec3(0,0,1)));\n"
 	"highp vec4 res=color;\n"
-	"	outputColor = vec4 ((res.rgb) * (0.1 + 0.2*a), color.a);\n"
+//rgh FIXME: make this depend on the background colour. Otherwise looks almost black with white background
+//version for white background:
+	"	outputColor = vec4 ((res.rgb) * (0.4 + 0.3*a + 0.3*b), color.a);\n"
 	"}\n",
 
 	//tess eval
@@ -67,8 +69,8 @@ const char * const AtomShaders [] = {
 	"out vec4 color;\n" //color 
 	"out vec3 normal;\n"
 //	"out vec3 vertex;"
-	"uniform mat4 Projection;\n"
-	"uniform mat4 Modelview;\n"
+//	"uniform mat4 Projection;\n"
+//	"uniform mat4 Modelview;\n"
 
 	"void main()\n"
 	"{\n"

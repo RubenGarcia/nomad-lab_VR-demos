@@ -266,9 +266,9 @@ const char * readAtomsCubeErrors [] ={
 //rgh FIXME, untested code
 int readAtomsCube(const char *const file, int **numatoms, int *timesteps, float ***pos)
 {
-	float isoTrans[3];
-	int voxelSize[3];
-	float abc[9];
+	//float isoTrans[3];
+	//float abc[9];
+	has_abc=true;
 	FILE *f = fopen(file, "r");
 	int r;
 	if (f == 0) {
@@ -286,33 +286,55 @@ int readAtomsCube(const char *const file, int **numatoms, int *timesteps, float 
 
 	discardline(f); //two comments
 	discardline(f);
-	r = fscanf(f, "%d %f %f %f", *numatoms, isoTrans + 0, isoTrans + 1, isoTrans + 2);
+	r = fscanf(f, "%d %f %f %f", *numatoms, cubetrans + 0, cubetrans + 1, cubetrans + 2);
 	if (r < 4)
 		return -2;
 
-	**pos = new float[4 * **numatoms];
+	//rgh FIXME. Is this always bohr?
+	for (int i=0;i<3;i++)
+		cubetrans[i]*= 0.52918f;
 
+	**pos = new float[4 * **numatoms];
+	bool bohr=true;
+
+	// dnabok <dnabok@physik.hu-berlin.de>  2/6/2017, 3:36 PM: vectors are c, b, a
 	for (int i = 0; i < 3; i++) {
-		r = fscanf(f, "%d %f %f %f", voxelSize+i, abc + 0 + 3 * i, abc + 1 + 3 * i, abc + 2 + 3 * i);
+		r = fscanf(f, "%d %f %f %f", voxelSize+(i), &(abc[i][0]), &(abc[i][1]), &(abc[i][2]));
 		if (r < 4)
 			return -3;
 		//positive then the units are Bohr, if negative then Angstroms.
-		if (voxelSize[i] < 0)
+		if (voxelSize[i] < 0) { //angstrom, no change
 			voxelSize[i] = -voxelSize[i];
-		else {
+			bohr=false;
+		} else { //bohr
 			for (int j = 0; j < 3; j++)
-				abc[j + 3 * i] *= 0.52918f;
+				abc[i][j] *= 0.52918f;
 		}
 	}
 
 	for (int i = 0; i < **numatoms; i++) {
 		int a;
-		float unused;
-		r = fscanf(f, "%d %f %f %f %f", &a, &unused, &((**pos)[4 * i + 0]), &((**pos)[4 * i + 1]), &((**pos)[4 * i + 2]));
+		float tmp[3];
+		float charge;
+		r = fscanf(f, "%d %f %f %f %f", &a, &charge, tmp, tmp+1, tmp+2);
 		if (r < 5)
 			return -4;
+
+		//atoms are not in abc coordinates, but in bohr (I suppose that also ansgrom if voxelsize < 0)
+		if (bohr)
+			for (int s=0;s<3;s++)
+				(**pos)[4*i+s]=tmp[s]*0.52918f;
+		else 
+			for (int s=0;s<3;s++)
+				(**pos)[4*i+s]=tmp[s];
+
 		(**pos)[4 * i + 3] = float(a - 1);
 	}
+
+
+	for (int i=0;i<3;i++)
+		for (int j=0;j<3;j++)
+			abc[i][j]*=(voxelSize[i]-1)/supercell[i]; 
 
 //rgh FIXME, discard the volumetric data for now
 
