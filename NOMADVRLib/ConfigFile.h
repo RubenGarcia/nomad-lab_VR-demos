@@ -39,6 +39,9 @@ extern int repetitions[3];
 
 extern Solid *solid;
 
+extern bool saveStereo;
+extern int screenshotdownscaling;
+
 //markers such as hole positions and electron positions
 extern float ** markers;
 extern float ** markercolours;

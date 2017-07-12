@@ -30,6 +30,7 @@ extern const char * readAtomsCubeErrors[];
 extern const char * readAtomsJsonErrors[];
 
 float atomRadius (int i);
+int findAtom(const char *const s);
 
 //internal functions
 void discardline (FILE *F);

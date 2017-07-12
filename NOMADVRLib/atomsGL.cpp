@@ -256,6 +256,7 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer /*[2]*/, GLu
 	float *current=tmp;
 	
 	const int atomlimit=30;
+	const float bondscaling=0.7f;
 
 	numBonds=new int[getAtomTimesteps() ];
 	for (int p=0;p<getAtomTimesteps() ;p++) {
@@ -278,7 +279,7 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer /*[2]*/, GLu
 						}
 						r=atomRadius(static_cast<int>(atoms[p][4 * a1 + 3]))+
 							atomRadius(static_cast<int>(atoms[p][4 * a2 + 3]));
-						if (d*0.9f<r*r) {// bond
+						if (d*bondscaling<r*r) {// bond
 							bonds.push_back(a1+(p==0?0:numAtoms[p-1]));
 							bonds.push_back(a2+(p==0?0:numAtoms[p-1]));
 						}
@@ -300,7 +301,7 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer /*[2]*/, GLu
 						M[k]=atoms[p][4*a+k];
 				}
 			}
-			grid g(m, M, pow(numAtoms[p], 1.0/3), 0.9f);
+			grid g(m, M, pow(numAtoms[p], 1.0/3), bondscaling);
 			for (int a = 1; a < numAtoms[p]; a++) 
 				g.add(atoms[p]+4*a);
 			for (int a = 0; a < numAtoms[p]; a++) {

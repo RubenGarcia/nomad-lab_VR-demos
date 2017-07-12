@@ -191,6 +191,8 @@ private: // OpenGL bookkeeping
 	int m_iValidPoseCount_Last;
 	bool m_bShowCubes;
 	bool buttonPressed[2][vr::k_unMaxTrackedDeviceCount]; //grip, application menu
+	bool AtomsButtonPressed[2];
+	bool showAtoms;
 	std::string m_strPoseClasses;                            // what classes we saw poses for this frame
 	char m_rDevClassChar[vr::k_unMaxTrackedDeviceCount];   // for each device, a character representing its class
 
@@ -204,6 +206,8 @@ private: // OpenGL bookkeeping
 
 	float m_fNearClip;
 	float m_fFarClip;
+
+	void SaveScreenshot (char *name);
 
 	GLuint *m_iTexture; //[3+ZLAYERS+1] // white, depth1, depth2, color[ZLAYERS], atomtexture
 	SDL_Texture **axisTextures; //[6]
@@ -303,7 +307,7 @@ private: // OpenGL bookkeeping
 	std::vector< CGLRenderModel * > m_vecRenderModels;
 	CGLRenderModel *m_rTrackedDeviceToRenderModel[ vr::k_unMaxTrackedDeviceCount ];
 
-	char * pixels; //for saving screenshots to disk
+	char *pixels, *pixels2; //for saving screenshots to disk
 	int framecounter;
 	bool savetodisk;
 };
@@ -423,7 +427,7 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 		for (int i = 0; i < vr::k_unMaxTrackedDeviceCount; i++) {
 			buttonPressed[j][i] = false;
 		}
-
+	showAtoms=true;
 	for( int i = 1; i < argc; i++ )
 	{
 		if( !stricmp( argv[i], "-gldebug" ) )
@@ -939,19 +943,26 @@ bool CMainApplication::HandleInput()
 		vr::VRControllerState_t state;
 		if (m_pHMD->GetControllerState(unDevice, &state))
 		{
-			m_rbShowTrackedDevice[unDevice] = state.ulButtonPressed == 0;
+			//this hides the controllers when buttons are pressed. Why?! -> 
+			//rgh: the name of the variable seems to make it so :o) Possibly so that a different model can be used with the correct deformation
+			//m_rbShowTrackedDevice[unDevice] = state.ulButtonPressed == 0;
 
 			if (!buttonPressed[1][unDevice] && state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu)) {
 				buttonPressed[1][unDevice] = true;
 				if (firstdevice == -1)
 					firstdevice = unDevice;
-				savetodisk = !savetodisk;
+
+				if (firstdevice==unDevice)
+					savetodisk = !savetodisk;
+				else
+					showAtoms= !showAtoms;
 			}
 			else if (buttonPressed[1][unDevice] && 0 == (state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu)))
 			{
 				buttonPressed[1][unDevice] = false;
 			}
 
+			
 			if (!buttonPressed[0][unDevice] && state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_Grip))
 			{
 				buttonPressed[0][unDevice] = true;
@@ -1761,7 +1772,12 @@ bool CMainApplication::SetupStereoRenderTargets()
 	CreateFrameBuffer( m_nRenderWidth, m_nRenderHeight, rightEyeDesc );
 	
 	pixels = new char [m_nRenderWidth*m_nRenderHeight*3];
-
+	if (m_nRenderHeight%screenshotdownscaling!=0)
+		dprintf("Height not multiple of screenshot scale");
+	if (m_nRenderWidth%screenshotdownscaling!=0)
+		dprintf("Width not multiple of screenshot scale");
+	if (screenshotdownscaling!=1)
+		pixels2= new char[m_nRenderWidth*m_nRenderHeight*3/screenshotdownscaling/screenshotdownscaling];
 	return true;
 }
 
@@ -1902,6 +1918,34 @@ void CMainApplication::SetupDistortion()
 }
 
 
+void CMainApplication::SaveScreenshot (char *name)
+{
+SDL_Surface *s;
+int x=m_nRenderWidth/screenshotdownscaling;
+int y=m_nRenderHeight/screenshotdownscaling;
+glPixelStorei(GL_PACK_ALIGNMENT, 1);
+glReadPixels(0, 0, m_nRenderWidth, m_nRenderHeight, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+
+	//little endian machine, R and B are flipped
+	if (screenshotdownscaling==1) {
+		s = SDL_CreateRGBSurfaceFrom(pixels, x, y, 24, 3 * y, 0xff, 0xff00, 0xff0000, 0);
+	} else {
+		for (int i=0;i<x;i++)
+			for (int j=0;j<y;j++) {
+				short rgb[3]={0,0,0};
+				for (int k=0;k<screenshotdownscaling;k++) //horiz
+					for (int l=0;l<screenshotdownscaling;l++) //vert
+						for (int m=0;m<3;m++)
+							rgb[m]+=pixels[j*3*m_nRenderWidth*screenshotdownscaling+i*3*screenshotdownscaling	+l*3*m_nRenderWidth+k*3	+m];
+				for (int m=0;m<3;m++)
+					pixels2[i*3+j*3*m_nRenderWidth/screenshotdownscaling+m]=rgb[m]/screenshotdownscaling/screenshotdownscaling;
+			}
+		s = SDL_CreateRGBSurfaceFrom(pixels2, x, y, 24, 3 * y, 0xff, 0xff00, 0xff0000, 0);
+	}
+		SDL_SaveBMP(s, name);
+
+}
+
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
@@ -1921,11 +1965,7 @@ void CMainApplication::RenderStereoTargets()
 
 	if (savetodisk) {
 		sprintf(name, "%sL%05d.bmp", SCREENSHOT, framecounter);
-		glPixelStorei(GL_PACK_ALIGNMENT, 1);
-		glReadPixels(0, 0, m_nRenderWidth, m_nRenderHeight, GL_RGB, GL_UNSIGNED_BYTE, pixels);
-		//little endian machine, R and B are flipped
-		SDL_Surface *s = SDL_CreateRGBSurfaceFrom(pixels, m_nRenderWidth, m_nRenderHeight, 24, 3 * m_nRenderWidth, 0xff, 0xff00, 0xff0000, 0);
-		SDL_SaveBMP(s, name);
+		SaveScreenshot(name);
 	}
 
  	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
@@ -1948,6 +1988,12 @@ void CMainApplication::RenderStereoTargets()
 	glBindFramebuffer( GL_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId );
  	glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
  	RenderScene( vr::Eye_Right );
+
+	if (savetodisk && saveStereo) {
+		sprintf(name, "%sR%05d.bmp", SCREENSHOT, framecounter);
+		SaveScreenshot(name);
+	}
+
  	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
  	
 	glDisable( GL_MULTISAMPLE );
@@ -2073,7 +2119,7 @@ glPatchParameteri(GL_PATCH_VERTICES, 1);
 trans.translate(iPos).rotateX(-90).translate(UserPosition);
 Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans;
 
-if (numAtoms) {
+if (numAtoms && showAtoms) {
 	glBindVertexArray(m_unAtomVAO[0]);
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
@@ -2095,7 +2141,7 @@ if (numAtoms) {
 		dprintf("Gl error after RenderAtoms timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 }
 //now cloned atoms
-if (numClonedAtoms!=0 && (currentset==0||fixedAtoms)) {
+if (numClonedAtoms!=0 && (currentset==0||fixedAtoms) && showAtoms) {
 	glBindVertexArray(m_unAtomVAO[1]);
 	glDrawArrays(GL_PATCHES, 0, numClonedAtoms);
 	if ((e = glGetError()) != GL_NO_ERROR)
@@ -2103,7 +2149,7 @@ if (numClonedAtoms!=0 && (currentset==0||fixedAtoms)) {
 }
 
 //now bonds
-if (numBonds && displaybonds) {
+if (numBonds && displaybonds && showAtoms) {
 	glBindVertexArray(m_unAtomVAO[2]);
 	glUseProgram(m_unUnitCellProgramID);
 	glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());

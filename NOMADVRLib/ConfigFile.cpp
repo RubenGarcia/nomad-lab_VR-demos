@@ -44,10 +44,15 @@ int voxelSize[3];
 int repetitions[3];
 Solid *solid;
 
+bool saveStereo;
+int screenshotdownscaling;
+
 //markers such as hole positions and electron positions
 float ** markers;
 float ** markercolours;
 float cubetrans[3];
+
+
 const char * loadConfigFileErrors[] =
 {
 	"All Ok",//0
@@ -69,6 +74,7 @@ const char * loadConfigFileErrors[] =
 	"Error reading token", //-16
 	"markers with no previous correct timesteps parameter", //-17
 	"markercolours with no previous correct timesteps parameter", //-18
+	"Error reading atomcolour", // -19
 	"Error loading xyz file, add 100 to see the error",//<-100
 	"Error loading cube file, add 100 to see the error",//<-200
 	"Error loading json file, add 200 to see the error",//<-300
@@ -168,6 +174,8 @@ int loadConfigFile(const char * f)
 	translations=nullptr;
 	for (int i=0;i<3;i++)
 		voxelSize[i]=-1;
+	saveStereo=false;
+	screenshotdownscaling=1;
 	//
 	FILE *F = fopen(f, "r");
 	if (F == 0)
@@ -439,10 +447,31 @@ int loadConfigFile(const char * f)
 		}
 		} else if (!strcmp (s, "displaybonds")) {
 			displaybonds=true;
+		} else if (!strcmp (s, "atomcolour")) {
+			char atom [100];
+			float rgb[3];
+			r = fscanf(F, "%s %f", atom, rgb, rgb + 1, rgb + 2);
+			if (r!=4) {
+				eprintf ("Error loading atom colour");
+				return -19;
+			}
+			int a=findAtom(atom);
+			if (a==-1) {
+				eprintf ("atomcolour, unknown atom type %s", atom);
+				return -19;
+			}
+			for (int i=0;i<3;i++)
+				atomColours[a][i]=rgb[i];
 		} else if (!strcmp (s, "markerscaling")) {
 			r = fscanf(F, "%f", &markerscaling);
 		} else if (!strcmp (s, "displayunitcell")) {
 			displayunitcell=true;
+		} else if (!strcmp (s, "stereoscreenshot")) {
+			saveStereo=true;
+		} else if (!strcmp (s, "screenshotdownscaling")) {
+			r= fscanf(F, "%d", &screenshotdownscaling);
+			if (r<1)
+				eprintf ("Error reading screenshotdownscaling value");
 		} else if (!strcmp (s, "supercell")) {
 			r=fscanf (F, "%f %f %f", supercell, supercell+1, supercell+2);
 		} else if (!strcmp (s, "\x0d")) { //discard windows newline (problem in Sebastian Kokott's phone (?!)
