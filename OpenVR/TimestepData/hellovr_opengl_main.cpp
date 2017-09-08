@@ -113,6 +113,9 @@ public:
 	bool HandleInput();
 	void ProcessVREvent(const vr::VREvent_t & event);
 	void RenderFrame();
+	void HapticFeedback();
+	void HapticFeedback(int device);
+
 
 	bool SetupTexturemaps();
 	bool SetupDepthPeeling();
@@ -236,7 +239,7 @@ private: // OpenGL bookkeeping
 	float elapsedtime;
 	static const float videospeed;
 	int currentiso;
-	int firstdevice;
+	int firstdevice, seconddevice;
 	GLuint m_unLensVAO;
 	GLuint m_glIDVertBuffer;
 	GLuint m_glIDIndexBuffer;
@@ -410,6 +413,7 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 	, elapsedtime(videospeed*float(SDL_GetTicks()))
 	, currentiso(ISOS)
 	, firstdevice(-1)
+	, seconddevice(-1)
 	, m_iTexture(0)
 	, axisTextures(0)
 	, peelingFramebuffer(0)
@@ -951,6 +955,8 @@ bool CMainApplication::HandleInput()
 				buttonPressed[1][unDevice] = true;
 				if (firstdevice == -1)
 					firstdevice = unDevice;
+				else if(seconddevice==-1)
+					seconddevice=unDevice;
 
 				if (firstdevice==unDevice)
 					savetodisk = !savetodisk;
@@ -968,6 +974,9 @@ bool CMainApplication::HandleInput()
 				buttonPressed[0][unDevice] = true;
 				if (firstdevice == -1)
 					firstdevice = unDevice;
+				else if(seconddevice==-1)
+					seconddevice=unDevice;
+
 				if (unDevice == firstdevice) {
 					currentset--;
 					if (currentset < 0)
@@ -1018,6 +1027,7 @@ void CMainApplication::RunMainLoop()
 	{
 		bQuit = HandleInput();
 		RenderFrame();
+		HapticFeedback();
 	}
 
 	SDL_StopTextInput();
@@ -1065,6 +1075,38 @@ void CMainApplication::ProcessVREvent( const vr::VREvent_t & event )
 	}
 }
 
+
+void CMainApplication::HapticFeedback(){
+	HapticFeedback(firstdevice);
+	HapticFeedback(seconddevice);
+}
+//-----------------------------------------------------------------------------
+// Purpose: Haptic feedback if controller near an atom
+//-----------------------------------------------------------------------------
+void CMainApplication::HapticFeedback(int device)
+{
+	if (device!=-1) {
+		vr::VRControllerState_t cs;
+		vr::TrackedDevicePose_t dp;
+		m_pHMD->GetControllerStateWithPose( vr::TrackingUniverseStanding, device, &cs, &dp );
+		if (dp.bPoseIsValid) {
+			vr::HmdMatrix34_t mat=dp.mDeviceToAbsoluteTracking;
+			Vector3 controllerPos(mat.m[0][3], mat.m[1][3],mat.m[2][3]);
+			for (int i=0;i<numAtoms[currentset];i++) {
+				Vector3 posatom(atoms[currentset][i*4+0], atoms[currentset][i*4+1], atoms[currentset][i*4+2]);
+				//remember rotation
+				Vector3 up(-UserPosition.x, -UserPosition.y, UserPosition.z);
+				Vector3 pos=posatom-up;
+				pos.z=-pos.z;
+				float l=(pos - controllerPos).length();
+				if (l<0.2f) {
+					m_pHMD->TriggerHapticPulse(device, 0, 3000);
+					return;
+				}
+			}
+		}
+	}
+}
 
 //-----------------------------------------------------------------------------
 // Purpose:
