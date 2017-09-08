@@ -49,7 +49,7 @@ GLenum atomTexture(GLuint t)
 //WARNING: This should be called after SetupAtoms
 //This means that numAtoms now has the cummulative distribution!
 //This should be called after the atom texture is prepared, and therefore has the atomscaling pre-multiplied
-GLenum SetupAtomsNoTess (GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer/*[2]*/, GLuint **AtomIndexBuffer/*[3]*/)
+GLenum SetupAtomsNoTess (GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer/*[3]*/, GLuint **AtomIndexBuffer/*[2]*/)
 	//atoms, cloned atoms
 	//rgh: FIXME: add AtomVAO[2] for atom trajectories
 {
@@ -71,13 +71,13 @@ if (!solid) {
 	int totalatoms=numAtoms[getAtomTimesteps() -1];
 	
 //eprintf ("SetupAtomsNoTess 2");
-	*AtomVAO = new GLuint[3]; //atoms, cloned atoms, unused (bonds use Tess atom positions)
+	*AtomVAO = new GLuint[4]; //atoms, cloned atoms, unused (bonds use Tess atom positions), trajectories
 	*AtomIndexBuffer= new GLuint[3];//atoms, cloned atoms, bonds
-	*AtomVertBuffer = new GLuint[2];//atoms, cloned atoms
+	*AtomVertBuffer = new GLuint[3];//atoms, cloned atoms, trajectories
 
-	glGenVertexArrays(3, *AtomVAO);
+	glGenVertexArrays(4, *AtomVAO);
 	glGenBuffers(2, *AtomIndexBuffer);
-	glGenBuffers(2, *AtomVertBuffer);
+	glGenBuffers(3, *AtomVertBuffer);
 //eprintf ("SetupAtomsNoTess 3");
 	glBindVertexArray((*AtomVAO)[0]);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, (*AtomIndexBuffer)[0]);
@@ -218,7 +218,7 @@ if (!solid) {
 } //SetupAtomsNoTess
 
 
-GLenum SetupAtoms(GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer /*[2]*/, GLuint *BondIndices)
+GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLuint *BondIndices)
 {
 	if (!numAtoms)
 		return glGetError();
@@ -234,11 +234,11 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer /*[2]*/, GLu
 	}
 	eprintf("SetupAtoms: totalatoms=%d", totalatoms);
 
-	*AtomVAO = new GLuint[3]; //atoms, cloned atoms, bonds //rgh fixme: for trajectories, we want to create another vao 
-	*AtomVertBuffer = new GLuint[2];
+	*AtomVAO = new GLuint[4]; //atoms, cloned atoms, bonds, trajectories
+	*AtomVertBuffer = new GLuint[3]; //atoms, cloned atoms, trajectories
 
-	glGenVertexArrays(3, *AtomVAO);
-	glGenBuffers(2, *AtomVertBuffer);
+	glGenVertexArrays(4, *AtomVAO);
+	glGenBuffers(3, *AtomVertBuffer);
 	glGenBuffers(1, BondIndices);
 
 	glBindVertexArray((*AtomVAO)[0]);
@@ -355,6 +355,29 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[3]*/, GLuint **AtomVertBuffer /*[2]*/, GLu
 			}
 			atomtrajectoryrestarts[t].push_back(getAtomTimesteps() );
 		}
+	//need to setup a specific buffer because of GL_MAX_VERTEX_ATTRIB_STRIDE
+	//only need xyz, not atom size
+	//rgh FIXME: If we use index buffer instead, GPU storage is 1/3 of this
+		float *traj = new float[atomtrajectories.size()*TIMESTEPS*3];
+		for (unsigned int t = 0; t < atomtrajectories.size(); t++) {
+			for (int i=0;i<TIMESTEPS;i++)
+				for (int j = 0; j < 3; j++) {
+					traj[t*TIMESTEPS * 3 + i * 3 + j] = tmp[i*numAtoms[0]*4+
+																+atomtrajectories[t]*4
+																+j];
+				}
+		}
+		glBindVertexArray((*AtomVAO)[3]);
+		glBindBuffer(GL_ARRAY_BUFFER, (*AtomVertBuffer)[2]);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(float) *atomtrajectories.size()*TIMESTEPS * 3, traj,
+			GL_STATIC_DRAW);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (const void *)(0));
+		glEnableVertexAttribArray(0);
+		e = glGetError();
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("opengl error %d, creating atom trajectories, l %d\n", e, __LINE__);
+
+		delete[] traj;
 	}
 	delete[] tmp;
 	//bonds

@@ -1,4 +1,4 @@
-﻿//========= Copyright Valve Corporation ============//
+﻿//========= Copyright Valve Corporaion ============//
 #define NOMINMAX
 
 #define _CRTDBG_MAP_ALLOC
@@ -1928,7 +1928,7 @@ glReadPixels(0, 0, m_nRenderWidth, m_nRenderHeight, GL_RGB, GL_UNSIGNED_BYTE, pi
 
 	//little endian machine, R and B are flipped
 	if (screenshotdownscaling==1) {
-		s = SDL_CreateRGBSurfaceFrom(pixels, x, y, 24, 3 * y, 0xff, 0xff00, 0xff0000, 0);
+		s = SDL_CreateRGBSurfaceFrom(pixels, x, y, 24, 3 * x, 0xff, 0xff00, 0xff0000, 0);
 	} else {
 		for (int i=0;i<x;i++)
 			for (int j=0;j<y;j++) {
@@ -1940,9 +1940,9 @@ glReadPixels(0, 0, m_nRenderWidth, m_nRenderHeight, GL_RGB, GL_UNSIGNED_BYTE, pi
 				for (int m=0;m<3;m++)
 					pixels2[i*3+j*3*m_nRenderWidth/screenshotdownscaling+m]=rgb[m]/screenshotdownscaling/screenshotdownscaling;
 			}
-		s = SDL_CreateRGBSurfaceFrom(pixels2, x, y, 24, 3 * y, 0xff, 0xff00, 0xff0000, 0);
+		s = SDL_CreateRGBSurfaceFrom(pixels2, x, y, 24, 3 * x, 0xff, 0xff00, 0xff0000, 0);
 	}
-		SDL_SaveBMP(s, name);
+	SDL_SaveBMP(s, name);
 
 }
 
@@ -2181,7 +2181,18 @@ if (markers && p[0]==0 &&p[1]==0 &&p[2]==0) {
 if (!showTrajectories)
 	return;
 
-glBindVertexArray(m_unAtomVAO[0]);
+/* //rgh: old rendering method using one buffer with all atoms
+int maxstride;
+glGetIntegerv(GL_MAX_VERTEX_ATTRIB_STRIDE, &maxstride);
+for (int i = 0; i < atomtrajectories.size(); i++) {
+	if (maxstride<4 * sizeof(float)*numAtoms[0]) {
+		showTrajectories = false;
+		dprintf("OpenGL does not allow rendering of trajectories with currently implemented method (MAX_VERTEX_ATTRIB_STRIDE), disabling");
+		return;
+	}
+}*/
+
+glBindVertexArray(m_unAtomVAO[3]);
 glUseProgram(m_unUnitCellProgramID);
 glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
 float color2[4]={1,0,0,1};
@@ -2192,13 +2203,18 @@ if ((e = glGetError()) != GL_NO_ERROR)
 glEnableVertexAttribArray(0);
 glDisableVertexAttribArray(1);
 if ((e = glGetError()) != GL_NO_ERROR)
-	dprintf("Gl error after Render Atom trajectories timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+	dprintf("Gl error before Render Atom trajectories timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+
 for (int i=0;i<atomtrajectories.size();i++) {
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float)*numAtoms[0], (const void *)(0+4*sizeof(float)*atomtrajectories[i]));
+	//glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float)*numAtoms[0], (const void *)(0+4*sizeof(float)*atomtrajectories[i]));
+	//if ((e = glGetError()) != GL_NO_ERROR)
+	//	dprintf("Gl error after Render Atom trajectories vertexAttribPointer timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 	for (int j=1;j<atomtrajectoryrestarts[i].size();j++) {
-		int orig=atomtrajectoryrestarts[i][j-1];
+		int orig=atomtrajectoryrestarts[i][j-1]+TIMESTEPS*i;
 		int count=atomtrajectoryrestarts[i][j]-atomtrajectoryrestarts[i][j-1];
 		glDrawArrays(GL_LINE_STRIP, orig, count);
+			if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after Render Atom trajectories DrawArrays timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 	}
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("Gl error after Render Atom trajectories timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
