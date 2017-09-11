@@ -202,9 +202,10 @@ int findAtom(const char *const s)
 
 const char * readAtomsXYZErrors[] = {
 	"All Ok",//0
-	"could not open file", //-1
-	"error loading atom type and position line", //-2
-	"atom type unknown", //-3
+	"Could not open file", //-1
+	"Error loading atom type and position line", //-2
+	"Atom type unknown", //-3
+	"Corrupt xyz file" //-4
 };
 
 int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float ***pos) 
@@ -220,10 +221,18 @@ int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float *
 		return -1;
 	}
 	*timesteps=0;
+	int blanklines=0;
 	while (!feof(f)) {
 		r=fscanf(f, "%d", &mynumatoms);
-		if (r<1)
+		if (r<1) {
+			blanklines++;
+			if (blanklines>3) {
+				eprintf("Corrupt xyz file %s. Error at %d atoms\n", file, mynumatoms);
+				return -4;
+			}
 			continue; //there may be a blank line at the end of the file
+		}
+		blanklines=0;
 		(*timesteps)++;
 		discardline (f);
 		//eprintf ("Getting atoms, mynumatoms=%d",mynumatoms);
@@ -245,6 +254,7 @@ int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float *
 				//return -3;
 			}
 			(mypos.back())[4*i+3]=(float)a;
+			//RGH FIXME, add cloned atoms
 		}
 	}
 

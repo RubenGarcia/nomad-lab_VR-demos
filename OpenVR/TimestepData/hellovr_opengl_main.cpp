@@ -1077,8 +1077,10 @@ void CMainApplication::ProcessVREvent( const vr::VREvent_t & event )
 
 
 void CMainApplication::HapticFeedback(){
-	HapticFeedback(firstdevice);
-	HapticFeedback(seconddevice);
+	if (hapticFeedback) {
+		HapticFeedback(firstdevice);
+		HapticFeedback(seconddevice);
+	}
 }
 //-----------------------------------------------------------------------------
 // Purpose: Haptic feedback if controller near an atom
@@ -1092,19 +1094,53 @@ void CMainApplication::HapticFeedback(int device)
 		if (dp.bPoseIsValid) {
 			vr::HmdMatrix34_t mat=dp.mDeviceToAbsoluteTracking;
 			Vector3 controllerPos(mat.m[0][3], mat.m[1][3],mat.m[2][3]);
-			for (int i=0;i<numAtoms[currentset];i++) {
-				Vector3 posatom(atoms[currentset][i*4+0], atoms[currentset][i*4+1], atoms[currentset][i*4+2]);
-				//remember rotation
-				Vector3 up(-UserPosition.x, -UserPosition.y, UserPosition.z);
-				Vector3 pos=posatom-up;
-				pos.z=-pos.z;
-				float l=(pos - controllerPos).length();
-				if (l<0.2f) {
-					m_pHMD->TriggerHapticPulse(device, 0, 3000);
-					return;
-				}
+			int atomsInTimestep;
+			if (currentset==0)
+				atomsInTimestep=numAtoms[0];
+			else
+				atomsInTimestep=numAtoms[currentset]-numAtoms[currentset-1];
+			for (int i=0;i<atomsInTimestep;i++) {
+				float atomr=atomRadius(atoms[currentset][i*4+3]);
+
+				//Vector3 posatom(atoms[currentset][i*4+0], atoms[currentset][i*4+1], atoms[currentset][i*4+2]);
+				Vector3 posatom(atoms[currentset][i*4+0], atoms[currentset][i*4+2], atoms[currentset][i*4+1]); //y/z flipped
+				int p[3];
+				for (p[0]=0;p[0]<std::max(1,repetitions[0]);(p[0])++)
+					for (p[1]=0;p[1]<std::max(1,repetitions[1]);(p[1])++)
+						for (p[2]=0;p[2]<std::max(1,repetitions[2]);(p[2])++) {
+							float delta[3];
+							::GetDisplacement(p, delta);
+							Vector3 iPos(delta[0], delta[1], delta[2]);
+
+							Vector3 up(-UserPosition.x, -UserPosition.y, UserPosition.z);
+							Vector3 pos=posatom-up+iPos;
+							pos=Vector3 (pos.x, pos.y, -pos.z);
+							float l=(pos - controllerPos).length();
+							if (l<atomr*atomScaling) {
+								m_pHMD->TriggerHapticPulse(device, 0, 3000);
+								return;
+							}
+						}
 			}
-		}
+			//now cloned atoms
+			if (currentset==0 && clonedAtoms) {
+				Vector3 up(-UserPosition.x, -UserPosition.y, UserPosition.z);
+				for (int i=0;i<numClonedAtoms;i++) {
+					float atomr=atomRadius(clonedAtoms[currentset][i*4+3]);
+					Vector3 posatom(clonedAtoms[currentset][i*4+0], clonedAtoms[currentset][i*4+2], clonedAtoms[currentset][i*4+1]);
+					Vector3 pos=posatom-up;
+					pos.z=-pos.z;
+					float l=(pos - controllerPos).length();
+					if (l<atomr*atomScaling) {
+						m_pHMD->TriggerHapticPulse(device, 0, 3000);
+						return;
+					}
+				}
+					
+			}
+		} // pose is valid
+			
+		
 	}
 }
 
@@ -1378,8 +1414,8 @@ void CMainApplication::SetupScene()
 {
 	SetupIsosurfaces();
 	SetupAtoms();
-	delete[] clonedAtoms;
-	clonedAtoms=0;
+	//delete[] clonedAtoms; //required for haptic feedback
+	//clonedAtoms=0;
 	SetupUnitCell();
 	SetupMarker();
 }
@@ -2314,6 +2350,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 	if (ISOS==0) {
 		RenderAtoms(nEye);
 		RenderUnitCell(nEye);
+		RenderAllTrackedRenderModels(nEye);
 		return;
 	}
 

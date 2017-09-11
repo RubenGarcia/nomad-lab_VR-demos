@@ -46,6 +46,7 @@ Solid *solid;
 
 bool saveStereo;
 int screenshotdownscaling;
+bool hapticFeedback;
 
 //markers such as hole positions and electron positions
 float ** markers;
@@ -176,6 +177,7 @@ int loadConfigFile(const char * f)
 		voxelSize[i]=-1;
 	saveStereo=false;
 	screenshotdownscaling=1;
+	hapticFeedback=false;
 	//
 	FILE *F = fopen(f, "r");
 	if (F == 0)
@@ -472,6 +474,8 @@ int loadConfigFile(const char * f)
 			r= fscanf(F, "%d", &screenshotdownscaling);
 			if (r<1)
 				eprintf ("Error reading screenshotdownscaling value");
+		} else if (!strcmp (s, "hapticfeedback")) {
+			hapticFeedback=true;
 		} else if (!strcmp (s, "supercell")) {
 			r=fscanf (F, "%f %f %f", supercell, supercell+1, supercell+2);
 		} else if (!strcmp (s, "\x0d")) { //discard windows newline (problem in Sebastian Kokott's phone (?!)

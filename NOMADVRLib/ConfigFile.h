@@ -42,6 +42,8 @@ extern Solid *solid;
 extern bool saveStereo;
 extern int screenshotdownscaling;
 
+extern bool hapticFeedback;
+
 //markers such as hole positions and electron positions
 extern float ** markers;
 extern float ** markercolours;
