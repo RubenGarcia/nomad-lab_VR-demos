@@ -23,9 +23,15 @@
 #include "vr/gvr/capi/include/gvr_audio.h"
 #include "NOMADVRLib/atoms.hpp" //for TMPDIR
 
+#include "treasure_hunt_jni.h"
+
 #define JNI_METHOD(return_type, method_name) \
   JNIEXPORT return_type JNICALL              \
       Java_com_google_vr_ndk_samples_treasurehunt_MainActivity_##method_name
+
+//http://stackoverflow.com/questions/12900695/how-to-obtain-jni-interface-pointer-jnienv-for-asynchronous-calls
+    JavaVM* javaVM = nullptr;
+    jobject jo;
 
 namespace {
 
@@ -37,6 +43,28 @@ inline TreasureHuntRenderer *native(jlong ptr) {
   return reinterpret_cast<TreasureHuntRenderer *>(ptr);
 }
 }  // anonymous namespace
+
+//http://stackoverflow.com/questions/28622036/android-ndk-calling-java-functions-from-c
+/*void GetUrl (const char *url, const char *path) 
+{
+    jstring jurl = genv->NewStringUTF(url);
+    jstring jpath = genv->NewStringUTF(path);
+
+    jclass jc = genv->FindClass("NOMAD");
+    jmethodID mid = genv->GetStaticMethodID(jc, "GetUrl", "(Ljava/lang/String;Ljava/lang/String;)V");
+
+    genv->CallStaticVoidMethod(jc, mid, jurl, jpath);	
+}*/
+
+void DisplayMessage (const char *s)
+{
+	JNIEnv *env;
+    	javaVM->AttachCurrentThread(&env, nullptr);
+	jstring js = env->NewStringUTF(s);
+	jclass cls = env->GetObjectClass(jo);
+	jmethodID mid = env->GetMethodID(cls, "DisplayMessage", "(Ljava/lang/String;)V");
+	env->CallVoidMethod(jo, mid, js);
+} 
 
 extern "C" {
 
@@ -82,11 +110,20 @@ JNI_METHOD(void, nativeOnResume)
   native(native_treasure_hunt)->OnResume();
 }
 
+//https://library.vuforia.com/articles/Solution/How-To-Communicate-Between-Java-and-C-using-the-JNI
 JNI_METHOD(void, nativeSetConfigFile)
 (JNIEnv *env, jobject obj, jstring s, jstring e) {
+	env->GetJavaVM(&javaVM);
+	jo=env->NewGlobalRef(obj);
 	configPath = env->GetStringUTFChars(s , NULL ) ;
 	TMPDIR=env->GetStringUTFChars(e , NULL ) ;
 
 }
+
+JNI_METHOD(void, nativeLoadConfigFile)
+(JNIEnv *env, jobject obj, jlong native_treasure_hunt) {
+  native(native_treasure_hunt)->loadConfigFile();
+}
+
 
 }  // extern "C"

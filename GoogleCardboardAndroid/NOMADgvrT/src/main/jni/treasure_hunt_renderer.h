@@ -30,6 +30,8 @@
 #include "vr/gvr/capi/include/gvr_controller.h"
 #include "vr/gvr/capi/include/gvr_types.h"
 
+#define ZLAYERS 2
+
 extern const char * configPath;
 
 class TreasureHuntRenderer {
@@ -69,6 +71,7 @@ class TreasureHuntRenderer {
    */
   void OnResume();
 void OnTriggerEvent();
+void loadConfigFile(void);
  private:
   int CreateTexture(int width, int height, int textureFormat, int textureType);
 
@@ -150,17 +153,23 @@ int currentset;
   gvr::ViewerType gvr_viewer_type_;
 
 GLuint textures[2]; // white, atoms
+GLuint textDepthPeeling[ZLAYERS+2]; 
+GLuint peelingFramebuffer;
 	//if no tesselation is available, we still need the tess atoms for the trajectories!
 	GLuint *AtomTVAO=nullptr, *AtomTBuffer=nullptr, *AtomVAO=nullptr, *AtomBuffer=nullptr, *AtomIndices=nullptr,//[2], atoms, extraatoms
+		BondIndices,
 		UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer;
 GLuint			AtomsP, UnitCellP; // framework does not provide support for tesselation and provides many things we don't need.
 	GLint		AtomMatrixLoc, UnitCellMatrixLoc, UnitCellColourLoc;
+GLuint	TransP=0, BlendP=0;
+GLint	TransMatrixLoc=-1;
 bool hasTess=true;
 
 GLuint *ISOVAO=nullptr/*[ISOS*TIMESTEPS]*/, *ISOBuffer=nullptr/*[ISOS*TIMESTEPS]*/,
 	*ISOIndices=nullptr/*[ISOS*TIMESTEPS]*/;
 GLuint ISOP;
 GLint ISOMatrixLoc;
+GLuint BlendVAO=0, BlendBuffer=0, BlendIndices=0;
 int *numISOIndices=nullptr/*[ISOS*TIMESTEPS]*/;
 
 int currentSet=0;

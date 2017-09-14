@@ -393,6 +393,7 @@ if (r<2) {
 	//possibly https or other unsupported protocol, fall back to wget 
 	return readAtomsJsonURLwget (f, numatoms, timesteps, pos, abc, clonedAtoms, token);
 #else
+	//GetUrl("https://www.google.de/", "google_index.html"); //rgh test
 	return -3;
 #endif
 }
