@@ -16,6 +16,7 @@
 #include <unistd.h>
 
 #include "treasure_hunt_renderer.h"  // NOLINT
+#include "treasure_hunt_jni.h"
 
 #include <android/log.h>
 #include <assert.h>
@@ -33,7 +34,7 @@
 #include "NOMADVRLib/polyhedron.h"
 #include "NOMADVRLib/IsosurfacesGL.h"
 
-#define LOG_TAG "TreasureHuntCPP"
+#define LOG_TAG "NOMADgvrT"
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
@@ -59,6 +60,8 @@ void eprintf( const char *fmt, ... )
 	if (*fmt=='\0')
 		LOGD("Empty format");
 	LOGD("<%s>", buffer);
+	//rgh: does not work yet
+	//DisplayMessage(buffer);
 }
 
 
@@ -305,13 +308,8 @@ static float VectorInnerProduct(const std::array<float, 4>& vect1,
 }
 }  // anonymous namespace
 
-TreasureHuntRenderer::TreasureHuntRenderer(
-    gvr_context* gvr_context, std::unique_ptr<gvr::AudioApi> gvr_audio_api)
-    : gvr_api_(gvr::GvrApi::WrapNonOwned(gvr_context)),
-      scratch_viewport_(gvr_api_->CreateBufferViewport()),
-      gvr_controller_api_(nullptr),
-      gvr_viewer_type_(gvr_api_->GetViewerType()) {
-
+void TreasureHuntRenderer::loadConfigFile(void)
+{
 	if (configPath!=nullptr)
 		eprintf ("configPath=<%s>", configPath);
 	else
@@ -326,7 +324,7 @@ TreasureHuntRenderer::TreasureHuntRenderer(
 	chdir(s.substr(0, s.find_last_of("\\/")).c_str());
 	
 
-	if ((error=loadConfigFile(configPath))<0) {
+	if ((error=::loadConfigFile(configPath))<0) {
 		if (-100<error) {
 			eprintf(loadConfigFileErrors[-error]);
 			eprintf("Config file reading error");
@@ -345,7 +343,17 @@ TreasureHuntRenderer::TreasureHuntRenderer(
 		LOGD("No atom glyph specified, using Icosahedron");
 		solid=new Solid(Solid::Type::Icosahedron);
 	}
-	eprintf("after config load, timesteps=%d", TIMESTEPS);
+}
+
+TreasureHuntRenderer::TreasureHuntRenderer(
+    gvr_context* gvr_context, std::unique_ptr<gvr::AudioApi> gvr_audio_api)
+    : gvr_api_(gvr::GvrApi::WrapNonOwned(gvr_context)),
+      scratch_viewport_(gvr_api_->CreateBufferViewport()),
+      gvr_controller_api_(nullptr),
+      gvr_viewer_type_(gvr_api_->GetViewerType()) {
+
+	loadConfigFile();
+	//eprintf("after config load, timesteps=%d", TIMESTEPS);
 	
   ResumeControllerApiAsNeeded();
   if (gvr_viewer_type_ == GVR_VIEWER_TYPE_CARDBOARD) {
@@ -374,6 +382,7 @@ void TreasureHuntRenderer::InitializeGl() {
   gvr_api_->InitializeGl();
 
 glGenTextures(2, textures);
+glGenTextures(2+ZLAYERS, textDepthPeeling);
     //white
     unsigned char data2[4]={255,255,255,255}; //white texture for non-textured meshes
     glBindTexture(GL_TEXTURE_2D, textures[0]);
@@ -409,7 +418,7 @@ glGenTextures(2, textures);
 		error=-403;
 	}
 
-	e=SetupAtoms(&AtomTVAO, &AtomTBuffer);
+	e=SetupAtoms(&AtomTVAO, &AtomTBuffer, &BondIndices);
 	if (e!=GL_NO_ERROR) {
 		eprintf ("SetupAtoms error %d", e);
 		error=-404;
@@ -428,8 +437,50 @@ glGenTextures(2, textures);
 		error=-406;
 	}
 
+  // Because we are using 2X MSAA, we can render to half as many pixels and
+  // achieve similar quality.
+  render_size_ =
+      HalfPixelCount(gvr_api_->GetMaximumEffectiveRenderTargetSize());
+  std::vector<gvr::BufferSpec> specs;
+
+  specs.push_back(gvr_api_->CreateBufferSpec());
+  specs[0].SetColorFormat(GVR_COLOR_FORMAT_RGBA_8888);
+  specs[0].SetDepthStencilFormat(GVR_DEPTH_STENCIL_FORMAT_DEPTH_16);
+  specs[0].SetSize(render_size_);
+  specs[0].SetSamples(2);
+
+  swapchain_.reset(new gvr::SwapChain(gvr_api_->CreateSwapChain(specs)));
+
+  viewport_list_.reset(
+      new gvr::BufferViewportList(gvr_api_->CreateEmptyBufferViewportList()));
+
 //isosurfaces
 	if (ISOS) {
+		//rgh: FIXME Additive blending for android; do not need most of these textures
+		//additive blending means white background makes everything white
+		float m=BACKGROUND[0];
+		m=std::max(m, BACKGROUND[1]);
+		m=std::max(m, BACKGROUND[2]);
+		if (m>0.2f) { //make background darker, preserving colour, so additive blending works
+			for (int i=0;i<3;i++)
+				BACKGROUND[i]*=0.2f / m;
+		}
+
+		e=SetupDepthPeeling(render_size_.width, render_size_.height, ZLAYERS, 
+			textDepthPeeling, &peelingFramebuffer);
+		if (!e) {
+			eprintf("Error setting up DepthPeeling\n");
+			error=-407;
+		}
+
+
+		if (GL_NO_ERROR!=(e=PrepareISOTransShader (&TransP, 
+			&TransMatrixLoc, &BlendP)))
+		{
+			eprintf( "Error Preparing Transparency shader, %d\n", e );
+			error=-408;
+		}
+		SetupBlending(&BlendVAO, &BlendBuffer, &BlendIndices);
 		PrepareISOShader(&ISOP, &ISOMatrixLoc);
 
 		std::vector<float> vertices;
@@ -501,28 +552,13 @@ glGenTextures(2, textures);
 			indices.clear();
 
 			if (p % ISOS == ISOS - 1) {
-				eprintf ("timestep %d", timestep);
+				//eprintf ("timestep %d", timestep);
 				timestep++;
 			}
 		}
 	}
 
-  // Because we are using 2X MSAA, we can render to half as many pixels and
-  // achieve similar quality.
-  render_size_ =
-      HalfPixelCount(gvr_api_->GetMaximumEffectiveRenderTargetSize());
-  std::vector<gvr::BufferSpec> specs;
 
-  specs.push_back(gvr_api_->CreateBufferSpec());
-  specs[0].SetColorFormat(GVR_COLOR_FORMAT_RGBA_8888);
-  specs[0].SetDepthStencilFormat(GVR_DEPTH_STENCIL_FORMAT_DEPTH_16);
-  specs[0].SetSize(render_size_);
-  specs[0].SetSamples(2);
-
-  swapchain_.reset(new gvr::SwapChain(gvr_api_->CreateSwapChain(specs)));
-
-  viewport_list_.reset(
-      new gvr::BufferViewportList(gvr_api_->CreateEmptyBufferViewportList()));
 
 }
 
@@ -621,6 +657,7 @@ if (animateTimesteps) {
   // Draw the world.
   frame.BindBuffer(0);
   if (error<0) {
+	//rgh: FIXME, add textures with messages here
 		if (-100<error) {
 			glClearColor(1.f, 0.f, 0.f, 1.f); 
 		} else if (-200<error){
@@ -633,7 +670,7 @@ if (animateTimesteps) {
 			glClearColor(1.f, 0.f, 1.f, 1.f); 
 		}
   } else {
-	glClearColor(BACKGROUND[0], BACKGROUND[1], BACKGROUND[2], 0.5f);
+	glClearColor(BACKGROUND[0], BACKGROUND[1], BACKGROUND[2], 1.f);
   }
 
     // Dark background so text shows up.
@@ -764,10 +801,10 @@ for (int i=0;i<4;i++)
 		t[j*4+i]=transform.m[i][j];
 
 glUseProgram(ISOP);
-	if ((e = glGetError()) != GL_NO_ERROR)
+if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("1 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
 glUniformMatrix4fv(ISOMatrixLoc, 1, GL_FALSE, t);
-	if ((e = glGetError()) != GL_NO_ERROR)
+if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("2 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
 
 if (curDataPos!=ISOS) {
@@ -779,31 +816,58 @@ if (curDataPos!=ISOS) {
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("4 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
 } else {
+//transparency; FIXME disabled as I get 1fps, with screen in 4 columns and z-check is incorrect
+/*
+	glDisable(GL_BLEND);
+	glDepthMask(GL_TRUE);
+	//do depth peeling
+	CleanDepthTexture(textDepthPeeling[0], render_size_.width, render_size_.height);
+	GLint dfb;
+	glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &dfb);
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("Gl error RenderIsos, before zl loop: %d\n", e);
+	for (int zl = 0; zl < ZLAYERS; zl++) {
+		EnableDepthFB(zl, TransP, 
+			peelingFramebuffer, textDepthPeeling);
+		glUniformMatrix4fv(TransMatrixLoc, 1, GL_FALSE, t);
+		for (int i=0;i<ISOS;i++) {
+			glBindVertexArray(ISOVAO[currentSet*ISOS+i]);
+			glDrawElements(GL_TRIANGLES,numISOIndices[currentSet*ISOS+i] , GL_UNSIGNED_INT, 0);	
+		}
+	}
+	glUseProgram(BlendP);
+	glBindFramebuffer(GL_FRAMEBUFFER, dfb);
+	glBindVertexArray(BlendVAO);
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("Gl error RenderIsos, after glBindVertexArray: %d\n", e);
+	BlendTextures(textDepthPeeling, ZLAYERS);
+	glBindVertexArray(0);
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("Gl error RenderIsos, after BlendTextures: %d\n", e);*/
+/* no transparency*/
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+	glDepthMask(GL_FALSE);
 	for (int i=0;i<ISOS;i++) {
 		glBindVertexArray(ISOVAO[currentSet*ISOS+i]);
-		glBindBuffer(GL_ARRAY_BUFFER, ISOBuffer[currentSet*ISOS+i]);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ISOIndices[currentSet*ISOS+i]);
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-		glEnableVertexAttribArray(2);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(0*sizeof(float)));
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(3*sizeof(float)));
-		glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(6*sizeof(float)));
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("5 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
 		eprintf ("Drawing %d vertices, isos", numISOIndices[currentSet*ISOS+i]);
-		glDrawElements(GL_TRIANGLES,numISOIndices[currentSet*ISOS+i] , GL_UNSIGNED_INT, 0);		
+		glDrawElements(GL_TRIANGLES,numISOIndices[currentSet*ISOS+i] , GL_UNSIGNED_INT, 0);	
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("6 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
 	}
-}
+	glDisable(GL_BLEND);
+} //if (curDataPos!=ISOS) 
+//eprintf ("end of RenderIsos");
+glBindVertexArray(0);
 }
 
 void TreasureHuntRenderer::RenderAtoms(const float *m) //m[16]
 {
 	//return;
-	eprintf ("RenderAtoms start numatoms %d, timestep %d", numAtoms[currentSet], currentSet);
-	eprintf ("solid nfaces %d", solid->nFaces);
+	//eprintf ("RenderAtoms start numatoms %d, timestep %d", numAtoms[currentSet], currentSet);
+	//eprintf ("solid nfaces %d", solid->nFaces);
 	int e;
 	if (numAtoms==0)
 		return;
@@ -977,7 +1041,7 @@ void TreasureHuntRenderer::RenderUnitCell(const gvr::Mat4f eyeViewProjection)
 	//for (int i=0;i<4;i++)
 	//	for (int j=0;j<4;j++)
 	//		eprintf ("%d %d = %f", i, j, eyeViewProjection.m[i][j]);
-	eprintf ("RenderUnitCell, has_abc=%d", has_abc);
+	//eprintf ("RenderUnitCell, has_abc=%d", has_abc);
 	if (!has_abc)
 		return;
 	if (UnitCellVAO==0)

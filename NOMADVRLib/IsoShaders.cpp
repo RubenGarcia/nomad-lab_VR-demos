@@ -65,9 +65,9 @@ const char *const IsoTransparentShaders [] = {"Iso Transparent Renderer",
 	"	color = vec4(colorIn.rgba);\n"
 	"   n=normalize(normalsIn);\n"
 	//		"   uv=uvIn;\n"
-	"int i=gl_InstanceID / " GRIDSTR ";\n"
-	"int j=gl_InstanceID % " GRIDSTR ";\n"
-	"	pos = matrix * (position + vec4 (float(i)*0.15*101.0, 0, float(j)*0.15*101.0, 0));\n"
+//	"int i=gl_InstanceID / " GRIDSTR ";\n"
+//	"int j=gl_InstanceID % " GRIDSTR ";\n"
+	"	pos = matrix * (position /*+ vec4 (float(i)*0.15*101.0, 0, float(j)*0.15*101.0, 0)*/);\n"
 	"   gl_Position = pos;\n"
 	//"	gl_Position = matrix * position;\n"
 	"}\n",
@@ -79,17 +79,17 @@ const char *const IsoTransparentShaders [] = {"Iso Transparent Renderer",
 	"#version 300 es\n"
 #endif
 	"uniform sampler2D diffuse;\n" //now extra depth texture for peeling
-	"in vec4 color;\n"
-	"in vec3 n;\n"
+	"in lowp vec4 color;\n"
+	"in lowp vec3 n;\n"
 	"in highp vec4 pos;\n"
-	"out vec4 outputColor;\n"
+	"out lowp vec4 outputColor;\n"
 	"void main()\n"
 	"{\n"
-	"vec4 mytex=texture(diffuse, vec2(pos.x/pos.w*0.5+0.5, pos.y/pos.w*0.5+0.5));\n"
+	"highp vec4 mytex=texture(diffuse, vec2(pos.x/pos.w*0.5+0.5, pos.y/pos.w*0.5+0.5));\n"
 	//http://www.gamedev.net/topic/556521-glsl-manual-shadow-map-biasscale/
 	//"vec2 d=vec2(dFdx(pos.z), dFdy(pos.z));\n"
 	//"highp float m=sqrt(d.x*d.x + d.y*d.y);\n"
-	"if ((pos.z/pos.w+1)/2 <= mytex.r+0.0001 ) discard;\n"
+	"if ((pos.z/pos.w+1.0)/2.0 <= mytex.r+0.0001 ) discard;\n"
 
 	"lowp vec3 nn=normalize(n);"
 	"lowp float a=max(0.0, dot(nn, vec3(0,sqrt(2.0)/2.0,sqrt(2.0)/2.0)));\n"
@@ -118,10 +118,14 @@ const char *const IsoBlendShaders [] = {"Iso Transparent Blend",
 	"	gl_Position = vec4(position, 1);\n"
 	"}\n",
 	//fragment shader
+#if defined(WIN32) || defined(CAVE)
 	"#version 410 core\n"
+#else
+	"#version 300 es\n"
+#endif
 	"uniform sampler2D diffuse;\n"
-	"in vec2 v2TexCoord;\n"
-	"out vec4 outputColor;\n"
+	"in highp vec2 v2TexCoord;\n"
+	"out lowp vec4 outputColor;\n"
 	"void main()\n"
 	"{\n"
 	"   outputColor = texture( diffuse, v2TexCoord);\n"

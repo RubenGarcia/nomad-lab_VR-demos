@@ -79,23 +79,63 @@ public static void verifyStoragePermissions(Activity activity) {
     }
 }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if(requestCode==123 && resultCode==RESULT_OK) {
+		String s=data.getDataString();
+		android.util.Log.d("NOMADgvrT","OnActivityResult, s="+s);
+		String uriString="";
+     		if (s.startsWith("file://")) {
+			uriString=s.substring(7);
+		} else if (s.startsWith("content://com.asus.filemanager.OpenFileProvider/file")) {
+			uriString=s.substring(52);
+		} else {
+			uriString=s;
+		}
+		android.util.Log.d("NOMADgvrT","OnActivityResult, uri="+uriString);
+		nativeSetConfigFile(uriString, android.os.Environment.getExternalStorageDirectory().getPath() + "/");   
+		nativeLoadConfigFile(nativeTreasureHuntRenderer);    
+        }
+    }
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
 
 	verifyStoragePermissions(this);
+
+//http://stackoverflow.com/questions/36557879/how-to-use-native-android-file-open-dialog
+/////////
+        //setContentView(R.layout.activity_main);
+
+ 
+///////////
+
+
+
 	String externalsd=android.os.Environment.getExternalStorageDirectory().getPath() + "/";
 	//intents
 	android.content.Intent intent = getIntent();
 	
 	String s=intent.getDataString();
 	String uriString=externalsd+"material.ncfg";
-	if (s==null)
-			android.util.Log.d("NOMADgvrT","String intent is null");
+	if (s==null) {
+		android.util.Log.d("NOMADgvrT","String intent is null");
+	       android.content.Intent intentSent = new android.content.Intent()
+		.setType("*/*")
+		.setAction(android.content.Intent.ACTION_GET_CONTENT);
+
+		startActivityForResult(android.content.Intent.createChooser(intentSent, "Select NOMAD VR config file (.ncfg)"), 123);		
+		s=intentSent.getDataString();
+	}
 	else
 		android.util.Log.d("NOMADgvrT","String intent is <"+ s+">");
+
+	android.util.Log.d("NOMADgvrT","String intent finally is <"+s+">");	
 	if (s!=null) {
-		if (s.startsWith("content://")) {
+		if (s.startsWith("content://")) {//this only works with ncfg with no associated data
+			android.util.Log.d("NOMADgvrT","String intent is <"+s+">");
 			try {
 				java.io.InputStream input = getContentResolver().openInputStream(intent.getData());
 				byte[] buffer = new byte[8 * 1024];
@@ -289,4 +329,26 @@ public static void verifyStoragePermissions(Activity activity) {
   private native void nativeOnResume(long nativeTreasureHuntRenderer);
 
   private native void nativeSetConfigFile(String s, String e);
+  private native void nativeLoadConfigFile(long nativeTreasureHuntRenderer);
+
+  public void DisplayMessage (final String s)
+  {
+//http://stackoverflow.com/questions/3875184/cant-create-handler-inside-thread-that-has-not-called-looper-prepare
+//rgh: this hangs, need to investigate
+	new Thread()
+	{
+	    public void run()
+	    {
+		MainActivity.this.runOnUiThread(new Runnable()
+		{
+		    public void run()
+		    {
+			android.widget.Toast toast = android.widget.Toast.makeText(MainActivity.this.getApplicationContext(), s,
+				android.widget.Toast.LENGTH_LONG);		        
+		    }
+		});
+	    }
+	}.start();
+
+  }
 }

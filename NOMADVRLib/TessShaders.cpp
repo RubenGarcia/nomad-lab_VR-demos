@@ -131,7 +131,7 @@ const char * const AtomShadersNoTess [] = {
 	"lowp float a=abs(dot(nn, vec3(0,sqrt(2.0)/2.0,sqrt(2.0)/2.0)));\n"
 	"lowp float b=max(0.0, dot(nn, vec3(0,0,1)));\n"
 	"highp vec4 res=color;\n"
-	"	outputColor = vec4 ((res.rgb) * (0.1 + 0.2*a), color.a);\n"
+	"	outputColor = vec4 ((res.rgb) * (0.4 + 0.3*a + 0.3*b), color.a);\n"
 	"}\n",
 	//tess eval
 	nullptr
