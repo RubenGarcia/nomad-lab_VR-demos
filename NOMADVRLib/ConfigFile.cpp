@@ -47,6 +47,7 @@ Solid *solid;
 bool saveStereo;
 int screenshotdownscaling;
 bool hapticFeedback;
+bool showcontrollers;
 
 //markers such as hole positions and electron positions
 float ** markers;
@@ -178,6 +179,7 @@ int loadConfigFile(const char * f)
 	saveStereo=false;
 	screenshotdownscaling=1;
 	hapticFeedback=false;
+	showcontrollers=false;
 	//
 	FILE *F = fopen(f, "r");
 	if (F == 0)
@@ -452,7 +454,7 @@ int loadConfigFile(const char * f)
 		} else if (!strcmp (s, "atomcolour")) {
 			char atom [100];
 			float rgb[3];
-			r = fscanf(F, "%s %f", atom, rgb, rgb + 1, rgb + 2);
+			r = fscanf(F, "%s %f %f %f", atom, rgb, rgb + 1, rgb + 2);
 			if (r!=4) {
 				eprintf ("Error loading atom colour");
 				return -19;
@@ -478,6 +480,8 @@ int loadConfigFile(const char * f)
 			hapticFeedback=true;
 		} else if (!strcmp (s, "supercell")) {
 			r=fscanf (F, "%f %f %f", supercell, supercell+1, supercell+2);
+		} else if (!strcmp (s, "showcontrollers")) { 
+			showcontrollers=true;
 		} else if (!strcmp (s, "\x0d")) { //discard windows newline (problem in Sebastian Kokott's phone (?!)
 			continue;
 		} else {

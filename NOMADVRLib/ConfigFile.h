@@ -43,6 +43,7 @@ extern bool saveStereo;
 extern int screenshotdownscaling;
 
 extern bool hapticFeedback;
+extern bool showcontrollers;
 
 //markers such as hole positions and electron positions
 extern float ** markers;

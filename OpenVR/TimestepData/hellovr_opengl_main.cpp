@@ -2350,7 +2350,8 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 	if (ISOS==0) {
 		RenderAtoms(nEye);
 		RenderUnitCell(nEye);
-		RenderAllTrackedRenderModels(nEye);
+		if (showcontrollers)
+			RenderAllTrackedRenderModels(nEye);
 		return;
 	}
 
@@ -2386,7 +2387,8 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 					RenderAtoms(nEye);
 					RenderUnitCell(nEye);
 				}
-				RenderAllTrackedRenderModels(nEye);
+				if (showcontrollers)
+					RenderAllTrackedRenderModels(nEye);
 			} // for zl
 
 			glBindFramebuffer(GL_FRAMEBUFFER, dfb);
@@ -2481,7 +2483,8 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 			glBindTexture(GL_TEXTURE_2D, 0);
 			glUseProgram(m_unSceneProgramID);
 			PaintGrid(nEye, currentiso);
-			RenderAllTrackedRenderModels(nEye);
+			if (showcontrollers)
+				RenderAllTrackedRenderModels(nEye);
 		} //else currentiso =isos
 
 
