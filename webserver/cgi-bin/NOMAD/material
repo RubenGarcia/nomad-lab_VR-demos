@@ -1,17 +1,59 @@
 #!/bin/bash
-if ["$QUERY_STRING" eq ""]
+if [[ "$QUERY_STRING" -eq "" ]]
 then
 	#echo Location: /NOMAD/
 	echo Location:http://mrs-srv.srv.lrz.de/NOMAD/
 	echo ''
 else
 #rgh: text/plain works in pc but android chrome saves it as .txt, removing the extension
+
+#	export TOKEN=`cat t.b64`
+	export MAT=$QUERY_STRING
+	export RAND=$RANDOM
+#rgh: before end of september 2017, use /var/tmp, after, use /tmp (apache update)
+	cd /tmp
+	/usr/bin/mkdir $RAND
+	cd $RAND
+
+wget --save-cookies cookies.txt \
+     --keep-session-cookies \
+        --no-check-certificate http://encyclopedia-api.nomad-coe.eu/v1.0/saml/ -O login.html >/dev/null 2>&1
+URL=`grep "form action" login.html |cut -f 2 -d \" |head -n 1`
+wget --save-cookies cookies2.txt --keep-session-cookies --load-cookies cookies.txt --no-check-certificate "https://idp.nomad-coe.eu$URL&j_username=vrconfigurator&j_password=iFOCkuwxZC6i&_eventId_proceed" -O a.html >/dev/null 2>&1
+URL=`grep "form action" a.html |cut -f 2 -d \" |head -n 1`
+wget --save-cookies cookies3.txt --keep-session-cookies --load-cookies cookies2.txt --no-check-certificate "https://idp.nomad-coe.eu$URL&_shib_idp_consentOptions=_shib_idp_globalConsent&_eventId_proceed" -O b.html >/dev/null 2>&1
+
+#now continue, as we don't support javascript :o)
+URL2=`echo $URL |cut -f 1 -d \?`
+DEST=`grep action b.html |cut -f 2 -d \"`
+RELAY=`grep RelayState b.html |cut -f6 -d \"`
+SAML=`grep SAMLResponse b.html |cut -f6 -d \"`
+#rgh: since 25-09-2017, this line gives "invalid url" (possibly curl update)
+#RELAY="https%3A%2F%2Fencyclopedia-api.nomad-coe.eu%2Fv1.0%2Fsaml%2F"
+RELAY="https://encyclopedia-api.nomad-coe.eu/v1.0/saml/"
+
+#echo relay is $RELAY
+
+curl -L -c cookies3.txt -X GET -F "RelayState=$RELAY" -F "SAMLResponse=$SAML" "https://encyclopedia-api.nomad-coe.eu/v1.0/saml/?acs" -o resp.json >/dev/null 2>&1
+TOKEN=`grep data resp.json |cut -f 4 -d \"`
+
+
+	mkdir $MAT
+	cd $MAT
+	wget --no-check-certificate --user "$TOKEN" --password "" https://encyclopedia-api.nomad-coe.eu/v1.0/materials/$MAT/cells?pagination=off -O material_cells.json >/dev/null 2>&1 
+	wget --no-check-certificate --user "$TOKEN" --password "" https://encyclopedia-api.nomad-coe.eu/v1.0/materials/$MAT/elements?pagination=off -O material_elements.json >/dev/null 2>&1
+	echo \# Material $QUERY_STRING >> $MAT.ncfg
+	echo background 0 0 0 >> $MAT.ncfg
+	echo atomscaling 0.5 >> $MAT.ncfg
+	echo json material >> $MAT.ncfg
+	cd ..
+
+	zip -r $MAT $MAT >/dev/null 2>&1 
+	
 	echo "Content-type: application/octet-stream"
-	echo "Content-disposition: attachment; filename=${QUERY_STRING}.ncfg"
+	echo "Content-disposition: attachment; filename=${QUERY_STRING}.zip"
 	echo ''
-	echo \# Material $QUERY_STRING
-	echo baseurl \"http://enc-testing-nomad.esc.rzg.mpg.de/v1.0/materials/\"
-	echo jsonurl \"$QUERY_STRING\"
-	echo background 0 0 0
-	echo atomscaling 0.5
+	cat $MAT.zip
+	cd ..
+#	\rm -r $RAND
 fi
