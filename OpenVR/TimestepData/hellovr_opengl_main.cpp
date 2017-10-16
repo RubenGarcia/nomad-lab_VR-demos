@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <string>
 #include <cstdlib>
-
+#include <algorithm>
 
 #include <winsock2.h>
 
@@ -955,7 +955,7 @@ bool CMainApplication::HandleInput()
 				buttonPressed[1][unDevice] = true;
 				if (firstdevice == -1)
 					firstdevice = unDevice;
-				else if(seconddevice==-1)
+				else if(unDevice !=firstdevice && seconddevice==-1)
 					seconddevice=unDevice;
 
 				if (firstdevice==unDevice)
@@ -974,7 +974,7 @@ bool CMainApplication::HandleInput()
 				buttonPressed[0][unDevice] = true;
 				if (firstdevice == -1)
 					firstdevice = unDevice;
-				else if(seconddevice==-1)
+				else if(unDevice !=firstdevice && seconddevice==-1)
 					seconddevice=unDevice;
 
 				if (unDevice == firstdevice) {
@@ -993,6 +993,8 @@ bool CMainApplication::HandleInput()
 			{
 				if (firstdevice == -1)
 					firstdevice = unDevice;
+				else if (unDevice !=firstdevice && seconddevice==-1)
+					seconddevice=unDevice;
 				if (unDevice == firstdevice) {
 					Matrix4 tmp = m_mat4HMDPose;
 					UserPosition += tmp.invert()*Vector3(0, 0, speed);
@@ -1087,23 +1089,30 @@ void CMainApplication::HapticFeedback(){
 //-----------------------------------------------------------------------------
 void CMainApplication::HapticFeedback(int device)
 {
+	if (!numAtoms)
+		return;
 	if (device!=-1) {
 		vr::VRControllerState_t cs;
 		vr::TrackedDevicePose_t dp;
 		m_pHMD->GetControllerStateWithPose( vr::TrackingUniverseStanding, device, &cs, &dp );
 		if (dp.bPoseIsValid) {
+			int mycurrentset;
+			if (fixedAtoms)
+				mycurrentset=0;
+			else
+				mycurrentset=currentset;
 			vr::HmdMatrix34_t mat=dp.mDeviceToAbsoluteTracking;
 			Vector3 controllerPos(mat.m[0][3], mat.m[1][3],mat.m[2][3]);
 			int atomsInTimestep;
-			if (currentset==0)
+			if (mycurrentset==0)
 				atomsInTimestep=numAtoms[0];
 			else
-				atomsInTimestep=numAtoms[currentset]-numAtoms[currentset-1];
+				atomsInTimestep=numAtoms[mycurrentset]-numAtoms[mycurrentset-1];
 			for (int i=0;i<atomsInTimestep;i++) {
-				float atomr=atomRadius(atoms[currentset][i*4+3]);
+				float atomr=atomRadius(static_cast<int>(atoms[mycurrentset][i*4+3]));
 
 				//Vector3 posatom(atoms[currentset][i*4+0], atoms[currentset][i*4+1], atoms[currentset][i*4+2]);
-				Vector3 posatom(atoms[currentset][i*4+0], atoms[currentset][i*4+2], atoms[currentset][i*4+1]); //y/z flipped
+				Vector3 posatom(atoms[mycurrentset][i*4+0], atoms[mycurrentset][i*4+2], atoms[mycurrentset][i*4+1]); //y/z flipped
 				int p[3];
 				for (p[0]=0;p[0]<std::max(1,repetitions[0]);(p[0])++)
 					for (p[1]=0;p[1]<std::max(1,repetitions[1]);(p[1])++)
@@ -1123,11 +1132,11 @@ void CMainApplication::HapticFeedback(int device)
 						}
 			}
 			//now cloned atoms
-			if (currentset==0 && clonedAtoms) {
+			if (mycurrentset==0 && clonedAtoms) {
 				Vector3 up(-UserPosition.x, -UserPosition.y, UserPosition.z);
 				for (int i=0;i<numClonedAtoms;i++) {
-					float atomr=atomRadius(clonedAtoms[currentset][i*4+3]);
-					Vector3 posatom(clonedAtoms[currentset][i*4+0], clonedAtoms[currentset][i*4+2], clonedAtoms[currentset][i*4+1]);
+					float atomr=atomRadius(static_cast<int>(clonedAtoms[mycurrentset][i*4+3]));
+					Vector3 posatom(clonedAtoms[mycurrentset][i*4+0], clonedAtoms[mycurrentset][i*4+2], clonedAtoms[mycurrentset][i*4+1]);
 					Vector3 pos=posatom-up;
 					pos.z=-pos.z;
 					float l=(pos - controllerPos).length();
@@ -1601,7 +1610,7 @@ void CMainApplication::SetupIsosurfaces()
 			//matFinal.translate(translations[p%ISOS][0]+cubetrans[0], translations[p%ISOS][1]+cubetrans[1], translations[p%ISOS][2]+cubetrans[2]);
 			Matrix4 matcubetrans, mvs;
 			if (voxelSize[0]!=-1) {
-			mvs.scale(1.0 / (double)voxelSize[0], 1.0 / (double)voxelSize[1], 1.0 / (double)voxelSize[2]);
+			mvs.scale(1.0f / (float)voxelSize[0], 1.0f / (float)voxelSize[1], 1.0f / (float)voxelSize[2]);
 			matcubetrans.translate(cubetrans[0], cubetrans[1], cubetrans[2]); //angstrom
 			//if abc, in abc coordinates
 			/*Matrix4 abcm (abc[0][0], abc[1][0], abc[2][0], 0,
@@ -2958,7 +2967,10 @@ int main(int argc, char *argv[])
 			MessageBoxA(0, readAtomsXYZErrors[-r-100], "XYZ file reading error", 0);
 		else if (-300<r)
 			MessageBoxA(0, readAtomsCubeErrors[-r-200], "Cube file reading error", 0);
-		else MessageBoxA(0, readAtomsJsonErrors[-r-300], "Json reading error", 0);
+		else if (-400<r) 
+			MessageBoxA(0, readAtomsJsonErrors[-r-300], "Encyclopedia Json reading error", 0);
+		else
+			MessageBoxA(0, readAtomsAnalyticsJsonErrors[-r-400], "Analytics Json reading error", 0);
 		return -100+r;
 	}
 

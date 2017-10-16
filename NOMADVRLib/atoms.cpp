@@ -24,6 +24,11 @@ const char * TMPDIR;//filled by main
 //="/storage/540E-1AE2/";
 #endif
 
+bool inv_abc_init=false;
+float inv_abc[3][3];
+
+
+
 const char * const atomNames[] =
 
 {
@@ -493,7 +498,7 @@ return readAtomsJson (cmd, numatoms, timesteps, pos, abc, clonedAtoms, token);
 
 bool  isAlmostZero(float coordinate) 
 {   
-	return (coordinate < 1E-5);
+	return (fabs(coordinate) < 1E-5);
 }
 
 void add (std::vector<float> *v, float x, float y, float z, float a)
@@ -502,6 +507,71 @@ void add (std::vector<float> *v, float x, float y, float z, float a)
 	v->push_back(y);
 	v->push_back(z);
 	v->push_back(a);
+}
+
+const char * readAtomsAnalyticsJsonErrors[] = {
+	"All Ok",//0
+	"Could not open file", //-1
+	"atom_species not in json", //-2
+	"json parse error or no atom_positions", //-3
+	"lattice_vectors not in json", //-4
+};
+
+int readAtomsAnalyticsJson(const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3],
+	std::vector<float>** clonedAtoms)
+{
+	float tmppos[3];
+
+	FILE *fp = fopen(f, "r");
+	if (fp == 0) {
+		eprintf("readAtomsAnalyticsJson, could not open file %s", f);
+		return -1;
+	}
+	char readBuffer[65536];
+	rapidjson::FileReadStream is(fp, readBuffer, sizeof(readBuffer));
+	rapidjson::Document json;
+	json.ParseStream(is);
+	fclose(fp);
+	*timesteps = 1;
+	*pos = new float*[*timesteps];
+	*numatoms = new int[*timesteps];
+	*clonedAtoms=new std::vector<float>[*timesteps];
+	if (!json.HasParseError() && json.HasMember("atom_positions")) {
+		if (json.HasMember("lattice_vectors")) {
+			const rapidjson::GenericValue<rapidjson::UTF8<> > &lv = json["lattice_vectors"];
+			const rapidjson::GenericValue<rapidjson::UTF8<> > &flatdata = lv["flatData"];
+			for (int i=0;i<3;i++)
+				for (int j=0;j<3;j++)
+					abc[i][j]=flatdata[i*3+j].GetFloat()*1e10; // meter -> aangstrom
+		} else return (-4);
+		const rapidjson::GenericValue<rapidjson::UTF8<> > &result = json["atom_positions"];
+		if (!result.HasMember("shape"))
+			return (-1);
+		const rapidjson::GenericValue<rapidjson::UTF8<> > &shape = result["shape"]; //[numatoms, 3]
+		**numatoms = shape[0].GetInt();
+		(*pos)[0] = new float[**numatoms * 4];
+		if (json.HasMember("atom_species")) {
+		const rapidjson::GenericValue<rapidjson::UTF8<> > &results = json["atom_species"];
+		for (int i = 0; i < **numatoms ; i++)
+			(*pos)[0][i*4+3]=results[i].GetInt()-1;
+
+
+		//atoms are stored in space coordinates, in meters
+		//rgh FIXME: disable cloned atoms for now
+		const rapidjson::GenericValue<rapidjson::UTF8<> > &flatdata = result["flatData"];
+		for (int i = 0; i < **numatoms ; i++) {
+			for (int j=0;j<3;j++)
+				(*pos)[0][i*4+j] = flatdata[i*3+j].GetFloat()*1e10; //we store them in aangstrom
+			CloneSpatialAtoms((*pos)[0], (*pos)[0][3], *clonedAtoms);
+		}
+	}
+	else return (-2);
+
+	}
+	else return (-3);
+
+	TransformAtoms(*clonedAtoms, abc);
+	return 0;
 }
 
 int readAtomsJson (const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3], 
@@ -600,13 +670,14 @@ int readAtomsJson (const char *const f, int **numatoms, int *timesteps, float **
 			(**pos)[4*i+s]=tmppos[0]*abc[0][s]+tmppos[1]*abc[1][s]+tmppos[2]*abc[2][s];
 
 	
-		}
-		TransformAtoms(*clonedAtoms, abc);
+	}
+	TransformAtoms(*clonedAtoms, abc);
 
 //eprintf ("readAtomsJson, end");
 return 0;
 }
 
+//from abc coordinates to spatial coordinates
 void TransformAtoms(std::vector<float>* clonedAtoms, const float abc[3][3])
 {
 	float tmppos[3];
@@ -618,6 +689,57 @@ void TransformAtoms(std::vector<float>* clonedAtoms, const float abc[3][3])
 	}
 }
 
+//returns false if abc is not an invertible matrix (should not happen)
+bool CloneSpatialAtoms (float tmppos[3], float k, std::vector<float>* clonedAtoms) 
+{ //move atoms to abc coordinates, then Clone()
+
+	if (!inv_abc_init) {
+		inv_abc_init=true;
+		//Contains code from OpenVR samples/shared/Matrices.cpp under the
+		//BSD 3-clause "New" or "Revised" License
+		//https://github.com/ValveSoftware/openvr/blob/master/LICENSE
+		float tmp[9];
+		float determinant;
+
+    tmp[0] = abc[1][1] * abc[2][2] - abc[1][2] * abc[2][1];
+    tmp[1] = abc[0][2] * abc[2][1] - abc[0][1] * abc[2][2];
+    tmp[2] = abc[0][1] * abc[1][2] - abc[0][2] * abc[1][1];
+    tmp[3] = abc[1][2] * abc[2][0] - abc[1][0] * abc[2][2];
+    tmp[4] = abc[0][0] * abc[2][2] - abc[0][2] * abc[2][0];
+    tmp[5] = abc[0][2] * abc[1][0] - abc[0][0] * abc[1][2];
+    tmp[6] = abc[1][0] * abc[2][1] - abc[1][1] * abc[2][0];
+    tmp[7] = abc[0][1] * abc[2][0] - abc[0][0] * abc[2][1];
+    tmp[8] = abc[0][0] * abc[1][1] - abc[0][1] * abc[1][0];
+
+    // check determinant if it is 0
+    determinant = abc[0][0] * tmp[0] + abc[0][1] * tmp[3] + abc[0][2] * tmp[6];
+    if(fabs(determinant) <= 1e-5)
+    {
+        return false; // cannot inverse, make it idenety matrix
+    }
+
+    // divide by the determinant
+    float invDeterminant = 1.0f / determinant;
+    inv_abc[0][0] = invDeterminant * tmp[0];
+    inv_abc[0][1] = invDeterminant * tmp[1];
+    inv_abc[0][2] = invDeterminant * tmp[2];
+    inv_abc[1][0] = invDeterminant * tmp[3];
+    inv_abc[1][1] = invDeterminant * tmp[4];
+    inv_abc[1][2] = invDeterminant * tmp[5];
+    inv_abc[2][0] = invDeterminant * tmp[6];
+    inv_abc[2][1] = invDeterminant * tmp[7];
+    inv_abc[2][2] = invDeterminant * tmp[8];
+	}
+
+	float t[3];
+	for (int s=0;s<3;s++)
+			t[s]=tmppos[0]*inv_abc[0][s]+tmppos[1]*inv_abc[1][s]+tmppos[2]*inv_abc[2][s];
+
+	Clone (t, k, clonedAtoms);
+	return true;
+}
+
+//tmppos in abc coordinates
 void Clone (float tmppos[3], float k, std::vector<float>* clonedAtoms) 
 {
 bool iaz[3];

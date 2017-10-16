@@ -78,8 +78,9 @@ const char * loadConfigFileErrors[] =
 	"markercolours with no previous correct timesteps parameter", //-18
 	"Error reading atomcolour", // -19
 	"Error loading xyz file, add 100 to see the error",//<-100
-	"Error loading cube file, add 100 to see the error",//<-200
-	"Error loading json file, add 200 to see the error",//<-300
+	"Error loading cube file, add 200 to see the error",//<-200
+	"Error loading encyclopedia json file, add 300 to see the error",//<-300
+	"Error loading analytics json file, add 400 to see the error",//<-400
 };
 
 void updateTIMESTEPS (int timesteps)
@@ -180,6 +181,7 @@ int loadConfigFile(const char * f)
 	screenshotdownscaling=1;
 	hapticFeedback=false;
 	showcontrollers=false;
+	inv_abc_init=false;
 	//
 	FILE *F = fopen(f, "r");
 	if (F == 0)
@@ -328,7 +330,7 @@ int loadConfigFile(const char * f)
 				}
 			has_abc = true;
 		}
-		else if (!strcmp(s, "json")) {
+		else if (!strcmp(s, "json") || !strcmp (s, "encyclopediajson")) {
 			r=readString(F, s);
 			if (r!=0)
 				return -14;
@@ -344,7 +346,24 @@ int loadConfigFile(const char * f)
 			numClonedAtoms=clonedAtoms[0].size()/4;
 			has_abc=true;
 			updateTIMESTEPS (timesteps);
-		} 
+		}
+		else if (!strcmp(s, "analyticsjson")) {
+			r = readString(F, s);
+			if (r != 0)
+				return -14;
+			char file[256];
+			sprintf(file, "%s%s", PATH, s);
+			fixFile(file);
+			int e;
+			int timesteps;
+			//rgh fixme, we know only one
+			e = readAtomsAnalyticsJson(file, &numAtoms, &timesteps, &atoms, abc, &clonedAtoms);
+			if (e<0)
+				return e - 400;
+			numClonedAtoms = clonedAtoms[0].size() / 4;
+			has_abc = true;
+			updateTIMESTEPS(timesteps);
+		}
 		else if (!strcmp(s, "baseurl")) {
 			r=readString (F, base_url);
 			if (r!=0)

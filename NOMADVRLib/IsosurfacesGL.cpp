@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <math.h>
+#include <stdint.h>
 
 #include "MyGL.h"
 #include "eprintf.h"
