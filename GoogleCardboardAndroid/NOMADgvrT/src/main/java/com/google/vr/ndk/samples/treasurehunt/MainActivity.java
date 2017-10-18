@@ -91,7 +91,13 @@ public static void verifyStoragePermissions(Activity activity) {
 		} else if (s.startsWith("content://com.asus.filemanager.OpenFileProvider/file")) {
 			uriString=s.substring(52);
 		} else {
-			uriString=s;
+			android.net.Uri u=android.net.Uri.parse(s);
+			try {
+			uriString=Filepath.getFilePath (this.getApplicationContext(), u);
+			} catch (java.net.URISyntaxException e) {
+			android.util.Log.d("NOMADgvrT","URISyntaxException, e="+e);
+			uriString=null;
+			}
 		}
 		android.util.Log.d("NOMADgvrT","OnActivityResult, uri="+uriString);
 		nativeSetConfigFile(uriString, android.os.Environment.getExternalStorageDirectory().getPath() + "/");   

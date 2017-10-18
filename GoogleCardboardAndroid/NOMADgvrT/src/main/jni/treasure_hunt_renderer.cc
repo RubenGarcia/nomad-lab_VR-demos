@@ -658,14 +658,16 @@ if (animateTimesteps) {
   frame.BindBuffer(0);
   if (error<0) {
 	//rgh: FIXME, add textures with messages here
-		if (-100<error) {
+		if (-100<error) { //error with ncfg file
 			glClearColor(1.f, 0.f, 0.f, 1.f); 
-		} else if (-200<error){
+		} else if (-200<error){//error loading xyz
 			glClearColor(0.f, 1.f, 0.f, 1.f); 
-		} else if (-300<error) {
+		} else if (-300<error) {//error loading gaussian
 			glClearColor(0.f, 0.f, 1.f, 1.f); 
-		} else if (-400<error) {
-			glClearColor(0.f, 1.f, 1.f, 1.f); 		
+		} else if (-400<error) {//error loading encyclopedia json
+			glClearColor(0.f, 1.f, 1.f, 1.f); 
+		} else if (-500<error) {//error loading analytics json
+			glClearColor(1.f, 1.f, 0.f, 1.f); 
 		} else {
 			glClearColor(1.f, 0.f, 1.f, 1.f); 
 		}
@@ -853,7 +855,7 @@ if ((e = glGetError()) != GL_NO_ERROR)
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("5 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
 		eprintf ("Drawing %d vertices, isos", numISOIndices[currentSet*ISOS+i]);
-		glDrawElements(GL_TRIANGLES,numISOIndices[currentSet*ISOS+i] , GL_UNSIGNED_INT, 0);	
+		glDrawElements(GL_TRIANGLES,numISOIndices[currentSet*ISOS+i] , GL_UNSIGNED_INT, 0); 
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("6 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
 	}
