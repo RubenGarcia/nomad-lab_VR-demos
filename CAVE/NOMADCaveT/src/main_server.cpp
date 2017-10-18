@@ -203,7 +203,7 @@ void sceneManager::buttonEval(){
                 m_swapIsoSurface = 0;
             }
         }
-        if((*it)[0] == 2){ // if button 2 (mode for isosurfaces: both, negative, positive)
+        if((*it)[0] == 2){ // if button 2 (mode for isosurfaces: all, one by one)
             if((*it)[1] == 1){ //if pressed
                 m_oldTimeForSwap = Clock::now();
             	m_pressB0 = true;

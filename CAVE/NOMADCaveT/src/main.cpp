@@ -1,3 +1,4 @@
+#define GLM_SWIZZLE
 #include <string>
 
 #include <m3drenderer.h>
@@ -87,6 +88,8 @@ private:
 TextRendering::Text text;
 
 GLuint PointVAO, PointVBO;
+m3d::ShaderLoader sPoint;
+bool initGLSelectedPoints();
 
 std::shared_ptr<synchlib::SynchObject<int> > m_pCurrentDataPosSyncher;
 std::shared_ptr<synchlib::SynchObject<int> > m_pCurrentDataTimeSyncher;
@@ -106,7 +109,7 @@ int error=0;
 GLuint textures[2]; // white, atoms
 GLuint textDepthPeeling[ZLAYERS+2]; 
 GLuint peelingFramebuffer;
-unsigned int geo[0]; //window width, height
+unsigned int geo[2]; //window width, height
 	//if no tesselation is available, we still need the tess atoms for the trajectories!
 GLuint *AtomTVAO=nullptr, *AtomTBuffer=nullptr, BondIndices=0,
 	*AtomVAO=nullptr, *AtomBuffer=nullptr, *AtomIndices=nullptr,//[2], atoms, extraatoms
@@ -130,7 +133,34 @@ void RenderUnitCell(const glm::mat4 eyeViewProjection);
 void RenderAtomTrajectoriesUnitCell();
 void RenderAtomTrajectories(const glm::mat4 eyeViewProjection);
 void RenderIsos(const glm::mat4 eyeViewProjection, int curDataPos);
+void RenderText(const glm::mat4 pvmat, int curDataPos, int timestep,
+	const SelectedPoints& selectedPoints);
+void RenderPoints(const glm::mat4 pvmat, const glm::vec3 translation, 
+	const SelectedPoints& selectedPoints);
 };
+
+
+bool sceneManager::initGLSelectedPoints() {
+//for painting selected points 
+
+GLenum e;
+
+glGenVertexArrays(1, &PointVAO);
+glGenBuffers(1, &PointVBO);
+glBindVertexArray(PointVAO);
+glBindBuffer(GL_ARRAY_BUFFER, PointVBO);
+//x y z r g b (6), 5 points (wand + 4 selected points)
+glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 6 * 5, NULL, GL_DYNAMIC_DRAW);
+glEnableVertexAttribArray(0);
+glEnableVertexAttribArray(1);
+glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), 0);
+glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), 
+	(char*)0+3*sizeof(float));
+glBindBuffer(GL_ARRAY_BUFFER, 0);
+glBindVertexArray(0);    
+e = glGetError();
+return (e==GL_NO_ERROR); 
+}
 
 
 sceneManager::sceneManager(m3d::Renderer* ren, synchlib::renderNode* node,
@@ -154,7 +184,12 @@ GLenum err;
    m_scalematSky = glm::scale(m_scalematSky,glm::vec3(0.05,0.05,0.05));
 	
 	std::string s(configFile);
-	chdir(s.substr(0, s.find_last_of("\\/")).c_str());
+   int e;
+	e=chdir(s.substr(0, s.find_last_of("\\/")).c_str());
+	if (e!=0) {
+		fprintf (stderr, "Could not change to directory of config "
+			"file, relative paths may fail\n");
+	}
 
 	if ((error=loadConfigFile(configFile))<0) {
 		if (-100<error) {
@@ -171,8 +206,23 @@ GLenum err;
 		}
 	}
 
+e=glGetError();
+if (e!=GL_NO_ERROR) {
+	eprintf ("OpenGL error after loading config file %d", e);
+	error=-409;
+}
 glGenTextures(2, textures);
+e=glGetError();
+if (e!=GL_NO_ERROR) {
+	eprintf ("Depth-peeling, glGenTextures 1 OpenGL error %d", e);
+	error=-410;
+}
 glGenTextures(2+ZLAYERS, textDepthPeeling);
+e=glGetError();
+if (e!=GL_NO_ERROR) {
+	eprintf ("Depth-peeling, glGenTextures 2 OpenGL error %d", e);
+	error=-411;
+}
 
     //white
     unsigned char data2[4]={255,255,255,255}; //white texture for non-textured meshes
@@ -201,8 +251,7 @@ glGenTextures(2+ZLAYERS, textDepthPeeling);
 	};
 
 	//atom texture
-	int e;
-	
+
 	e=atomTexture(textures[1]);
 	if (e!=GL_NO_ERROR) {
 		eprintf ("atomTexture error %d", e);
@@ -211,13 +260,11 @@ glGenTextures(2+ZLAYERS, textDepthPeeling);
 
 bool er;
 
-
 	e=SetupAtoms(&AtomTVAO, &AtomTBuffer, &BondIndices);
 	if (e!=GL_NO_ERROR) {
 		eprintf ("SetupAtoms error %d", e);
 		error=-404;
 	}
-
 	if (!hasTess)
 		e=SetupAtomsNoTess(&AtomVAO, &AtomBuffer, &AtomIndices);
 
@@ -230,7 +277,6 @@ bool er;
 		eprintf ("SetupUnitCell error %d", e);
 		error=-406;
 	}
-
 //now isosurfaces
 	if (ISOS) {
 		er=::SetupDepthPeeling(geo[0], geo[1], ZLAYERS, 
@@ -273,24 +319,50 @@ bool er;
 		for (int p = 0; p < TIMESTEPS*ISOS; p++) {
 			sprintf(tmpname, "%s%d-%s.ply", PATH, timestep, 
 				plyfiles[p % ISOS]);
-		//add the rotateX(-90)
-			glm::mat4 trans;
-			trans=glm::rotate(trans, (float)-M_PI_2, glm::vec3(1.f,0.f,0.f));
-			glm::mat4 matFinal;
-			matFinal=glm::translate(matFinal, 
-				glm::vec3(translations[p%ISOS][0],
-					translations[p%ISOS][1],
-					translations[p%ISOS][2]));
-			matFinal=trans*matFinal;
 			float mat[16];
-			for (int i=0;i<4;i++)
-				for (int j=0;j<4;j++)
-					mat[j*4+i]=matFinal[j][i];
+			glm::mat4 matFinal, matcubetrans, mvs, sc, sctrans;
+			if (voxelSize[0]!=-1) {
+//We scale in RenderUnitCell by 5 so that atoms look large enough on the cave. 
+//So we need to scale here as well.
+				mvs=glm::scale(mvs, glm::vec3(5.0f / (float)voxelSize[0], 
+						5.0f / (float)voxelSize[1], 
+						5.0f / (float)voxelSize[2]));
+				matcubetrans=glm::translate(matcubetrans,glm::vec3(cubetrans[0], 
+					cubetrans[1], cubetrans[2]));
+				glm::mat4 abcm (abc[0][0], abc[0][1], abc[0][2], 0,
+					abc[1][0], abc[1][1], abc[1][2], 0,
+					abc[2][0], abc[2][1], abc[2][2], 0,
+					0, 0, 0, 1);
+
+				sc=glm::scale(sc, glm::vec3(supercell[0], supercell[1], supercell[2]));
+				
+				sctrans=glm::translate(sctrans, glm::vec3(-translations[p%ISOS][2], 
+					-translations[p%ISOS][1], -translations[p%ISOS][0]));
+
+				matFinal = abcm*sctrans*sc*mvs;
+				for (int i=0;i<4;i++)
+					for (int j=0;j<4;j++)
+						mat[j*4+i]=matFinal[j][i];
+			} else {
+				glm::mat4 trans;
+				trans=glm::rotate(trans, (float)-M_PI_2, glm::vec3(1.f,0.f,0.f));
+				glm::mat4 matFinal;
+				matFinal=glm::translate(matFinal, 
+					glm::vec3(translations[p%ISOS][0],
+						translations[p%ISOS][1],
+						translations[p%ISOS][2]));
+				matFinal=trans*matFinal;
+				
+				for (int i=0;i<4;i++)
+					for (int j=0;j<4;j++)
+						mat[j*4+i]=matFinal[j][i];			
+			}
+
 			if (!AddModelToScene(mat, vertices, indices,
 				tmpname, false, isocolours[p%ISOS][0]<0, p%ISOS))
 			{
 				eprintf("Error loading ply file %s\n", tmpname);
-				//return; 
+				//return; //rgh: files may be missing if no isos are available
 			}
 #ifndef INDICESGL32
 			if (vertices.size() > 65535 * numComponents)
@@ -313,22 +385,13 @@ bool er;
 			}
 		}
 	}
-//for painting selected points 
-	glGenVertexArrays(1, &PointVAO);
-	glGenBuffers(1, &PointVBO);
-glBindVertexArray(PointVAO);
-glBindBuffer(GL_ARRAY_BUFFER, PointVBO);
-//x y z r g b (6), 5 points (wand + 4 selected points)
-glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * 6 * 5, NULL, GL_DYNAMIC_DRAW);
-glEnableVertexAttribArray(0);
-glEnableVertexAttribArray(1);
-glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), 0);
-glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), 
-	(char*)0+3*sizeof(float));
-glBindBuffer(GL_ARRAY_BUFFER, 0);
-glBindVertexArray(0);      
 
-//end for painting selected points
+	if (!initGLSelectedPoints())
+		std::cout<< "initGLSelectedPoints failed" << std::endl;
+
+	if (!sPoint.loadShadersFromFiles(SHADERPATH "points.vert", SHADERPATH "points.frag"))
+	std::cerr << __FUNCTION__<<
+			"Loading of points shader failed" << std::endl;
 
 	M3DFileIO fileio;
 	std::shared_ptr<Node> UploadingRoot = Node::create();
@@ -409,21 +472,26 @@ m_node->getSceneTrafo(st);
 //rgh FIXME: cache these numbers, do not calculate twice per frame
 if(error)
 	return;
-if (has_abc) {
+
+if (ISOS) {
+	RenderIsos(pvmat*st, curDataPos);
+} else if (has_abc) {
 	RenderUnitCell(pvmat*st);
 } else {
 	//atom trajectories
 	RenderAtomTrajectories(pvmat*st);
 }
 
-if (ISOS)
-	RenderIsos(pvmat*st, curDataPos);
 
+
+RenderText(pvmat, curDataPos, m_oldTime, selectedPoints);
 
 if ((err = glGetError()) != GL_NO_ERROR) 
 	eprintf ("end of glDraw, error %d\n", err);
 
 }
+
+
 
 void sceneManager::displayFunction(){
 	GLenum err;
@@ -886,6 +954,85 @@ for (unsigned int i=0;i<atomtrajectories.size();i++) {
 } //sceneManager::RenderAtomTrajectoriesUnitCell()
 
 
+void sceneManager::RenderText(const glm::mat4 pvmat, int curDataPos, int timestep,
+	const SelectedPoints& selectedPoints)
+{
+glm::mat4 wand;
+m_node->getWandTrafo(wand);
+//rgh FIXME this should be done only once.
+glm::vec3 scale;
+glm::quat rotation;
+glm::vec3 translation;
+glm::vec3 skew;
+glm::vec4 perspective;
+glm::decompose(wand, scale, rotation, translation, skew, perspective);
+
+//rgh FIXME: cache these numbers, do not calculate twice per frame
+
+glm::vec3 b1, b2, b3, n1, n2;
+
+if (selectedPoints.number>=2)
+	b1=selectedPoints.p[1]-selectedPoints.p[0];
+
+if (selectedPoints.number>=3) {
+	b2=selectedPoints.p[1]-selectedPoints.p[2];
+	n1=glm::normalize(b1*b2);
+}
+
+if (selectedPoints.number==4) {
+	b3=selectedPoints.p[3]-selectedPoints.p[2];
+	n2=glm::normalize(b2*b3);
+}
+
+
+
+std::string mystring=std::string("Timestep ")+std::to_string(timestep)+
+	"\nIso "+std::to_string(curDataPos)+"\n";
+
+if (selectedPoints.number==2)
+	mystring+="Distance: "+	std::to_string(glm::length(b1))+" unit cell length";
+else if (selectedPoints.number==3)
+	mystring+="Angle: "+
+		std::to_string(glm::degrees(glm::angle(glm::normalize(b1), glm::normalize(b2))))+"°";
+//http://chemistry.stackexchange.com/questions/40181/when-calculating-a-dihedral-angle-for-a-chemical-bond-how-is-the-direction-defi
+else if (selectedPoints.number==4)
+	mystring+="Dihedral angle: "+		
+		std::to_string(glm::degrees(glm::angle(n1, n2)))+"°";;
+
+text.render (mystring, 0,0, 0.02, glm::vec3(0,0,1), 
+	pvmat*glm::translate(translation));
+
+RenderPoints(pvmat, translation, selectedPoints);
+}
+
+void sceneManager::RenderPoints(const glm::mat4 pvmat, const glm::vec3 translation,
+	const SelectedPoints& selectedPoints)
+{
+glm::mat4 st;
+m_node->getSceneTrafo(st);
+glm::mat4 stinv=glm::inverse(st);
+glm::vec3 finalTranslation=(stinv*glm::vec4(translation, 1)).xyz();
+
+sPoint.begin();
+sPoint.setUniformMatrix("projection", false, pvmat*st);
+glBindVertexArray(PointVAO);
+glBindBuffer(GL_ARRAY_BUFFER, PointVBO);
+float verts[(1+selectedPoints.number)*6];
+float *vp=verts;
+for (int j=0;j<selectedPoints.number;j++) {
+	for(int i=0;i<3;i++)
+		*vp++=selectedPoints.p[j][i];
+	*vp++=0; *vp++=1; *vp++=0; //selected points colour
+}
+for (int i=0;i<3;i++)
+	*vp++=finalTranslation[i];
+*vp++=1; *vp++=0; *vp++=0; //wand point colour
+glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts); 
+
+glDrawArrays(GL_LINE_STRIP, 0, 1+selectedPoints.number);
+sPoint.end();
+}
+
 void sceneManager::RenderIsos(const glm::mat4 eyeViewProjection, int curDataPos)
 {
 GLenum e;
@@ -900,9 +1047,15 @@ if (curDataPos!=ISOS) {
 	glUseProgram(ISOP);
 	glUniformMatrix4fv(ISOMatrixLoc, 1, GL_FALSE, t);
 	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d\n", e);
+		eprintf("Gl error after glUniform4fv 1 RenderIsos: %d\n", e);
 	glBindVertexArray(ISOVAO[m_oldTime*ISOS+curDataPos]);
 	glDrawElements(GL_TRIANGLES,numISOIndices[m_oldTime*ISOS+curDataPos] , GL_UNSIGNED_INT, 0);
+		if (has_abc) {
+			RenderUnitCell(eyeViewProjection);
+		} else {
+			//atom trajectories
+			RenderAtomTrajectories(eyeViewProjection);
+		}
 } else {//transparency
 	glDisable(GL_BLEND);
 	glDepthMask(GL_TRUE);
@@ -918,18 +1071,20 @@ if ((e = glGetError()) != GL_NO_ERROR)
 		glUniformMatrix4fv(TransMatrixLoc, 1, GL_FALSE, t);
 		for (int i=0;i<ISOS;i++) {
 			glBindVertexArray(ISOVAO[m_oldTime*ISOS+i]);
-			glDrawElements(GL_TRIANGLES,numISOIndices[m_oldTime*ISOS+i] , GL_UNSIGNED_INT, 0);	
+			glDrawElements(GL_TRIANGLES,numISOIndices[m_oldTime*ISOS+i], 
+				GL_UNSIGNED_INT, 0);	
+		}
+		if (has_abc) {
+			RenderUnitCell(eyeViewProjection);
+		} else {
+			//atom trajectories
+			RenderAtomTrajectories(eyeViewProjection);
 		}
 	}
 	glUseProgram(BlendP);
 	glBindFramebuffer(GL_FRAMEBUFFER, dfb);
 	glBindVertexArray(BlendVAO);
 	BlendTextures(textDepthPeeling, ZLAYERS);
-//old code for no transparency
-//	for (int i=0;i<ISOS;i++) {
-//		glBindVertexArray(ISOVAO[m_oldTime*ISOS+i]);
-//		glDrawElements(GL_TRIANGLES,numISOIndices[m_oldTime*ISOS+i] , GL_UNSIGNED_INT, 0);		
-//	}
 }
 if ((e = glGetError()) != GL_NO_ERROR)
 	eprintf("Gl error after RenderIsos: %d\n", e);
@@ -985,15 +1140,16 @@ void sceneManager::RenderUnitCell(const glm::mat4 eyeViewProjection)
 					if ((e = glGetError()) != GL_NO_ERROR)
 						eprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d\n", e);
 					glBindVertexArray(UnitCellVAO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, UnitCellIndexBuffer);
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("1 Gl error RenderAtom timestep =%d: %d\n", m_oldTime, e);
-	glBindBuffer(GL_ARRAY_BUFFER, UnitCellBuffer);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (const void *)(0));
-	glEnableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-	glDisableVertexAttribArray(2);
-	glDisableVertexAttribArray(3);
+					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, UnitCellIndexBuffer);
+					if ((e = glGetError()) != GL_NO_ERROR)
+						eprintf("1 Gl error RenderAtom timestep =%d: %d\n", m_oldTime, e);
+					glBindBuffer(GL_ARRAY_BUFFER, UnitCellBuffer);
+					glVertexAttribPointer(0, 3, GL_FLOAT, 
+						GL_FALSE, 3 * sizeof(float), (const void *)(0));
+					glEnableVertexAttribArray(0);
+					glDisableVertexAttribArray(1);
+					glDisableVertexAttribArray(2);
+					glDisableVertexAttribArray(3);
 					if ((e = glGetError()) != GL_NO_ERROR)
 						eprintf("Gl error after glBindVertexArray RenderUnitCell: %d\n", e);
 					glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);

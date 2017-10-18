@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <vector>
+#include <math.h>
 
 #ifdef _MSC_VER
 #include <winsock2.h>

@@ -61,7 +61,8 @@ set(SOURCES
 	src/NOMADVRLib/polyhedron.cpp   src/NOMADVRLib/UnitCellShaders.cpp
 	src/NOMADVRLib/atomsGL.cpp	src/NOMADVRLib/ConfigFile.cpp	
 	src/NOMADVRLib/TessShaders.cpp	src/NOMADVRLib/IsosurfacesGL.cpp
-	src/NOMADVRLib/IsoShaders.cpp
+	src/NOMADVRLib/IsoShaders.cpp	src/NOMADVRLib/Grid.cpp
+	src/NOMADVRLib/markerShaders.cpp
 	src/happyhttp/happyhttp.cpp
 	src/rply/rply.c
 )
