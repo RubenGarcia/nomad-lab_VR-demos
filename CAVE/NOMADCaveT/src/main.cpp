@@ -132,7 +132,8 @@ void RenderAtomBonds(const float *m);
 void RenderUnitCell(const glm::mat4 eyeViewProjection);
 void RenderAtomTrajectoriesUnitCell();
 void RenderAtomTrajectories(const glm::mat4 eyeViewProjection);
-void RenderIsos(const glm::mat4 eyeViewProjection, int curDataPos);
+void RenderIsos(const glm::mat4 eyeViewProjection, int curDataPos,
+	const glm::mat4 pvmat, const SelectedPoints& selectedPoints);
 void RenderText(const glm::mat4 pvmat, int curDataPos, int timestep,
 	const SelectedPoints& selectedPoints);
 void RenderPoints(const glm::mat4 pvmat, const glm::vec3 translation, 
@@ -474,7 +475,7 @@ if(error)
 	return;
 
 if (ISOS) {
-	RenderIsos(pvmat*st, curDataPos);
+	RenderIsos(pvmat*st, curDataPos, pvmat, selectedPoints);
 } else if (has_abc) {
 	RenderUnitCell(pvmat*st);
 } else {
@@ -483,8 +484,8 @@ if (ISOS) {
 }
 
 
-
-RenderText(pvmat, curDataPos, m_oldTime, selectedPoints);
+if (!ISOS)
+	RenderText(pvmat, curDataPos, m_oldTime, selectedPoints);
 
 if ((err = glGetError()) != GL_NO_ERROR) 
 	eprintf ("end of glDraw, error %d\n", err);
@@ -885,7 +886,11 @@ if (!numAtoms)
 		0,0,0,1};
 */					
 //trans.translate(iPos).rotateX(-90).translate(UserPosition);
-glm::mat4 transform = eyeViewProjection; //MatrixMul(eyeViewProjection,trans);
+glm::mat4 scale={5,0,0,0,  
+		0,5,0,0,
+		0,0,5,0,
+		0,0,0,1};
+glm::mat4 transform =  eyeViewProjection*scale; //MatrixMul(eyeViewProjection,trans);
 //gvr::Mat4f transform=eyeViewProjection;					
 float t[16];
 for (int i=0;i<4;i++)
@@ -1029,11 +1034,18 @@ for (int i=0;i<3;i++)
 *vp++=1; *vp++=0; *vp++=0; //wand point colour
 glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts); 
 
-glDrawArrays(GL_LINE_STRIP, 0, 1+selectedPoints.number);
+if (selectedPoints.number > 0) {
+	glDrawArrays(GL_LINE_STRIP, 0, 1+selectedPoints.number);
+} else {
+	glPointSize(4);
+	glDrawArrays(GL_POINTS, 0, 1);
+	glPointSize(1);
+}
 sPoint.end();
 }
 
-void sceneManager::RenderIsos(const glm::mat4 eyeViewProjection, int curDataPos)
+void sceneManager::RenderIsos(const glm::mat4 eyeViewProjection, int curDataPos,
+	const glm::mat4 pvmat, const SelectedPoints& selectedPoints)
 {
 GLenum e;
 float t[16];
@@ -1056,6 +1068,7 @@ if (curDataPos!=ISOS) {
 			//atom trajectories
 			RenderAtomTrajectories(eyeViewProjection);
 		}
+		RenderText(pvmat, curDataPos, m_oldTime, selectedPoints);
 } else {//transparency
 	glDisable(GL_BLEND);
 	glDepthMask(GL_TRUE);
@@ -1080,6 +1093,7 @@ if ((e = glGetError()) != GL_NO_ERROR)
 			//atom trajectories
 			RenderAtomTrajectories(eyeViewProjection);
 		}
+		RenderText(pvmat, curDataPos, m_oldTime, selectedPoints);
 	}
 	glUseProgram(BlendP);
 	glBindFramebuffer(GL_FRAMEBUFFER, dfb);
@@ -1131,31 +1145,35 @@ void sceneManager::RenderUnitCell(const glm::mat4 eyeViewProjection)
 					for (int i=0;i<4;i++)
 						for (int j=0;j<4;j++)
 							t[j*4+i]=transform[j][i];
+					
+					
 					glUseProgram(UnitCellP);
 					glUniformMatrix4fv(UnitCellMatrixLoc, 1, GL_FALSE, t);
 					if ((e = glGetError()) != GL_NO_ERROR)
 						eprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d\n", e);
-					float color[4]={1,1,1,1};
-					glUniform4fv(UnitCellColourLoc, 1, color);
-					if ((e = glGetError()) != GL_NO_ERROR)
-						eprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d\n", e);
-					glBindVertexArray(UnitCellVAO);
-					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, UnitCellIndexBuffer);
-					if ((e = glGetError()) != GL_NO_ERROR)
-						eprintf("1 Gl error RenderAtom timestep =%d: %d\n", m_oldTime, e);
-					glBindBuffer(GL_ARRAY_BUFFER, UnitCellBuffer);
-					glVertexAttribPointer(0, 3, GL_FLOAT, 
-						GL_FALSE, 3 * sizeof(float), (const void *)(0));
-					glEnableVertexAttribArray(0);
-					glDisableVertexAttribArray(1);
-					glDisableVertexAttribArray(2);
-					glDisableVertexAttribArray(3);
-					if ((e = glGetError()) != GL_NO_ERROR)
-						eprintf("Gl error after glBindVertexArray RenderUnitCell: %d\n", e);
-					glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
-					//glDrawElements(GL_TRIANGLES, 24, GL_UNSIGNED_INT, 0);
-					if ((e = glGetError()) != GL_NO_ERROR)
-						eprintf("Gl error after RenderUnitCell: %d\n", e);
+					if (displayunitcell) {
+						float color[4]={1,1,1,1};
+						glUniform4fv(UnitCellColourLoc, 1, color);
+						if ((e = glGetError()) != GL_NO_ERROR)
+							eprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d\n", e);
+						glBindVertexArray(UnitCellVAO);
+						glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, UnitCellIndexBuffer);
+						if ((e = glGetError()) != GL_NO_ERROR)
+							eprintf("1 Gl error RenderAtom timestep =%d: %d\n", m_oldTime, e);
+						glBindBuffer(GL_ARRAY_BUFFER, UnitCellBuffer);
+						glVertexAttribPointer(0, 3, GL_FLOAT, 
+							GL_FALSE, 3 * sizeof(float), (const void *)(0));
+						glEnableVertexAttribArray(0);
+						glDisableVertexAttribArray(1);
+						glDisableVertexAttribArray(2);
+						glDisableVertexAttribArray(3);
+						if ((e = glGetError()) != GL_NO_ERROR)
+							eprintf("Gl error after glBindVertexArray RenderUnitCell: %d\n", e);
+						glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
+						//glDrawElements(GL_TRIANGLES, 24, GL_UNSIGNED_INT, 0);
+						if ((e = glGetError()) != GL_NO_ERROR)
+							eprintf("Gl error after RenderUnitCell: %d\n", e);
+					}	
 					//atom trajectories
 					//rgh: disable for now
 					RenderAtomTrajectoriesUnitCell();
