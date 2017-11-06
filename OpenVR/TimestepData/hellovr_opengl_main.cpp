@@ -55,7 +55,7 @@
 //#define PATH "C:\\Users\\mobile\\Desktop\\openvrDemos\\win64\\data\\CO2-CaO-B\\"
 #endif
 */
-#define ZLAYERS 12
+#define ZLAYERS transparencyquality
 
 
 
@@ -207,9 +207,6 @@ private: // OpenGL bookkeeping
 
 	int m_iSceneVolumeInit;                                  // if you want something other than the default 20x20x20
 
-	float m_fNearClip;
-	float m_fFarClip;
-
 	void SaveScreenshot (char *name);
 
 	GLuint *m_iTexture; //[3+ZLAYERS+1] // white, depth1, depth2, color[ZLAYERS], atomtexture
@@ -347,7 +344,7 @@ void eprintf( const char *fmt, ... )
 	if (numerrors==25) {
 		MessageBoxA(0, "Max messages reached, no further reporting", "Warning", 0);
 	}
-	if (numerrors>15) {
+	if (numerrors>25) {
 		return;
 	}
 	va_list args;
@@ -592,13 +589,10 @@ bool CMainApplication::BInit()
  	m_iSceneVolumeHeight = m_iSceneVolumeInit;
  	m_iSceneVolumeDepth = m_iSceneVolumeInit;
  		
-	m_fScale = 0.04f; //0.15f; //rgh: original too big for room
+	//m_fScale = 0.04f; //0.15f; //rgh: original too big for room
+	m_fScale=scaling;
  	m_fScaleSpacing = 4.0f;
  
- 	m_fNearClip = 0.2f;
- 	m_fFarClip = 200.0f;//rgh: original 30 too small for our skymap
- 
-
  
 // 		m_MillisecondsTimer.start(1, this);
 // 		m_SecondsTimer.start(1000, this);
@@ -996,8 +990,16 @@ bool CMainApplication::HandleInput()
 				else if (unDevice !=firstdevice && seconddevice==-1)
 					seconddevice=unDevice;
 				if (unDevice == firstdevice) {
-					Matrix4 tmp = m_mat4HMDPose;
-					UserPosition += tmp.invert()*Vector3(0, 0, speed);
+					if (gazenavigation) {
+						Matrix4 tmp = m_mat4HMDPose;
+						UserPosition += tmp.invert()*Vector3(0, 0, speed);
+					} else {
+						//vr::VRControllerState_t cs;
+						//vr::TrackedDevicePose_t dp;
+						//m_pHMD->GetControllerStateWithPose( vr::TrackingUniverseStanding, firstdevice, &cs, &dp );
+						const Matrix4 tmp = m_rmat4DevicePose[firstdevice];
+						UserPosition += tmp*Vector3(0, 0, speed);	
+					}
 				}
 				else {
 					float newtime = videospeed*float(SDL_GetTicks());;
@@ -2160,8 +2162,8 @@ void CMainApplication::RenderUnitCell(const vr::Hmd_Eye &nEye)
 					glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
 					if ((e = glGetError()) != GL_NO_ERROR)
 						dprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
-					const float color[4]={1,1,1,1};
-					glUniform4fv(m_nUnitCellColourLocation, 1, color);
+					
+					glUniform4fv(m_nUnitCellColourLocation, 1, unitcellcolour);
 					if ((e = glGetError()) != GL_NO_ERROR)
 						dprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
 					glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
@@ -2179,8 +2181,7 @@ void CMainApplication::RenderUnitCell(const vr::Hmd_Eye &nEye)
 	glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("Gl error after glUniform4fv 1 RenderUnitCell, supercell: %d, %s\n", e, gluErrorString(e));
-	const float colorsc[4]={0,1,1,1};
-	glUniform4fv(m_nUnitCellColourLocation, 1, colorsc);
+	glUniform4fv(m_nUnitCellColourLocation, 1, supercellcolour);
 	glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, (void*) (24 *sizeof(int)));
 	glDisable(GL_LINE_SMOOTH);
 glBindVertexArray(0);
@@ -2240,8 +2241,7 @@ if (numBonds && displaybonds && showAtoms) {
 	glBindVertexArray(m_unAtomVAO[2]);
 	glUseProgram(m_unUnitCellProgramID);
 	glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
-	float color[4]={0.5,0.5,1,1};
-	glUniform4fv(m_nUnitCellColourLocation, 1, color);
+	glUniform4fv(m_nUnitCellColourLocation, 1, bondscolours);
 	if (currentset==0||fixedAtoms)
 		glDrawElements(GL_LINES, numBonds[0],  GL_UNSIGNED_INT, (void*)0);
 	else
@@ -2282,8 +2282,8 @@ for (int i = 0; i < atomtrajectories.size(); i++) {
 glBindVertexArray(m_unAtomVAO[3]);
 glUseProgram(m_unUnitCellProgramID);
 glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
-float color2[4]={1,0,0,1};
-glUniform4fv(m_nUnitCellColourLocation, 1, color2);
+
+glUniform4fv(m_nUnitCellColourLocation, 1, atomtrajectorycolour);
 
 if ((e = glGetError()) != GL_NO_ERROR)
 	dprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
@@ -2419,7 +2419,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 				dprintf("Gl error after zlayer: %d, %s\n", e, gluErrorString(e));
 
 			glDisable(GL_CULL_FACE);
-			float z = 0.0f; //(m_fNearClip + m_fFarClip) / 2.0f;
+			float z = 0.0f; 
 			const float points[] = {
 				-1, -1, z, 1, 0, 0, -1, 0, 0,
 				-1, 1, z, 1, 0, 0, -1, 0, 1,
@@ -2567,7 +2567,7 @@ Matrix4 CMainApplication::GetHMDMatrixProjectionEye( vr::Hmd_Eye nEye )
 	if ( !m_pHMD )
 		return Matrix4();
 
-	vr::HmdMatrix44_t mat = m_pHMD->GetProjectionMatrix( nEye, m_fNearClip, m_fFarClip, vr::API_OpenGL);
+	vr::HmdMatrix44_t mat = m_pHMD->GetProjectionMatrix( nEye, nearclip, farclip, vr::API_OpenGL);
 
 	return Matrix4(
 		mat.m[0][0], mat.m[1][0], mat.m[2][0], mat.m[3][0],

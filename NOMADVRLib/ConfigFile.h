@@ -22,6 +22,9 @@ extern std::vector<float> *clonedAtoms;
 extern std::vector<int> bonds;
 extern int *numBonds;
 extern bool displaybonds;
+extern float bondscolours[4];
+extern float atomtrajectorycolour[4];
+
 extern int numClonedAtoms;
 extern int *basisvectorreps;
 
@@ -34,6 +37,8 @@ extern bool has_abc;
 extern bool displayunitcell;
 extern float supercell[3];
 extern float markerscaling;
+extern float unitcellcolour[4];
+extern float supercellcolour[4];
 
 extern int repetitions[3];
 
@@ -44,6 +49,10 @@ extern int screenshotdownscaling;
 
 extern bool hapticFeedback;
 extern bool showcontrollers;
+extern bool gazenavigation;
+
+extern int transparencyquality;
+extern float nearclip, farclip;
 
 //markers such as hole positions and electron positions
 extern float ** markers;

@@ -28,6 +28,9 @@ std::vector<float> *clonedAtoms;
 std::vector<int> bonds;
 int *numBonds;
 bool displaybonds;
+float bondscolours[4];
+float atomtrajectorycolour[4];
+
 int numClonedAtoms;
 int *basisvectorreps;
 
@@ -40,6 +43,8 @@ bool has_abc = false;
 bool displayunitcell;
 float supercell[3];
 int voxelSize[3];
+float unitcellcolour[4];
+float supercellcolour[4];
 
 int repetitions[3];
 Solid *solid;
@@ -48,6 +53,10 @@ bool saveStereo;
 int screenshotdownscaling;
 bool hapticFeedback;
 bool showcontrollers;
+bool gazenavigation;
+int transparencyquality;
+float nearclip, farclip;
+
 
 //markers such as hole positions and electron positions
 float ** markers;
@@ -135,14 +144,9 @@ while (*file!='\0') {
 }
 }
 
-int loadConfigFile(const char * f)
+void initState()
 {
-	//default values
-	//eprintf ("load config file start");
-	bool nonperiodic=false;
-	char base_url[1024]="http://enc-testing-nomad.esc.rzg.mpg.de/v1.0/materials/";
-	char material[1024]="";
-	BACKGROUND[0] = 0.95f;
+		BACKGROUND[0] = 0.95f;
 	BACKGROUND[1] = 0.95f;
 	BACKGROUND[2] = 0.95f;
 	SCREENSHOT="C:\\temp\\frame";
@@ -166,7 +170,7 @@ int loadConfigFile(const char * f)
 	for (int i=0;i<3;i++)
 		supercell[i] = 1;
 	solid=0;
-	char *token=0;
+
 	markers=nullptr;
 	markercolours=nullptr;
 	displayunitcell=false;
@@ -181,7 +185,42 @@ int loadConfigFile(const char * f)
 	screenshotdownscaling=1;
 	hapticFeedback=false;
 	showcontrollers=false;
+	gazenavigation=false;
 	inv_abc_init=false;
+
+	transparencyquality=12;
+	nearclip=0.2f;
+	farclip=200.f;
+
+	for (int i=0;i<4;i++)
+		unitcellcolour[i]=1.0f;
+	
+	supercellcolour[0]=0.0f;
+	supercellcolour[1]=1.0f;
+	supercellcolour[2]=1.0f;
+	supercellcolour[3]=1.0f;
+
+	bondscolours[0]=0.5f;
+	bondscolours[1]=0.5f;
+	bondscolours[2]=1.0f;
+	bondscolours[3]=1.0f;
+
+	atomtrajectorycolour[0]=1.0f;
+	atomtrajectorycolour[1]=0.0f;
+	atomtrajectorycolour[2]=0.0f;
+	atomtrajectorycolour[3]=1.0f;
+}
+
+int loadConfigFile(const char * f)
+{
+	//default values
+	//eprintf ("load config file start");
+	bool nonperiodic=false;
+	char base_url[1024]="http://enc-testing-nomad.esc.rzg.mpg.de/v1.0/materials/";
+	char material[1024]="";
+	initState();
+	char *token=0;
+
 	//
 	FILE *F = fopen(f, "r");
 	if (F == 0)
@@ -499,11 +538,39 @@ int loadConfigFile(const char * f)
 			hapticFeedback=true;
 		} else if (!strcmp (s, "supercell")) {
 			r=fscanf (F, "%f %f %f", supercell, supercell+1, supercell+2);
+			if (r<3)
+				eprintf ("Error reading supercell value");
 		} else if (!strcmp (s, "showcontrollers")) { 
 			showcontrollers=true;
-		} else if (!strcmp (s, "\x0d")) { //discard windows newline (problem in Sebastian Kokott's phone (?!)
+		} else if (!strcmp (s, "gazenavigation")) { 
+			gazenavigation=true;
+		}else if (!strcmp (s, "\x0d")) { //discard windows newline (problem in Sebastian Kokott's phone (?!)
 			continue;
-		} else {
+		} else if (!strcmp (s, "transparencyquality")) {
+			r=fscanf (F, "%d", &transparencyquality);
+			if (r<1)
+				eprintf ("Error reading transparencyquality value");
+		} else if (!strcmp (s, "clippingplanes")) {
+			r=fscanf (F, "%f %f", &nearclip, &farclip);
+			if (r<2)
+				eprintf ("Error reading clippingplanes values");
+		}else if (!strcmp (s, "bondscolour")) {
+			r=fscanf (F, "%f %f %f", bondscolours, bondscolours+1, bondscolours+2);
+			if (r<3)
+				eprintf ("Error reading bondscolour value");
+		}else if (!strcmp (s, "unitcellcolour")) {
+			r=fscanf (F, "%f %f %f", unitcellcolour, unitcellcolour+1, unitcellcolour+2);
+			if (r<3)
+				eprintf ("Error reading unitcellcolour value");
+		}else if (!strcmp (s, "supercellcolour")) {
+			r=fscanf (F, "%f %f %f", supercellcolour, supercellcolour+1, supercellcolour+2);
+			if (r<3)
+				eprintf ("Error reading supercellcolour value");
+		}else if (!strcmp (s, "atomtrajectorycolour")) {
+			r=fscanf (F, "%f %f %f", atomtrajectorycolour, atomtrajectorycolour+1, atomtrajectorycolour+2);
+			if (r<3)
+				eprintf ("Error reading atomtrajectorycolour value");
+		}else {
 			eprintf( "Unrecognized parameter %s\n", s);
 			for (int i=0;i<strlen(s);i++)
 				eprintf ("<%d>", s[i]);

@@ -56,7 +56,7 @@ void eprintf( const char *fmt, ... )
 	vsprintf( buffer, fmt, args );
 	va_end( args );
 
-	LOGD("Error in NOMADgvrT");
+	LOGD("Message in NOMADgvrT");
 	if (*fmt=='\0')
 		LOGD("Empty format");
 	LOGD("<%s>", buffer);
@@ -66,6 +66,39 @@ void eprintf( const char *fmt, ... )
 
 
 namespace {
+
+
+gvr::Mat4f TranslationMatrix (float x, float y, float z) 
+{
+gvr::Mat4f mvs;
+mvs.m[0][0]=1;mvs.m[0][1]=0;mvs.m[0][2]=0; mvs.m[0][3]=x;
+mvs.m[1][0]=0;mvs.m[1][1]=1;mvs.m[1][2]=0;mvs.m[1][3]=y;
+mvs.m[2][0]=0;mvs.m[2][1]=0;mvs.m[2][2]=1; mvs.m[2][3]=z;
+mvs.m[3][0]=0;mvs.m[3][1]=0;mvs.m[3][2]=0; mvs.m[3][3]=1;
+return mvs;
+}
+
+gvr::Mat4f TranslationMatrix (float v[3]) 
+{
+return TranslationMatrix (v[0], v[1], v[2]);
+}
+
+gvr::Mat4f ScalingMatrix (float x, float y, float z) 
+{
+gvr::Mat4f mvs;
+
+mvs.m[0][0]=x;mvs.m[0][1]=0;mvs.m[0][2]=0; mvs.m[0][3]=0;
+mvs.m[1][0]=0;mvs.m[1][1]=y;mvs.m[1][2]=0;mvs.m[1][3]=0;
+mvs.m[2][0]=0;mvs.m[2][1]=0;mvs.m[2][2]=z; mvs.m[2][3]=0;
+mvs.m[3][0]=0;mvs.m[3][1]=0;mvs.m[3][2]=0; mvs.m[3][3]=1;
+return mvs;
+}
+
+gvr::Mat4f ScalingMatrix (float v[3]) 
+{
+return ScalingMatrix(v[0], v[1], v[2]);
+}
+
 //static const float kZNear = 1.0f;
 //static const float kZFar = 100.0f;
 static const float kZNear = 0.01f;
@@ -343,6 +376,10 @@ void TreasureHuntRenderer::loadConfigFile(void)
 		LOGD("No atom glyph specified, using Icosahedron");
 		solid=new Solid(Solid::Type::Icosahedron);
 	}
+	for (int i=0;i<3;i++)
+		UserTranslation[i]=userpos[i];
+
+//	LOGD("UT=%f, %f, %f\n", UserTranslation[0], UserTranslation[1], UserTranslation[2]);
 }
 
 TreasureHuntRenderer::TreasureHuntRenderer(
@@ -355,6 +392,8 @@ TreasureHuntRenderer::TreasureHuntRenderer(
 	loadConfigFile();
 	//eprintf("after config load, timesteps=%d", TIMESTEPS);
 	
+
+
   ResumeControllerApiAsNeeded();
   if (gvr_viewer_type_ == GVR_VIEWER_TYPE_CARDBOARD) {
     LOGD("Viewer type: CARDBOARD");
@@ -506,26 +545,43 @@ glGenTextures(2+ZLAYERS, textDepthPeeling);
 		for (int p = 0; p < TIMESTEPS*ISOS; p++) {
 			sprintf(tmpname, "%s%d-%s.ply", PATH, timestep, 
 				plyfiles[p % ISOS]);
-			gvr::Mat4f trans, matFinal;
+			gvr::Mat4f trans;
+			gvr::Mat4f matFinal, matcubetrans, mvs, sc, sctrans;
 //rotateX(-90)
+		if (voxelSize[0]!=-1) {
+			mvs=ScalingMatrix(scaling/(float)voxelSize[0], scaling/(float)voxelSize[1],
+				scaling/(float)voxelSize[2]);
+			matcubetrans=TranslationMatrix(cubetrans);
+			gvr::Mat4f abcm {abc[0][0], abc[0][1], abc[0][2], 0,
+					abc[1][0], abc[1][1], abc[1][2], 0,
+					abc[2][0], abc[2][1], abc[2][2], 0,
+					0, 0, 0, 1};
+			sc=ScalingMatrix(supercell);
+			sctrans=TranslationMatrix(-translations[p%ISOS][2], 
+					-translations[p%ISOS][1], -translations[p%ISOS][0]);
+			matFinal = MatrixMul(abcm,sctrans);
+			matFinal=MatrixMul(matFinal,sc);
+			matFinal=MatrixMul(matFinal,mvs);
+		} else {
 			trans.m[0][0]=1;trans.m[0][1]=0;trans.m[0][2]=0; trans.m[0][3]=0;
 			trans.m[1][0]=0;trans.m[1][1]=0;trans.m[1][2]=1;trans.m[1][3]=0;
 			trans.m[2][0]=0;trans.m[2][1]=-1;trans.m[2][2]=0; trans.m[2][3]=0;
 			trans.m[3][0]=0;trans.m[3][1]=0;trans.m[3][2]=0; trans.m[3][3]=1;
 
 			for (int i=0;i<4;i++)
-					for(int j=0;j<4;j++)
+				for(int j=0;j<4;j++)
 					matFinal.m[i][j]=(i==j);
 			for (int i=0;i<3;i++)
 				matFinal.m[i][3]=translations[p%ISOS][i];
 
 			matFinal=MatrixMul(trans, matFinal);
 
-			trans.m[0][0]=0.2;trans.m[0][1]=0;trans.m[0][2]=0; trans.m[0][3]=0;
-			trans.m[1][0]=0;trans.m[1][1]=0.2;trans.m[1][2]=0;trans.m[1][3]=0; 
-			trans.m[2][0]=0;trans.m[2][1]=0;trans.m[2][2]=0.2; trans.m[2][3]=0;
+			trans.m[0][0]=scaling;trans.m[0][1]=0;trans.m[0][2]=0; trans.m[0][3]=0;
+			trans.m[1][0]=0;trans.m[1][1]=scaling;trans.m[1][2]=0;trans.m[1][3]=0; 
+			trans.m[2][0]=0;trans.m[2][1]=0;trans.m[2][2]=scaling; trans.m[2][3]=0;
 			trans.m[3][0]=0;trans.m[3][1]=0;trans.m[3][2]=0; trans.m[3][3]=1;
 			matFinal=MatrixMul(trans, matFinal);
+		}
 			float mat[16];
 			for (int i=0;i<4;i++)
 				for (int j=0;j<4;j++)
@@ -613,7 +669,17 @@ void TreasureHuntRenderer::DrawFrame() {
   }
 
 //	if (animateTimesteps) {
-		currentSet++;
+
+	if (animationspeed>1)
+		currentSet+=animationspeed;
+	else {
+		static float current=0;
+		current+=animationspeed;
+		if (current>1) {
+			currentSet++;
+			current=0;
+		}
+	}
             if (currentSet>TIMESTEPS-1)
                 currentSet=0;
 //	}
@@ -638,8 +704,12 @@ if (animateTimesteps) {
 	float il=1.0/sqrtf(dir2[0]*dir2[0]+dir2[1]*dir2[1]+dir2[2]*dir2[2]);
 	//dir2[2]=-dir2[2];
 	for (int i=0;i<3;i++)
-		UserTranslation[i]+=dir2[i]*il*speed;
+		UserTranslation[i]+=dir2[i]*il*speed*movementspeed;
 }
+
+
+	LOGD("UT=%f, %f, %f\n", UserTranslation[0], UserTranslation[1], UserTranslation[2]);
+LOGD("MovementSpeed=%f\n", movementspeed);
 
   gvr::Mat4f left_eye_matrix = gvr_api_->GetEyeFromHeadMatrix(GVR_LEFT_EYE);
   gvr::Mat4f right_eye_matrix = gvr_api_->GetEyeFromHeadMatrix(GVR_RIGHT_EYE);
@@ -813,53 +883,26 @@ if (curDataPos!=ISOS) {
 	glBindVertexArray(ISOVAO[currentSet*ISOS+curDataPos]);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("3 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
-	eprintf ("Drawing %d vertices, isos", numISOIndices[currentSet*ISOS+curDataPos]);
+	//eprintf ("Drawing %d vertices, isos", numISOIndices[currentSet*ISOS+curDataPos]);
 	glDrawElements(GL_TRIANGLES,numISOIndices[currentSet*ISOS+curDataPos] , GL_UNSIGNED_INT, 0);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("4 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
 } else {
-//transparency; FIXME disabled as I get 1fps, with screen in 4 columns and z-check is incorrect
-/*
-	glDisable(GL_BLEND);
-	glDepthMask(GL_TRUE);
-	//do depth peeling
-	CleanDepthTexture(textDepthPeeling[0], render_size_.width, render_size_.height);
-	GLint dfb;
-	glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &dfb);
-if ((e = glGetError()) != GL_NO_ERROR)
-	eprintf("Gl error RenderIsos, before zl loop: %d\n", e);
-	for (int zl = 0; zl < ZLAYERS; zl++) {
-		EnableDepthFB(zl, TransP, 
-			peelingFramebuffer, textDepthPeeling);
-		glUniformMatrix4fv(TransMatrixLoc, 1, GL_FALSE, t);
-		for (int i=0;i<ISOS;i++) {
-			glBindVertexArray(ISOVAO[currentSet*ISOS+i]);
-			glDrawElements(GL_TRIANGLES,numISOIndices[currentSet*ISOS+i] , GL_UNSIGNED_INT, 0);	
-		}
-	}
-	glUseProgram(BlendP);
-	glBindFramebuffer(GL_FRAMEBUFFER, dfb);
-	glBindVertexArray(BlendVAO);
-if ((e = glGetError()) != GL_NO_ERROR)
-	eprintf("Gl error RenderIsos, after glBindVertexArray: %d\n", e);
-	BlendTextures(textDepthPeeling, ZLAYERS);
-	glBindVertexArray(0);
-if ((e = glGetError()) != GL_NO_ERROR)
-	eprintf("Gl error RenderIsos, after BlendTextures: %d\n", e);*/
-/* no transparency*/
+/*transparency*/
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 	glDepthMask(GL_FALSE);
 	for (int i=0;i<ISOS;i++) {
 		glBindVertexArray(ISOVAO[currentSet*ISOS+i]);
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("5 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
-		eprintf ("Drawing %d vertices, isos", numISOIndices[currentSet*ISOS+i]);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("5 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+		//eprintf ("Drawing %d vertices, isos", numISOIndices[currentSet*ISOS+i]);
 		glDrawElements(GL_TRIANGLES,numISOIndices[currentSet*ISOS+i] , GL_UNSIGNED_INT, 0); 
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("6 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("6 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
 	}
 	glDisable(GL_BLEND);
+	glDepthMask(GL_TRUE);
 } //if (curDataPos!=ISOS) 
 //eprintf ("end of RenderIsos");
 glBindVertexArray(0);
@@ -962,15 +1005,14 @@ void TreasureHuntRenderer::RenderAtoms(const float *m) //m[16]
 	} // no tess
 }
 
+
+
 void TreasureHuntRenderer::RenderAtomTrajectories(const gvr::Mat4f eyeViewProjection)
 {
 int e;
 if (!numAtoms)
 	return;
-gvr::Mat4f trans={1,0,0,UserTranslation[0],
-		0,1,0,UserTranslation[1],
-		0,0,1,UserTranslation[2],
-		0,0,0,1};
+gvr::Mat4f trans=TranslationMatrix (UserTranslation);
 					
 //trans.translate(iPos).rotateX(-90).translate(UserPosition);
 gvr::Mat4f transform = MatrixMul(eyeViewProjection,trans);
