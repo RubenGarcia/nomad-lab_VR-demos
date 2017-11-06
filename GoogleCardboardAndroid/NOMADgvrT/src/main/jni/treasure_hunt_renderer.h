@@ -45,6 +45,8 @@ class TreasureHuntRenderer {
   TreasureHuntRenderer(gvr_context* gvr_context,
                        std::unique_ptr<gvr::AudioApi> gvr_audio_api);
 
+
+	void keyPress (int k);
   /**
    * Destructor.
    */
@@ -173,7 +175,9 @@ GLuint BlendVAO=0, BlendBuffer=0, BlendIndices=0;
 int *numISOIndices=nullptr/*[ISOS*TIMESTEPS]*/;
 
 int currentSet=0;
-bool animateTimesteps=false;
+bool animateTimesteps=true;
+bool animateMovement=false;
+int currentIso;
 
 void RenderAtoms(const float *m);
 void RenderUnitCell(const gvr::Mat4f eyeViewProjection);

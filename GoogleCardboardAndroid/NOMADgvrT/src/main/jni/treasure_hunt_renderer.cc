@@ -341,6 +341,40 @@ static float VectorInnerProduct(const std::array<float, 4>& vect1,
 }
 }  // anonymous namespace
 
+void TreasureHuntRenderer::keyPress (int k)
+{ //X=99, Y=100, A=96, B=97
+//UP=19, DOWN=20, LEFT=21, RIGHT=22, 
+//https://developer.android.com/reference/android/view/KeyEvent.html
+switch (k) {
+	case 19:
+		currentSet++;
+		if (currentSet>TIMESTEPS-1)
+	                currentSet=0;
+		break;
+	case 20:
+		currentSet--;
+		if (currentSet<0) 
+			currentSet=TIMESTEPS-1;
+		break;
+	case 21:
+		currentIso++;
+		if (currentIso>ISOS)
+			currentIso=0;
+		break;
+	case 22:
+		currentIso--;
+		if (currentIso<0)
+			currentIso=ISOS;
+		break;
+	case 99: 
+		animateTimesteps=!animateTimesteps;
+		break;
+	case 96:
+		animateMovement=!animateMovement;
+		
+}
+}
+
 void TreasureHuntRenderer::loadConfigFile(void)
 {
 	if (configPath!=nullptr)
@@ -495,6 +529,7 @@ glGenTextures(2+ZLAYERS, textDepthPeeling);
 
 //isosurfaces
 	if (ISOS) {
+		currentIso=ISOS;
 		//rgh: FIXME Additive blending for android; do not need most of these textures
 		//additive blending means white background makes everything white
 		float m=BACKGROUND[0];
@@ -668,8 +703,7 @@ void TreasureHuntRenderer::DrawFrame() {
     ProcessControllerInput();
   }
 
-//	if (animateTimesteps) {
-
+if (animateTimesteps) {
 	if (animationspeed>1)
 		currentSet+=animationspeed;
 	else {
@@ -682,7 +716,7 @@ void TreasureHuntRenderer::DrawFrame() {
 	}
             if (currentSet>TIMESTEPS-1)
                 currentSet=0;
-//	}
+	}
 
   PrepareFramebuffer();
   gvr::Frame frame = swapchain_->AcquireFrame();
@@ -693,7 +727,7 @@ void TreasureHuntRenderer::DrawFrame() {
 
   head_view_ = gvr_api_->GetHeadSpaceFromStartSpaceRotation(target_time);
 
-if (animateTimesteps) {
+if (animateMovement) {
 	const float speed=0.01;
 	gvr::Mat4f inv=invert(head_view_);
 	//for (int i=0;i<4;i++)
@@ -708,8 +742,8 @@ if (animateTimesteps) {
 }
 
 
-	LOGD("UT=%f, %f, %f\n", UserTranslation[0], UserTranslation[1], UserTranslation[2]);
-LOGD("MovementSpeed=%f\n", movementspeed);
+	//LOGD("UT=%f, %f, %f\n", UserTranslation[0], UserTranslation[1], UserTranslation[2]);
+	//LOGD("MovementSpeed=%f\n", movementspeed);
 
   gvr::Mat4f left_eye_matrix = gvr_api_->GetEyeFromHeadMatrix(GVR_LEFT_EYE);
   gvr::Mat4f right_eye_matrix = gvr_api_->GetEyeFromHeadMatrix(GVR_RIGHT_EYE);
@@ -853,7 +887,7 @@ if (has_abc) {
 }
 
 if (ISOS)
-	RenderIsos(modelview_projection_cube_, ISOS);
+	RenderIsos(modelview_projection_cube_, currentIso);
 
 }
 
@@ -1045,8 +1079,7 @@ glBindVertexArray(AtomTVAO[0]);
 		eprintf("1 Gl error RenderAtomTrajectoriesUnitCell: %d\n", e);
 //glUseProgram(UnitCellP);
 //glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, matrix);
-float color[4]={1,0,0,1};
-glUniform4fv(UnitCellColourLoc, 1, color);
+glUniform4fv(UnitCellColourLoc, 1, atomtrajectorycoluor);
 if ((e = glGetError()) != GL_NO_ERROR)
 	eprintf("Gl error after glUniform4fv 2 RenderAtomTrajectoriesUnitCell: %d\n", e);
 //glEnableVertexAttribArray(0);
@@ -1114,9 +1147,8 @@ void TreasureHuntRenderer::RenderUnitCell(const gvr::Mat4f eyeViewProjection)
 					glUseProgram(UnitCellP);
 					glUniformMatrix4fv(UnitCellMatrixLoc, 1, GL_FALSE, t);
 					if ((e = glGetError()) != GL_NO_ERROR)
-						eprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d\n", e);
-					float color[4]={1,1,1,1};
-					glUniform4fv(UnitCellColourLoc, 1, color);
+						eprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d\n", e);	
+					glUniform4fv(UnitCellColourLoc, 1, unitcellcolour);
 					if ((e = glGetError()) != GL_NO_ERROR)
 						eprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d\n", e);
 					glBindVertexArray(UnitCellVAO);
@@ -1142,6 +1174,6 @@ void TreasureHuntRenderer::RenderUnitCell(const gvr::Mat4f eyeViewProjection)
 }
 
 void TreasureHuntRenderer::OnTriggerEvent() {
-	animateTimesteps=!animateTimesteps;
+	animateMovement=!animateMovement;
 }
 

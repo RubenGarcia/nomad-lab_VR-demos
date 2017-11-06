@@ -125,5 +125,10 @@ JNI_METHOD(void, nativeLoadConfigFile)
   native(native_treasure_hunt)->loadConfigFile();
 }
 
+JNI_METHOD(void, nativekeyPress)
+(JNIEnv *env, jobject obj, jlong native_treasure_hunt, jint key) {
+  int k=key;
+  native(native_treasure_hunt)->keyPress(k);
+}
 
 }  // extern "C"
