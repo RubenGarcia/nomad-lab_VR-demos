@@ -28,7 +28,8 @@ const char * TMPDIR;//filled by main
 bool inv_abc_init=false;
 float inv_abc[3][3];
 
-
+std::vector<const char*> extraAtomNames;
+std::vector<float*> extraAtomData;
 
 const char * const atomNames[] =
 
@@ -176,7 +177,10 @@ float atomColours[][4] =
 
 float atomRadius (int i)
 {
-	return atomColours[i][3];
+	if (i<atomsInPeriodicTable)
+		return atomColours[i][3];
+	else
+		return extraAtomData[i-atomsInPeriodicTable][3];
 }
 
 void discardline (FILE *F)
@@ -190,7 +194,19 @@ do {
 int findAtom(const char *const s)
 {
 	//discard number at end
+	//rgh: I have C1A, so better to go from the end to avoid this being confused with C
 	char x[10];
+	strcpy (x, s);
+	char *p=x+strlen(x);
+	p--;
+	while (*p > '0' && *p <= '9') {
+		*p='\0';
+		*p--;
+		if (p==x)
+			break;
+	}
+		
+	/*
 	char *p=x; 
 	const char *q=s;
 	while (*q!=0) {
@@ -199,10 +215,15 @@ int findAtom(const char *const s)
 		*p++=*q++;
 	}
 	*p=0;
+	*/
 	//rgh FIXME, add caching
 	for (unsigned int i=0;i<sizeof(atomNames)/sizeof(const char *);i++)
 		if (!strcmp(x, atomNames[i]))
 			return i;
+	//now check extra atoms, starting at atomsInPeriodicTable
+	for (unsigned int i=0;i<extraAtomNames.size();i++)
+		if (!strcmp(x, extraAtomNames[i]))
+			return i+atomsInPeriodicTable;
 	return -1;
 }
 

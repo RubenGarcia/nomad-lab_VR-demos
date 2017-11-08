@@ -287,6 +287,7 @@ private: // OpenGL bookkeeping
 	GLint m_nAtomMVLocation;
 	GLint m_nUnitCellMatrixLocation, m_nUnitCellColourLocation;
 	GLint m_nMarkerMatrixLocation;
+	GLint m_nTotalatomsLocation;
 
 	struct FramebufferDesc
 	{
@@ -869,7 +870,7 @@ bool CMainApplication::HandleInput()
 	SDL_Event sdlEvent;
 	bool bRet = false;
 
-	float speed = 0.02f;
+	float speed = 0.02f*movementspeed;
 
 	while (SDL_PollEvent(&sdlEvent) != 0)
 	{
@@ -1002,8 +1003,8 @@ bool CMainApplication::HandleInput()
 					}
 				}
 				else {
-					float newtime = videospeed*float(SDL_GetTicks());;
-					if (newtime-elapsedtime > 1) {
+					float newtime = videospeed*float(SDL_GetTicks());
+					if (newtime-elapsedtime > 1.0f/animationspeed) {
 						elapsedtime = newtime;
 						currentset++;
 						if (currentset >= TIMESTEPS)
@@ -1300,7 +1301,7 @@ bool CMainApplication::CreateAllShaders()
 	}
 
 	if (!PrepareUnitCellAtomShader (&m_unAtomsProgramID, &m_unUnitCellProgramID, &m_unMarkerProgramID,
-		&m_nAtomMatrixLocation, &m_nUnitCellMatrixLocation,  &m_nUnitCellColourLocation, &m_nMarkerMatrixLocation))
+		&m_nAtomMatrixLocation, &m_nUnitCellMatrixLocation,  &m_nUnitCellColourLocation, &m_nMarkerMatrixLocation, &m_nTotalatomsLocation))
 		return false;
 
 
@@ -2196,6 +2197,7 @@ float delta[3];
 ::GetDisplacement(p, delta);
 Vector3 iPos(delta[0], delta[1], delta[2]);
 glUseProgram(m_unAtomsProgramID);
+glUniform1f(m_nTotalatomsLocation, (float)getTotalAtomsInTexture());
 
 float levelso[4] = { TESSSUB, TESSSUB, TESSSUB, TESSSUB };
 float levelsi[2] = { TESSSUB, TESSSUB};

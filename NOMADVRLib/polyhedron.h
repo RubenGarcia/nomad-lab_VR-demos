@@ -63,8 +63,8 @@ public:
 			for (int i=0;i<SphereFacets;i++)
 				for (int j=0;j<SphereFacets;j++) {
 					float t, f;
-					t=i*2*M_PI/(float)(SphereFacets-1);
-					f=j*M_PI/(float)(SphereFacets-1);
+					t=i*2.0f*(float)M_PI/(float)(SphereFacets-1);
+					f=j*(float)M_PI/(float)(SphereFacets-1);
 					
 					tVerts[i*SphereFacets*3 + j*3]=sin(f)*sin(t);
 					tVerts[i*SphereFacets*3 + j*3+1]=sin(f)*cos(t);

@@ -22,21 +22,28 @@ int getAtomTimesteps()
 GLenum atomTexture(GLuint t)
 {
 	GLenum e;
+	int finalatoms=getTotalAtomsInTexture();
 	//rgh: scale atoms here
 	//in google cardboard, this is called again if the program is running, so leave original or atoms get progresivelly smaller!
-	float *a=new float[118*4];
-	for (int i = 0; i < 118; i++) {
+	float *a=new float[finalatoms*4];
+	for (int i = 0; i < atomsInPeriodicTable; i++) {
 		a[i*4+0]=atomColours[i][0];
 		a[i*4+1]=atomColours[i][1];
 		a[i*4+2]=atomColours[i][2];
 		a[i*4+3]=atomColours[i][3] * atomScaling;
+	}
+	for (int i=0;i<extraAtomNames.size();i++) {
+		a[(i+atomsInPeriodicTable)*4+0]=extraAtomData[i][0];
+		a[(i+atomsInPeriodicTable)*4+1]=extraAtomData[i][1];
+		a[(i+atomsInPeriodicTable)*4+2]=extraAtomData[i][2];
+		a[(i+atomsInPeriodicTable)*4+3]=extraAtomData[i][3]*atomScaling;
 	}
 	glBindTexture(GL_TEXTURE_2D, t); //atom texture
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 118, 1, 0, GL_RGBA, GL_FLOAT, a);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, finalatoms, 1, 0, GL_RGBA, GL_FLOAT, a);
 
 	glBindTexture( GL_TEXTURE_2D, 0 );
 	if ((e = glGetError()) != GL_NO_ERROR) {
@@ -301,7 +308,7 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLu
 						M[k]=atoms[p][4*a+k];
 				}
 			}
-			grid g(m, M, pow(numAtoms[p], 1.0/3), bondscaling);
+			grid g(m, M, pow(numAtoms[p], 1.0f/3.0f), bondscaling);
 			for (int a = 1; a < numAtoms[p]; a++) 
 				g.add(atoms[p]+4*a);
 			for (int a = 0; a < numAtoms[p]; a++) {
@@ -546,8 +553,8 @@ GLenum SetupUnitCell(GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *Un
 
 bool PrepareUnitCellAtomShader (GLuint *AtomP, GLuint *cellP, GLuint *MarkerP, 
 								GLint *AtomMatrixLocation, GLint *UnitCellMatrixLocation,  GLint *UnitCellColourLocation,
-								GLint *MarkerMatrixLocation){
-	if (!PrepareAtomShader(AtomP, AtomMatrixLocation))
+								GLint *MarkerMatrixLocation, GLint *totalatomsLocation){
+	if (!PrepareAtomShader(AtomP, AtomMatrixLocation, totalatomsLocation))
 		return false;
 
 	if (!PrepareUnitCellShader(cellP, UnitCellMatrixLocation, UnitCellColourLocation))
@@ -559,7 +566,7 @@ bool PrepareUnitCellAtomShader (GLuint *AtomP, GLuint *cellP, GLuint *MarkerP,
 	return true;
 }
 
-bool PrepareAtomShader (GLuint *AtomP, GLint *AtomMatrixLocation){
+bool PrepareAtomShader (GLuint *AtomP, GLint *AtomMatrixLocation, GLint *totalatomsLocation){
 		//https://www.gamedev.net/topic/591110-geometry-shader-point-sprites-to-spheres/
 	//no rotation, only translations means we can do directional lighting in the shader.
 	//FIXME
@@ -576,6 +583,13 @@ bool PrepareAtomShader (GLuint *AtomP, GLint *AtomMatrixLocation){
 		eprintf( "Unable to find matrix uniform in atom shader\n" );
 		return false;
 	}
+	*totalatomsLocation=glGetUniformLocation(*AtomP, "totalatoms");
+	if( *totalatomsLocation == -1 )
+	{
+		eprintf( "Unable to find matrix uniform in atom shader\n" );
+		return false;
+	}
+
 	return true;
 }
 
@@ -599,7 +613,7 @@ bool PrepareMarkerShader (GLuint *MP, GLint *MMatrixLocation){
 	return true;
 }
 
-bool PrepareAtomShaderNoTess (GLuint *AtomP, GLint *AtomMatrixLocation){
+bool PrepareAtomShaderNoTess (GLuint *AtomP, GLint *AtomMatrixLocation, GLint *totalatomsLocation){
 		//https://www.gamedev.net/topic/591110-geometry-shader-point-sprites-to-spheres/
 	//no rotation, only translations means we can do directional lighting in the shader.
 	//FIXME
@@ -614,6 +628,12 @@ bool PrepareAtomShaderNoTess (GLuint *AtomP, GLint *AtomMatrixLocation){
 	if( *AtomMatrixLocation == -1 )
 	{
 		eprintf( "Unable to find matrix uniform in atom shader no tess\n" );
+		return false;
+	}
+	*totalatomsLocation=glGetUniformLocation(*AtomP, "totalatoms");
+	if( *totalatomsLocation == -1 )
+	{
+		eprintf( "Unable to find matrix uniform in atom shader\n" );
 		return false;
 	}
 	return true;

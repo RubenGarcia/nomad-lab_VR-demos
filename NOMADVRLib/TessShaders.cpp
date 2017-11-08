@@ -16,6 +16,7 @@ const char * const AtomShaders [] = {
 "#version 300 es\n"
 #endif
 	"uniform sampler2D atomData;\n"
+	"uniform float totalatoms=118.0;\n" //(float)atomsInPeriodicTable
 	"layout(location = 0) in vec3 center;\n"
 	"layout(location = 1) in float atomIn;\n"
 	"out vec4 vcolor;\n" //color , radius
@@ -23,7 +24,7 @@ const char * const AtomShaders [] = {
 	"void main()\n"
 	"{\n"
 	//"gl_Position = matrix * vec4(position+center, 1);\n"
-	"float coord=atomIn/118.0+0.5/118.0;\n"
+	"float coord=atomIn/totalatoms+0.5/totalatoms;\n"
 	"vcolor=vec4(texture(atomData, vec2(coord, 0)));\n"
 	"vcen=center;\n"
 	//"color.a=1;\n"
@@ -96,6 +97,7 @@ const char * const AtomShadersNoTess [] = {
 #endif
 	"uniform sampler2D atomData;\n"
 	"uniform mat4 matrix;\n"
+	"uniform float totalatoms=118.0;\n" //(float)atomsInPeriodicTable
 	"layout(location = 0) in vec3 pos;\n"
 	"layout(location = 1) in vec3 normalIn;\n"
 	"layout(location = 2) in float atomIn;\n"
@@ -106,7 +108,7 @@ const char * const AtomShadersNoTess [] = {
 	"{\n"
 	"gl_Position = matrix * vec4(pos, 1);\n"
 	"normal=normalIn;\n"
-	"float coord=atomIn/118.0+0.5/118.0;\n"
+	"float coord=atomIn/totalatoms+0.5/totalatoms;\n"
 	"color=vec4(texture(atomData, vec2(coord, 0)));\n"
 	"color.a=1.0;\n"
 	"vertex=pos;\n"

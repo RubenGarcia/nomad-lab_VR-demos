@@ -1079,7 +1079,7 @@ glBindVertexArray(AtomTVAO[0]);
 		eprintf("1 Gl error RenderAtomTrajectoriesUnitCell: %d\n", e);
 //glUseProgram(UnitCellP);
 //glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, matrix);
-glUniform4fv(UnitCellColourLoc, 1, atomtrajectorycoluor);
+glUniform4fv(UnitCellColourLoc, 1, atomtrajectorycolour);
 if ((e = glGetError()) != GL_NO_ERROR)
 	eprintf("Gl error after glUniform4fv 2 RenderAtomTrajectoriesUnitCell: %d\n", e);
 //glEnableVertexAttribArray(0);

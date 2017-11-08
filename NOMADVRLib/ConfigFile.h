@@ -54,6 +54,9 @@ extern bool gazenavigation;
 extern int transparencyquality;
 extern float nearclip, farclip;
 
+extern float animationspeed; //how fast to change to next timestep
+extern float movementspeed;  //how fast to move the user
+
 //markers such as hole positions and electron positions
 extern float ** markers;
 extern float ** markercolours;

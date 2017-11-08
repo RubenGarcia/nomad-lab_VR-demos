@@ -57,12 +57,13 @@ bool gazenavigation;
 int transparencyquality;
 float nearclip, farclip;
 
-
 //markers such as hole positions and electron positions
 float ** markers;
 float ** markercolours;
 float cubetrans[3];
 
+float animationspeed;
+float movementspeed;
 
 const char * loadConfigFileErrors[] =
 {
@@ -86,6 +87,7 @@ const char * loadConfigFileErrors[] =
 	"markers with no previous correct timesteps parameter", //-17
 	"markercolours with no previous correct timesteps parameter", //-18
 	"Error reading atomcolour", // -19
+	"Error reading newatom", //-20
 	"Error loading xyz file, add 100 to see the error",//<-100
 	"Error loading cube file, add 200 to see the error",//<-200
 	"Error loading encyclopedia json file, add 300 to see the error",//<-300
@@ -146,7 +148,7 @@ while (*file!='\0') {
 
 void initState()
 {
-		BACKGROUND[0] = 0.95f;
+	BACKGROUND[0] = 0.95f;
 	BACKGROUND[1] = 0.95f;
 	BACKGROUND[2] = 0.95f;
 	SCREENSHOT="C:\\temp\\frame";
@@ -209,6 +211,9 @@ void initState()
 	atomtrajectorycolour[1]=0.0f;
 	atomtrajectorycolour[2]=0.0f;
 	atomtrajectorycolour[3]=1.0f;
+
+	animationspeed=1.0f;
+	movementspeed=1.0f;
 }
 
 int loadConfigFile(const char * f)
@@ -221,7 +226,6 @@ int loadConfigFile(const char * f)
 	initState();
 	char *token=0;
 
-	//
 	FILE *F = fopen(f, "r");
 	if (F == 0)
 	{
@@ -235,6 +239,8 @@ int loadConfigFile(const char * f)
 		r=fscanf(F, "%99s", s);
 		if (r <= 0)
 			continue;
+		if ((unsigned char)s[0]==0xef && (unsigned char)s[1]==0xbb && (unsigned char)s[2]==0xbf) //utf bom
+			strcpy (s, s+3);
 		if (s[0] == '#') {//comment
 			discardline(F);
 			continue;
@@ -452,6 +458,11 @@ int loadConfigFile(const char * f)
 				solid=new Solid(Solid::Type::Octahedron);
 			else if(!strcmp(s, "tetrahedron"))
 				solid=new Solid(Solid::Type::Tetrahedron);
+			else if(!strcmp(s, "sphere")) {
+				int subd;
+				r=fscanf (F, "%d", &subd);
+				solid=new Solid(Solid::Type::Sphere, subd);
+			}
 			else
 				return -15;
 		} else if (!strcmp (s, "token")) {
@@ -481,9 +492,11 @@ int loadConfigFile(const char * f)
 					//for (int s=0;s<3;s++) 
 					//	tmp[s]-=translations[0][s]; //using translation of iso 0
 					//check if coordinates are outside of cell
-					for (int s=0;s<3;s++) {
-						while (tmp[s]<-translations[0][s])
-							tmp[s]+=supercell[2-s];
+					if (translations) {
+						for (int s=0;s<3;s++) {
+							while (tmp[s]<-translations[0][s])
+								tmp[s]+=supercell[2-s];
+						}
 					}
 					for (int s=0;s<3;s++) {
 						markers[i][s]=tmp[2]*abc[0][s]+tmp[1]*abc[1][s]+tmp[0]*abc[2][s]; //hole positions seem to be in zyx
@@ -524,6 +537,34 @@ int loadConfigFile(const char * f)
 			}
 			for (int i=0;i<3;i++)
 				atomColours[a][i]=rgb[i];
+		} else if (!strcmp (s, "newatom")) {
+			char atom [100];
+			float rgb[3];
+			float size;
+			r = fscanf(F, "%s %f %f %f %f", atom, rgb, rgb + 1, rgb + 2, &size);
+			if (r!=5) {
+				eprintf ("Error loading newatom");
+				return -20;
+			}
+			int a=findAtom(atom);
+			if (a!=-1) {
+				if (a<atomsInPeriodicTable) {
+					for (int i=0;i<3;i++)
+						atomColours[a][i]=rgb[i];
+					atomColours[a][3]=size;
+				} else {
+					for (int i=0;i<3;i++)
+						extraAtomData[a-atomsInPeriodicTable][i]=rgb[i];
+					extraAtomData[a-atomsInPeriodicTable][3]=size;
+				}
+			} else { //new
+				extraAtomNames.push_back(strdup(atom));
+				extraAtomData.push_back(new float[4]);
+				float *e=extraAtomData.back();
+				for (int i=0;i<3;i++)
+					e[i]=rgb[i];
+				e[3]=size;
+			}
 		} else if (!strcmp (s, "markerscaling")) {
 			r = fscanf(F, "%f", &markerscaling);
 		} else if (!strcmp (s, "displayunitcell")) {
@@ -544,8 +585,6 @@ int loadConfigFile(const char * f)
 			showcontrollers=true;
 		} else if (!strcmp (s, "gazenavigation")) { 
 			gazenavigation=true;
-		}else if (!strcmp (s, "\x0d")) { //discard windows newline (problem in Sebastian Kokott's phone (?!)
-			continue;
 		} else if (!strcmp (s, "transparencyquality")) {
 			r=fscanf (F, "%d", &transparencyquality);
 			if (r<1)
@@ -570,7 +609,17 @@ int loadConfigFile(const char * f)
 			r=fscanf (F, "%f %f %f", atomtrajectorycolour, atomtrajectorycolour+1, atomtrajectorycolour+2);
 			if (r<3)
 				eprintf ("Error reading atomtrajectorycolour value");
-		}else {
+		} else if (!strcmp (s, "animationspeed")) {
+			r=fscanf (F, "%f", &animationspeed);
+			if (r<1)
+				eprintf ("Error reading animationspeed");
+		} else if (!strcmp (s, "movementspeed")) {
+			r=fscanf (F, "%f", &movementspeed);
+			if (r<1)
+				eprintf ("Error reading movementspeed");
+		} else if (!strcmp (s, "\x0d")) { //discard windows newline (problem in Sebastian Kokott's phone (?!)
+			continue;
+		} else {
 			eprintf( "Unrecognized parameter %s\n", s);
 			for (int i=0;i<strlen(s);i++)
 				eprintf ("<%d>", s[i]);

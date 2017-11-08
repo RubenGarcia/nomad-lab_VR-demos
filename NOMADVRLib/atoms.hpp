@@ -11,6 +11,8 @@
 
 extern float atomColours[][4];
 
+const int atomsInPeriodicTable=118;
+
 extern const char * TMPDIR;
 
 int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float ***pos);
@@ -43,5 +45,8 @@ void TransformAtoms(std::vector<float>* clonedAtoms, const float abc[3][3]);
 
 extern bool inv_abc_init;
 extern float inv_abc[3][3];
+
+extern std::vector<const char*> extraAtomNames;
+extern std::vector<float*> extraAtomData;
 
 #endif //__ATOMS_H
