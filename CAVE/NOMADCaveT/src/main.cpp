@@ -50,6 +50,8 @@ void eprintf( const char *fmt, ... )
 	fprintf(stderr, "%s\n", buffer );
 }
 
+float globalscaling=10.0f;
+
 typedef std::chrono::high_resolution_clock Clock;
  using namespace m3d;
 
@@ -82,7 +84,6 @@ private:
 
     glm::mat4 m_preMat;
     glm::mat4 m_scalemat;
-    glm::mat4 m_scalematSky;
     std::shared_ptr<UploadingInterface> m_uploading;
 
 TextRendering::Text text;
@@ -115,7 +116,7 @@ GLuint *AtomTVAO=nullptr, *AtomTBuffer=nullptr, BondIndices=0,
 	*AtomVAO=nullptr, *AtomBuffer=nullptr, *AtomIndices=nullptr,//[2], atoms, extraatoms
 	UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer;
 GLuint	AtomsP, UnitCellP; 
-GLint	AtomMatrixLoc, UnitCellMatrixLoc, UnitCellColourLoc;
+GLint	AtomMatrixLoc, totalatomsLocation, UnitCellMatrixLoc, UnitCellColourLoc;
 GLuint	TransP=0, BlendP=0;
 GLint	TransMatrixLoc=-1;
 bool hasTess=true;
@@ -165,7 +166,7 @@ return (e==GL_NO_ERROR);
 
 
 sceneManager::sceneManager(m3d::Renderer* ren, synchlib::renderNode* node,
-	const char *c, const unsigned int geometry[2]){
+	const char *c, const unsigned int geometry[2]):m_scalemat(1.0){
 GLenum err;
 
 	while ((err = glGetError()) != GL_NO_ERROR) {
@@ -182,7 +183,6 @@ GLenum err;
 
     m_preMat = glm::mat4_cast(glm::rotation(glm::vec3(0.,0.,1.),glm::vec3(0.,1.,0.)));
    m_scalemat = glm::scale(m_scalemat,glm::vec3(0.1,0.1,0.1));
-   m_scalematSky = glm::scale(m_scalematSky,glm::vec3(0.05,0.05,0.05));
 	
 	std::string s(configFile);
    int e;
@@ -241,11 +241,12 @@ if (e!=GL_NO_ERROR) {
 		return ;
 	}
 	
-	if (!PrepareAtomShader(&AtomsP, &AtomMatrixLoc)) {
+	if (!PrepareAtomShader(&AtomsP, &AtomMatrixLoc, &totalatomsLocation)) {
 		hasTess=false;
 		if (!solid)
 			solid=new Solid(Solid::Type::Icosahedron);
-		if (!PrepareAtomShaderNoTess(&AtomsP, &AtomMatrixLoc)) {
+		if (!PrepareAtomShaderNoTess(&AtomsP, &AtomMatrixLoc, 
+			&totalatomsLocation)) {
 			error=-402;
 			eprintf ("PrepareAtomShaderNoTess failed");
 		}
@@ -323,11 +324,11 @@ bool er;
 			float mat[16];
 			glm::mat4 matFinal, matcubetrans, mvs, sc, sctrans;
 			if (voxelSize[0]!=-1) {
-//We scale in RenderUnitCell by 5 so that atoms look large enough on the cave. 
+//We scale in RenderUnitCell by globalscaling so that atoms look large enough on the cave. 
 //So we need to scale here as well.
-				mvs=glm::scale(mvs, glm::vec3(5.0f / (float)voxelSize[0], 
-						5.0f / (float)voxelSize[1], 
-						5.0f / (float)voxelSize[2]));
+				mvs=glm::scale(mvs, glm::vec3(globalscaling*scaling / (float)voxelSize[0], 
+						globalscaling*scaling / (float)voxelSize[1], 
+						globalscaling*scaling / (float)voxelSize[2]));
 				matcubetrans=glm::translate(matcubetrans,glm::vec3(cubetrans[0], 
 					cubetrans[1], cubetrans[2]));
 				glm::mat4 abcm (abc[0][0], abc[0][1], abc[0][2], 0,
@@ -339,20 +340,24 @@ bool er;
 				
 				sctrans=glm::translate(sctrans, glm::vec3(-translations[p%ISOS][2], 
 					-translations[p%ISOS][1], -translations[p%ISOS][0]));
-
-				matFinal = abcm*sctrans*sc*mvs;
+				glm::mat4 trans(1.0);
+				trans=glm::rotate(trans, (float)-M_PI_2, glm::vec3(1.f,0.f,0.f));
+				matFinal = abcm*sctrans*sc*mvs*trans;
 				for (int i=0;i<4;i++)
 					for (int j=0;j<4;j++)
 						mat[j*4+i]=matFinal[j][i];
 			} else {
-				glm::mat4 trans;
+				mvs=glm::scale(mvs, glm::vec3(globalscaling*scaling, 
+						globalscaling*scaling , 
+						globalscaling*scaling));
+				glm::mat4 trans(1.0);
 				trans=glm::rotate(trans, (float)-M_PI_2, glm::vec3(1.f,0.f,0.f));
-				glm::mat4 matFinal;
+				glm::mat4 matFinal(1.0);
 				matFinal=glm::translate(matFinal, 
-					glm::vec3(translations[p%ISOS][0],
-						translations[p%ISOS][1],
-						translations[p%ISOS][2]));
-				matFinal=trans*matFinal;
+					glm::vec3(translations[p%ISOS][0]*globalscaling*scaling,
+						translations[p%ISOS][1]*globalscaling*scaling,
+						translations[p%ISOS][2]*globalscaling*scaling));
+				matFinal=trans*matFinal*mvs;
 				
 				for (int i=0;i<4;i++)
 					for (int j=0;j<4;j++)
@@ -477,10 +482,14 @@ if(error)
 if (ISOS) {
 	RenderIsos(pvmat*st, curDataPos, pvmat, selectedPoints);
 } else if (has_abc) {
-	RenderUnitCell(pvmat*st);
+	glm::mat4 trans(1.0);
+	trans=glm::rotate(trans, (float)-M_PI_2, glm::vec3(1.f,0.f,0.f));	
+	RenderUnitCell(pvmat*st*trans);
 } else {
 	//atom trajectories
-	RenderAtomTrajectories(pvmat*st);
+	glm::mat4 trans(1.0);
+	trans=glm::rotate(trans, (float)-M_PI_2, glm::vec3(1.f,0.f,0.f));
+	RenderAtomTrajectories(pvmat*st*trans);
 }
 
 
@@ -706,6 +715,8 @@ void sceneManager::RenderAtoms(const float *m) //m[16]
 	if (hasTess) {
 		glBindTexture(GL_TEXTURE_2D, textures[1]);
 		glUseProgram(AtomsP);
+		glUniform1f(totalatomsLocation, (float)getTotalAtomsInTexture());
+
 		//eprintf ("1");
 		float levelso[4] = { TESSSUB, TESSSUB, TESSSUB, TESSSUB };
 		float levelsi[2] = { TESSSUB, TESSSUB};
@@ -790,7 +801,7 @@ void sceneManager::RenderAtoms(const float *m) //m[16]
 		glUseProgram(AtomsP);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("7 Gl error RenderAtom timestep =%d: %d\n", m_oldTime, e);
-
+		glUniform1f(totalatomsLocation, (float)getTotalAtomsInTexture());
 		glUniformMatrix4fv(AtomMatrixLoc, 1, GL_FALSE, m);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("8 Gl error RenderAtom timestep =%d: %d\n", m_oldTime, e);
@@ -807,11 +818,14 @@ void sceneManager::RenderAtoms(const float *m) //m[16]
 		eprintf("9 Gl error RenderAtom timestep =%d: %d\n", m_oldTime, e);
 
 		} else {
-			glDrawElements(GL_TRIANGLES, (numAtoms[m_oldTime]-numAtoms[m_oldTime-1]) * 3 * solid->nFaces,
+			glDrawElements(GL_TRIANGLES, (numAtoms[m_oldTime]-
+				numAtoms[m_oldTime-1]) * 3 * solid->nFaces,
 #ifndef INDICESGL32				
-				GL_UNSIGNED_SHORT, (void*)(numAtoms[m_oldTime-1]*sizeof(unsigned short)*3*solid->nFaces)
+				GL_UNSIGNED_SHORT, (void*)(numAtoms[m_oldTime-1]
+					*sizeof(unsigned short)*3*solid->nFaces)
 #else
-				GL_UNSIGNED_INT, (void*)(numAtoms[m_oldTime-1]*sizeof(unsigned int)*3*solid->nFaces)
+				GL_UNSIGNED_INT, (void*)(numAtoms[m_oldTime-1]
+					*sizeof(unsigned int)*3*solid->nFaces)
 #endif
 				);
 	if ((e = glGetError()) != GL_NO_ERROR)
@@ -819,15 +833,21 @@ void sceneManager::RenderAtoms(const float *m) //m[16]
 
 		} //if (m_oldTime==0) 
 		if ((e = glGetError()) != GL_NO_ERROR)
-			eprintf("Gl error after Render  Atom timestep =%d: %d\n", m_oldTime, e);
+			eprintf("Gl error after Render Atom timestep =%d: %d\n",
+				m_oldTime, e);
 		//now cloned atoms
 		if (numClonedAtoms!=0 && m_oldTime==0) {
 			glBindVertexArray(AtomVAO[1]);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, AtomIndices[1]);
 			glBindBuffer(GL_ARRAY_BUFFER, AtomBuffer[1]);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7*sizeof(float), (const void *)0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (const void *)(3*sizeof(float)));
-	glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (const void *)(6 * sizeof(float)));
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 
+				7*sizeof(float), (const void *)0);
+			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 
+				7 * sizeof(float), 
+				(const void *)(3*sizeof(float)));
+			glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 
+				7 * sizeof(float), 
+				(const void *)(6 * sizeof(float)));
 
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("5 Gl error RenderAtom timestep =%d: %d\n", m_oldTime, e);
@@ -859,8 +879,7 @@ if (numBonds) {
 	if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("Gl error after Render Atom bonds glUseProgram timestep =%d: %d, %s\n", m_oldTime, e, gluErrorString(e));
 	glUniformMatrix4fv(UnitCellMatrixLoc, 1, GL_FALSE, t);
-	float color[4]={0.5,0.5,1,1};
-	glUniform4fv(UnitCellColourLoc, 1, color);
+	glUniform4fv(UnitCellColourLoc, 1, bondscolours);
 
 	if (m_oldTime==0||fixedAtoms)
 		glDrawElements(GL_LINES, numBonds[0],  GL_UNSIGNED_INT, (void*)0);
@@ -886,9 +905,9 @@ if (!numAtoms)
 		0,0,0,1};
 */					
 //trans.translate(iPos).rotateX(-90).translate(UserPosition);
-glm::mat4 scale={5,0,0,0,  
-		0,5,0,0,
-		0,0,5,0,
+glm::mat4 scale={globalscaling*scaling,0,0,0,  
+		0,globalscaling*scaling,0,0,
+		0,0,globalscaling*scaling,0,
 		0,0,0,1};
 glm::mat4 transform =  eyeViewProjection*scale; //MatrixMul(eyeViewProjection,trans);
 //gvr::Mat4f transform=eyeViewProjection;					
@@ -923,10 +942,8 @@ if (!AtomTVAO) {
 glBindVertexArray(AtomTVAO[0]);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("1 Gl error RenderAtomTrajectoriesUnitCell: %d\n", e);
-//glUseProgram(UnitCellP);
-//glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, matrix);
-float color[4]={1,0,0,1};
-glUniform4fv(UnitCellColourLoc, 1, color);
+
+glUniform4fv(UnitCellColourLoc, 1, atomtrajectorycolour);
 if ((e = glGetError()) != GL_NO_ERROR)
 	eprintf("Gl error after glUniform4fv 2 RenderAtomTrajectoriesUnitCell: %d\n", e);
 //glEnableVertexAttribArray(0);
@@ -994,15 +1011,18 @@ if (selectedPoints.number==4) {
 std::string mystring=std::string("Timestep ")+std::to_string(timestep)+
 	"\nIso "+std::to_string(curDataPos)+"\n";
 
-if (selectedPoints.number==2)
-	mystring+="Distance: "+	std::to_string(glm::length(b1))+" unit cell length";
-else if (selectedPoints.number==3)
+if (selectedPoints.number==2) {
+	float l=glm::length(b1)/globalscaling/scaling;
+	char text[200];
+	sprintf (text, "Distance: %0.2f Angstrom (%0.2f Bohr)\n", l, l*1.88973);
+	mystring+=text;
+} else if (selectedPoints.number==3)
 	mystring+="Angle: "+
 		std::to_string(glm::degrees(glm::angle(glm::normalize(b1), glm::normalize(b2))))+"°";
 //http://chemistry.stackexchange.com/questions/40181/when-calculating-a-dihedral-angle-for-a-chemical-bond-how-is-the-direction-defi
 else if (selectedPoints.number==4)
 	mystring+="Dihedral angle: "+		
-		std::to_string(glm::degrees(glm::angle(n1, n2)))+"°";;
+		std::to_string(glm::degrees(glm::angle(n1, n2)))+"°";
 
 text.render (mystring, 0,0, 0.02, glm::vec3(0,0,1), 
 	pvmat*glm::translate(translation));
@@ -1035,7 +1055,9 @@ for (int i=0;i<3;i++)
 glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts); 
 
 if (selectedPoints.number > 0) {
+	glPointSize(2);
 	glDrawArrays(GL_LINE_STRIP, 0, 1+selectedPoints.number);
+	glPointSize(1);
 } else {
 	glPointSize(4);
 	glDrawArrays(GL_POINTS, 0, 1);
@@ -1063,10 +1085,14 @@ if (curDataPos!=ISOS) {
 	glBindVertexArray(ISOVAO[m_oldTime*ISOS+curDataPos]);
 	glDrawElements(GL_TRIANGLES,numISOIndices[m_oldTime*ISOS+curDataPos] , GL_UNSIGNED_INT, 0);
 		if (has_abc) {
-			RenderUnitCell(eyeViewProjection);
+			glm::mat4 trans(1.0);
+			trans=glm::rotate(trans, (float)-M_PI_2, glm::vec3(1.f,0.f,0.f));
+			RenderUnitCell(eyeViewProjection*trans);
 		} else {
 			//atom trajectories
-			RenderAtomTrajectories(eyeViewProjection);
+			glm::mat4 trans(1.0);
+			trans=glm::rotate(trans, (float)-M_PI_2, glm::vec3(1.f,0.f,0.f));
+			RenderAtomTrajectories(eyeViewProjection*trans);
 		}
 		RenderText(pvmat, curDataPos, m_oldTime, selectedPoints);
 } else {//transparency
@@ -1088,10 +1114,16 @@ if ((e = glGetError()) != GL_NO_ERROR)
 				GL_UNSIGNED_INT, 0);	
 		}
 		if (has_abc) {
-			RenderUnitCell(eyeViewProjection);
+			glm::mat4 trans(1.0);
+			trans=glm::rotate(trans, (float)-M_PI_2, 
+				glm::vec3(1.f,0.f,0.f));
+			RenderUnitCell(eyeViewProjection*trans);
 		} else {
 			//atom trajectories
-			RenderAtomTrajectories(eyeViewProjection);
+			glm::mat4 trans(1.0);
+			trans=glm::rotate(trans, (float)-M_PI_2, 
+				glm::vec3(1.f,0.f,0.f));
+			RenderAtomTrajectories(eyeViewProjection*trans);
 		}
 		RenderText(pvmat, curDataPos, m_oldTime, selectedPoints);
 	}
@@ -1125,14 +1157,13 @@ void sceneManager::RenderUnitCell(const glm::mat4 eyeViewProjection)
 				{
 					float delta[3];
 					GetDisplacement(p, delta);
-					//eprintf ("delta %f %f %f", delta[0], delta[1], delta[2]);
-					glm::mat4 scale={5,0,0,1,  
-						0,5,0,1,
-						0,0,5,1,
-						0,0,0,1};
+
 					glm::mat4 trans= glm::mat4(1.0f);
 					trans=glm::translate(trans,glm::vec3(delta[0]*5, delta[1]*5, delta[2]*5));
-					trans=glm::scale(trans, glm::vec3(5,5,5));
+					trans=glm::scale(trans, glm::vec3
+						(globalscaling*scaling ,
+						globalscaling*scaling,
+						globalscaling*scaling));
 //						={1,0,0,delta[0]/*+UserTranslation[0]*/,
 //						0,1,0,delta[1]/*+UserTranslation[1]*/,
 //						0,0,1,delta[2]/*+UserTranslation[2]*/,
@@ -1140,7 +1171,7 @@ void sceneManager::RenderUnitCell(const glm::mat4 eyeViewProjection)
 					
 					//trans.translate(iPos).rotateX(-90).translate(UserPosition);
 					glm::mat4 transform = eyeViewProjection*trans;
-					//gvr::Mat4f transform=eyeViewProjection;					
+
 					float t[16];
 					for (int i=0;i<4;i++)
 						for (int j=0;j<4;j++)
@@ -1152,8 +1183,7 @@ void sceneManager::RenderUnitCell(const glm::mat4 eyeViewProjection)
 					if ((e = glGetError()) != GL_NO_ERROR)
 						eprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d\n", e);
 					if (displayunitcell) {
-						float color[4]={1,1,1,1};
-						glUniform4fv(UnitCellColourLoc, 1, color);
+						glUniform4fv(UnitCellColourLoc, 1, unitcellcolour);
 						if ((e = glGetError()) != GL_NO_ERROR)
 							eprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d\n", e);
 						glBindVertexArray(UnitCellVAO);
