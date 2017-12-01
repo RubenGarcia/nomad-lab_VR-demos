@@ -124,13 +124,14 @@ static gvr::Mat4f invert (const gvr::Mat4f& m)
 {
 gvr::Mat4f r;
     // get cofactors of minor matrices
-    float cofactor0 = getCofactor(m.m[0][1],m.m[1][2],m.m[1][3], m.m[2][1],m.m[2][2],m.m[2][3], m.m[3][1],m.m[3][2],m.m[3][3]);
+    float cofactor0 = getCofactor(m.m[1][1],m.m[1][2],m.m[1][3], m.m[2][1],m.m[2][2],m.m[2][3], m.m[3][1],m.m[3][2],m.m[3][3]);
     float cofactor1 = getCofactor(m.m[1][0],m.m[1][2],m.m[1][3], m.m[2][0],m.m[2][2],m.m[2][3], m.m[3][0],m.m[3][2],m.m[3][3]);
     float cofactor2 = getCofactor(m.m[1][0],m.m[1][1],m.m[1][3], m.m[2][0],m.m[2][1], m.m[2][3], m.m[3][0],m.m[3][1],m.m[3][3]);
     float cofactor3 = getCofactor(m.m[1][0],m.m[1][1],m.m[1][2], m.m[2][0],m.m[2][1], m.m[2][2], m.m[3][0],m.m[3][1],m.m[3][2]);
 
     // get determinant
     float determinant = m.m[0][0] * cofactor0 - m.m[0][1] * cofactor1 + m.m[0][2] * cofactor2 - m.m[0][3] * cofactor3;
+
     if(fabs(determinant) <= EPSILON)
     {
 	for (int i=0;i<4;i++)
@@ -410,8 +411,12 @@ void TreasureHuntRenderer::loadConfigFile(void)
 		LOGD("No atom glyph specified, using Icosahedron");
 		solid=new Solid(Solid::Type::Icosahedron);
 	}
-	for (int i=0;i<3;i++)
-		UserTranslation[i]=userpos[i];
+
+	UserTranslation[0]=userpos[0]; //because of rotation in X to make Z vertical
+	UserTranslation[1]=-userpos[2];
+	UserTranslation[2]=userpos[1];
+//	for (int i=0;i<3;i++)
+// 		UserTranslation[i]=userpos[i];
 
 //	LOGD("UT=%f, %f, %f\n", UserTranslation[0], UserTranslation[1], UserTranslation[2]);
 }
@@ -476,7 +481,7 @@ glGenTextures(2+ZLAYERS, textDepthPeeling);
 	//rgh: for now, we don't have any tess-ready phones
 	//if (!PrepareAtomShader(&AtomsP, &AtomMatrixLoc)) {
 		hasTess=false;
-		if (!PrepareAtomShaderNoTess(&AtomsP, &AtomMatrixLoc)) {
+		if (!PrepareAtomShaderNoTess(&AtomsP, &AtomMatrixLoc, &totalatomsLocation)) {
 			error=-402;
 			eprintf ("PrepareAtomShaderNoTess failed");
 		}
@@ -598,10 +603,10 @@ glGenTextures(2+ZLAYERS, textDepthPeeling);
 			matFinal=MatrixMul(matFinal,sc);
 			matFinal=MatrixMul(matFinal,mvs);
 		} else {
-			trans.m[0][0]=1;trans.m[0][1]=0;trans.m[0][2]=0; trans.m[0][3]=0;
+			/*trans.m[0][0]=1;trans.m[0][1]=0;trans.m[0][2]=0; trans.m[0][3]=0;
 			trans.m[1][0]=0;trans.m[1][1]=0;trans.m[1][2]=1;trans.m[1][3]=0;
 			trans.m[2][0]=0;trans.m[2][1]=-1;trans.m[2][2]=0; trans.m[2][3]=0;
-			trans.m[3][0]=0;trans.m[3][1]=0;trans.m[3][2]=0; trans.m[3][3]=1;
+			trans.m[3][0]=0;trans.m[3][1]=0;trans.m[3][2]=0; trans.m[3][3]=1;*/
 
 			for (int i=0;i<4;i++)
 				for(int j=0;j<4;j++)
@@ -609,7 +614,7 @@ glGenTextures(2+ZLAYERS, textDepthPeeling);
 			for (int i=0;i<3;i++)
 				matFinal.m[i][3]=translations[p%ISOS][i];
 
-			matFinal=MatrixMul(trans, matFinal);
+			//matFinal=MatrixMul(trans, matFinal);
 
 			trans.m[0][0]=scaling;trans.m[0][1]=0;trans.m[0][2]=0; trans.m[0][3]=0;
 			trans.m[1][0]=0;trans.m[1][1]=scaling;trans.m[1][2]=0;trans.m[1][3]=0; 
@@ -730,19 +735,17 @@ if (animateTimesteps) {
 if (animateMovement) {
 	const float speed=0.01;
 	gvr::Mat4f inv=invert(head_view_);
-	//for (int i=0;i<4;i++)
-	//	for (int j=0;j<4;j++)
-	//		eprintf ("head %d %d = %d", i, j, head_view_.m[i][j]);
-	std::array<float, 4> dir({0,0,1,0});
+
+	std::array<float, 4> dir({0,0,1,0}); // {0,0,1,0}
 	std::array<float, 4> dir2=MatrixVectorMul(inv, dir);
-	float il=1.0/sqrtf(dir2[0]*dir2[0]+dir2[1]*dir2[1]+dir2[2]*dir2[2]);
-	//dir2[2]=-dir2[2];
+	
 	for (int i=0;i<3;i++)
-		UserTranslation[i]+=dir2[i]*il*speed*movementspeed;
+		UserTranslation[i]+=dir2[i]*speed*movementspeed;
+
 }
 
 
-	//LOGD("UT=%f, %f, %f\n", UserTranslation[0], UserTranslation[1], UserTranslation[2]);
+	LOGD("UT=%f, %f, %f\n", UserTranslation[0], UserTranslation[1], UserTranslation[2]);
 	//LOGD("MovementSpeed=%f\n", movementspeed);
 
   gvr::Mat4f left_eye_matrix = gvr_api_->GetEyeFromHeadMatrix(GVR_LEFT_EYE);
@@ -849,6 +852,7 @@ int TreasureHuntRenderer::LoadGLShader(int type, const char** shadercode) {
  */
 void TreasureHuntRenderer::DrawWorld(const gvr::Mat4f& view_matrix,
                                      const gvr::BufferViewport& viewport) {
+
   const gvr::Recti pixel_rect =
       CalculatePixelSpaceRect(render_size_, viewport.GetSourceUv());
 
@@ -877,30 +881,35 @@ void TreasureHuntRenderer::DrawWorld(const gvr::Mat4f& view_matrix,
 glDisable(GL_CULL_FACE);
 modelview_=view_matrix;
 modelview_projection_cube_ = MatrixMul(perspective, modelview_);
+
+//make sure we have the same coordinate system in HTC Vive and android
+
+const gvr::Mat4f rot={.m={1,0,0,0, 	0,0,1,0,	0,-1,0,0,	0,0,0,1}};
+
+gvr::Mat4f trans=MatrixMul (TranslationMatrix (UserTranslation), rot);
+gvr::Mat4f finalMatrix=MatrixMul(modelview_projection_cube_, trans);
+
+
 if(error)
 	return;
 if (has_abc) {
 	RenderUnitCell(modelview_projection_cube_);
 } else {
-	//atom trajectories
 	RenderAtomTrajectories(modelview_projection_cube_);
 }
 
 if (ISOS)
 	RenderIsos(modelview_projection_cube_, currentIso);
-
 }
 
 void TreasureHuntRenderer::RenderIsos(const gvr::Mat4f eyeViewProjection, int curDataPos)
 {
 GLenum e;
-gvr::Mat4f trans={1,0,0,UserTranslation[0],
-		0,1,0,UserTranslation[1],
-		0,0,1,UserTranslation[2],
-		0,0,0,1};
-					
-//trans.translate(iPos).rotateX(-90).translate(UserPosition);
-gvr::Mat4f transform = MatrixMul(eyeViewProjection,trans);
+
+gvr::Mat4f trans=TranslationMatrix (UserTranslation[0], UserTranslation[1], UserTranslation[2]);
+const gvr::Mat4f rot={.m={1,0,0,0, 	0,0,1,0,	0,-1,0,0,	0,0,0,1}};					
+gvr::Mat4f transform = MatrixMul(eyeViewProjection, MatrixMul(trans,rot));
+
 float t[16];
 for (int i=0;i<4;i++)
 	for (int j=0;j<4;j++)
@@ -944,7 +953,6 @@ glBindVertexArray(0);
 
 void TreasureHuntRenderer::RenderAtoms(const float *m) //m[16]
 {
-	//return;
 	//eprintf ("RenderAtoms start numatoms %d, timestep %d", numAtoms[currentSet], currentSet);
 	//eprintf ("solid nfaces %d", solid->nFaces);
 	int e;
@@ -981,6 +989,7 @@ void TreasureHuntRenderer::RenderAtoms(const float *m) //m[16]
 		eprintf("6 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
 
 		glUseProgram(AtomsP);
+		glUniform1f(totalatomsLocation, (float)getTotalAtomsInTexture());
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("7 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
 
@@ -1046,10 +1055,10 @@ void TreasureHuntRenderer::RenderAtomTrajectories(const gvr::Mat4f eyeViewProjec
 int e;
 if (!numAtoms)
 	return;
-gvr::Mat4f trans=TranslationMatrix (UserTranslation);
-					
+gvr::Mat4f trans=TranslationMatrix (UserTranslation[0], UserTranslation[1], UserTranslation[2]);
+const gvr::Mat4f rot={.m={1,0,0,0, 	0,0,1,0,	0,-1,0,0,	0,0,0,1}};					
 //trans.translate(iPos).rotateX(-90).translate(UserPosition);
-gvr::Mat4f transform = MatrixMul(eyeViewProjection,trans);
+gvr::Mat4f transform = MatrixMul(eyeViewProjection, MatrixMul(trans,rot));
 //gvr::Mat4f transform=eyeViewProjection;					
 float t[16];
 for (int i=0;i<4;i++)
@@ -1132,13 +1141,18 @@ void TreasureHuntRenderer::RenderUnitCell(const gvr::Mat4f eyeViewProjection)
 				{
 					float delta[3];
 					GetDisplacement(p, delta);
-					gvr::Mat4f trans={1,0,0,delta[0]+UserTranslation[0],
+					/*gvr::Mat4f trans={1,0,0,delta[0]+UserTranslation[0],
 						0,1,0,delta[1]+UserTranslation[1],
 						0,0,1,delta[2]+UserTranslation[2],
-						0,0,0,1};
-					
-					//trans.translate(iPos).rotateX(-90).translate(UserPosition);
-					gvr::Mat4f transform = MatrixMul(eyeViewProjection,trans);
+						0,0,0,1};*/
+gvr::Mat4f trans=TranslationMatrix (UserTranslation[0], UserTranslation[1], UserTranslation[2]);
+const gvr::Mat4f rot={.m={1,0,0,0, 	0,0,1,0,	0,-1,0,0,	0,0,0,1}};					
+//trans.translate(iPos).rotateX(-90).translate(UserPosition);
+gvr::Mat4f transform = MatrixMul(eyeViewProjection, MatrixMul(trans,rot));					
+
+
+
+					//gvr::Mat4f transform = MatrixMul(eyeViewProjection,trans);
 					//gvr::Mat4f transform=eyeViewProjection;					
 					float t[16];
 					for (int i=0;i<4;i++)

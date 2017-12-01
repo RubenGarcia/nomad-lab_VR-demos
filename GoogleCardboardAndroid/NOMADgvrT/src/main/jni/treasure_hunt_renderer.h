@@ -162,7 +162,7 @@ GLuint peelingFramebuffer;
 		BondIndices,
 		UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer;
 GLuint			AtomsP, UnitCellP; // framework does not provide support for tesselation and provides many things we don't need.
-	GLint		AtomMatrixLoc, UnitCellMatrixLoc, UnitCellColourLoc;
+	GLint		AtomMatrixLoc, UnitCellMatrixLoc, UnitCellColourLoc, totalatomsLocation;
 GLuint	TransP=0, BlendP=0;
 GLint	TransMatrixLoc=-1;
 bool hasTess=true;
