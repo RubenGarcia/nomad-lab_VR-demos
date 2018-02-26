@@ -1,3 +1,20 @@
+/*
+# Copyright 2016-2018 The NOMAD Developers Group
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+ # you may not use this file except in compliance with the License.
+ # You may obtain a copy of the License at
+ #
+ #     http://www.apache.org/licenses/LICENSE-2.0
+ #
+ # Unless required by applicable law or agreed to in writing, software
+ # distributed under the License is distributed on an "AS IS" BASIS,
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+*/
+
+
 #include <math.h>
 
 #include "eprintf.h"
@@ -421,6 +438,79 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLu
 	//clonedAtoms=0;
 	glBindVertexArray(0);
 	return e;
+}
+
+GLenum SetupInfoCube (GLuint *VAO, GLuint *VertBuffer, GLuint *IndexBuffer)
+{
+	glGenVertexArrays(1, VAO);
+	glGenBuffers(1, VertBuffer);
+	glGenBuffers(1, IndexBuffer);
+
+	glBindVertexArray(*VAO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *IndexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, *VertBuffer);
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(2);
+	glDisableVertexAttribArray(3);
+	//vec4 pos, vec3 normal, vec2 uv
+	const int Nvert=9*26;
+	const GLfloat vert[]={
+		-1, +1, -1, 0,		0, 0, -1,	0, 1, //-z
+		-1, -1, -1,	0,		0, 0, -1,	0, 0,
+		+1, +1, -1,	0,		0, 0, -1,	1, 1,
+		+1, -1, -1,	0,		0, 0, -1,	1, 0,
+		-1, +1, +1, 0,		0, 0, 1,	0, 0,//+z
+		-1, -1, +1,	0,		0, 0, 1,	0, 1,
+		+1, +1, +1,	0,		0, 0, 1,	1, 0,
+		+1, -1, +1,	0,		0, 0, 1,	1, 1,
+
+		+1, -1, -1, 0,		+1, 0, 0,	0, 1,//+x
+		+1, -1, +1, 0,		+1, 0, 0,	0, 0,//+x
+		+1, +1, -1, 0,		+1, 0, 0,	1, 1,//+x
+		+1, +1, +1, 0,		+1, 0, 0,	1, 0,//+x
+		-1, -1, -1, 0,		-1, 0, 0,	0, 0,//-x
+		-1, -1, +1, 0,		-1, 0, 0,	0, 1,//-x
+		-1, +1, -1, 0,		-1, 0, 0,	1, 0,//-x
+		-1, +1, +1, 0,		-1, 0, 0,	1, 1,//-x
+
+		-1, 1, +1, 0,		0, -1, 0,	0, 1, //+y
+		-1, 1, -1, 0,		0, -1, 0,	0, 0,
+		+1, 1, +1, 0,		0, -1, 0,	1, 1,
+		+1, 1, -1, 0,		0, -1, 0,	1, 0,
+		-1, -1, +1, 0,		0, +1, 0,	0, 0,//-y
+		-1, -1, -1, 0,		0, +1, 0,	0, 1,
+		+1, -1, +1, 0,		0, +1, 0,	1, 0,
+		+1, -1, -1, 0,		0, +1, 0,	1, 1,
+		0, 0, 0, 1,			0,0,0,		0,0, //for the line between the cube and the atom
+		0, 0, 1, 1,			0, 0, 0,	0, 0, //for the line between the cube and the atom
+
+	};
+	const short int ind[]={
+		0, 1, 2, //z
+		1, 3, 2,
+		4, 5, 6,
+		5, 7, 6,
+		8, 9, 10,//x
+		9, 11, 10,
+		12, 13, 14,
+		13, 15, 14,
+		16, 17, 18,//y
+		17, 19, 18,
+		20, 21, 22,
+		21, 23, 22,
+	};
+
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * Nvert , vert,
+			GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(ind), ind, GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (const void *)(0));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (const void *)(4*sizeof(float)));
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (const void *)(7*sizeof(float)));
+	glBindVertexArray(0);
+
+	return glGetError();
 }
 
 GLenum SetupMarker(GLuint *MarkerVAO, GLuint *MarkerVertBuffer)

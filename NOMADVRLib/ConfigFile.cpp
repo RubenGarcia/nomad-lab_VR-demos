@@ -1,3 +1,20 @@
+/*
+# Copyright 2016-2018 The NOMAD Developers Group
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+ # you may not use this file except in compliance with the License.
+ # You may obtain a copy of the License at
+ #
+ #     http://www.apache.org/licenses/LICENSE-2.0
+ #
+ # Unless required by applicable law or agreed to in writing, software
+ # distributed under the License is distributed on an "AS IS" BASIS,
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+*/
+
+
 #include <algorithm>
 #include <errno.h>
 #include <string.h>
@@ -46,6 +63,8 @@ int voxelSize[3];
 float unitcellcolour[4];
 float supercellcolour[4];
 
+float infolinecolour[4];
+
 int repetitions[3];
 Solid *solid;
 
@@ -64,6 +83,8 @@ float cubetrans[3];
 
 float animationspeed;
 float movementspeed;
+
+std::vector<information> info;
 
 const char * loadConfigFileErrors[] =
 {
@@ -214,6 +235,11 @@ void initState()
 
 	animationspeed=1.0f;
 	movementspeed=1.0f;
+
+	infolinecolour[0] = 1.0f;
+	infolinecolour[1] = 1.0f;
+	infolinecolour[2] = 0.0f;
+	infolinecolour[3] = 1.0f;
 }
 
 int loadConfigFile(const char * f)
@@ -609,6 +635,10 @@ int loadConfigFile(const char * f)
 			r=fscanf (F, "%f %f %f", atomtrajectorycolour, atomtrajectorycolour+1, atomtrajectorycolour+2);
 			if (r<3)
 				eprintf ("Error reading atomtrajectorycolour value");
+		}else if (!strcmp (s, "infolinecolour")) {
+			r=fscanf (F, "%f %f %f", infolinecolour, infolinecolour+1, infolinecolour+2);
+			if (r<3)
+				eprintf ("Error reading atomtrajectorycolour value");
 		} else if (!strcmp (s, "animationspeed")) {
 			r=fscanf (F, "%f", &animationspeed);
 			if (r<1)
@@ -617,6 +647,21 @@ int loadConfigFile(const char * f)
 			r=fscanf (F, "%f", &movementspeed);
 			if (r<1)
 				eprintf ("Error reading movementspeed");
+#ifdef WIN32
+		} else if (!strcmp (s, "info")) {
+			information i;
+			r=fscanf (F, "%f %f %f %f %d", i.pos, i.pos+1, i.pos+2, &(i.size), &(i.atom));
+			if (r<5)
+				eprintf ("Error reading info");
+			r=readString(F, s);
+			if (r!=0)
+				eprintf ("Error reading info");
+			char file[256];
+			sprintf (file, "%s%s", PATH, s);
+			i.filename=strdup(file);
+			//i.tex=LoadPNG(i.filename); //opengl not initialized yet
+			info.push_back(i);
+#endif
 		} else if (!strcmp (s, "\x0d")) { //discard windows newline (problem in Sebastian Kokott's phone (?!)
 			continue;
 		} else {

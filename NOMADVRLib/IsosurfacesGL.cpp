@@ -1,4 +1,22 @@
-﻿//#if 0
+﻿/*Uses code from rply which uses the MIT license*/
+/*http://w3.impa.br/~diego/software/rply/*/
+/*This license is compatible with Apache 2.0*/
+
+/*
+# Copyright 2016-2018 The NOMAD Developers Group
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+ # you may not use this file except in compliance with the License.
+ # You may obtain a copy of the License at
+ #
+ #     http://www.apache.org/licenses/LICENSE-2.0
+ #
+ # Unless required by applicable law or agreed to in writing, software
+ # distributed under the License is distributed on an "AS IS" BASIS,
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+*/
 
 #include <vector>
 #include <math.h>
@@ -153,11 +171,7 @@ int vertex_cb(p_ply_argument argument) {
 
 int face_cb(p_ply_argument argument) {
     long length, value_index;
-//	int v;
     ply_get_argument_property(argument, nullptr, &length, &value_index);
-    //discard the first call with a 3
-	//if (value_index == 0 && 3 != (v = (int)ply_get_argument_value(argument)))
-	//	dprintf("Non-triangular face: %d vertices\n", v);
     if (value_index>=0 && value_index<=2)
         CubeIndices[CurrentIndex++]=(int)(ply_get_argument_value(argument));
 
@@ -350,13 +364,11 @@ if ((e = glGetError()) != GL_NO_ERROR)
 #else
 void CleanDepthTexture (GLuint t, int width, int height)
 {
-//eprintf ("CleanDepthTexture, t %d, w %d, h %d\n", t, width, height);
 GLenum e;
 const std::vector<float> z(width * height * 4, 0.0f);
 glBindTexture(GL_TEXTURE_2D, t);
 if ((e = glGetError()) != GL_NO_ERROR)
 	eprintf("CleanDepthTexture: Gl error after glBindTexture: %d\n", e);
-//rgh FIXME: invalid operation here:
 glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, z.data());
 if ((e = glGetError()) != GL_NO_ERROR)
 	eprintf("CleanDepthTexture: Gl error after glTexSubImage2D: %d\n", e);
@@ -416,7 +428,7 @@ return glGetError();
 GLenum SetupBlending (GLuint *vao, GLuint *vertex, GLuint *indices)
 {
 	GLenum e;
-	float z = 0.0f; //(m_fNearClip + m_fFarClip) / 2.0f;
+	float z = 0.0f; 
 	const float points[] = {
 		-1, -1, z, 0, 0,
 		-1, 1, z, 0, 1,
@@ -482,4 +494,4 @@ if ((e = glGetError()) != GL_NO_ERROR)
 	eprintf("Gl error BlendTextures glDrawElements: %d\n", e);
 	}
 }
-//#endif
+

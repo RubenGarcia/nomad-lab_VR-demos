@@ -1,5 +1,29 @@
-﻿//========= Copyright Valve Corporaion ============//
+﻿/*This code is based on openvr, which uses the 3-clause BSD license*/
+/*https://github.com/ValveSoftware/openvr/blob/master/LICENSE*/
+//========= Copyright Valve Corporaion ============//
+/*This license is compatible with Apache 2.0*/
+
+/*This code is therefore licensed under Apache 2.0*/
+/*
+ # Copyright 2016-2018 The NOMAD Developers Group
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+ # you may not use this file except in compliance with the License.
+ # You may obtain a copy of the License at
+ #
+ #     http://www.apache.org/licenses/LICENSE-2.0
+ #
+ # Unless required by applicable law or agreed to in writing, software
+ # distributed under the License is distributed on an "AS IS" BASIS,
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+*/
+
 #define NOMINMAX
+
+//#define NOSAVINGSCREENSHOTS
+
 
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
@@ -28,6 +52,7 @@
 #include "shared/pathtools.h"
 
 #include "rply/rply.h"
+#include "LoadPNG.h"
 
 #include "NOMADVRLib/ConfigFile.h"
 #include "NOMADVRLib/atoms.hpp"
@@ -125,7 +150,7 @@ public:
 	void SetupAtoms();
 	void SetupUnitCell();
 	void SetupMarker();
-
+	void SetupInfoCube();
 
 	void DrawControllers();
 
@@ -138,6 +163,7 @@ public:
 	void RenderScene(vr::Hmd_Eye nEye);
 	void RenderAtoms(const vr::Hmd_Eye &nEye);
 	void RenderAtomsUnitCell(const vr::Hmd_Eye &nEye, int p[3]);
+	void RenderInfo(const vr::Hmd_Eye &nEye);
 
 	void RenderUnitCell(const vr::Hmd_Eye &nEye);
 	//Vector3 GetDisplacement(int p[3]);
@@ -231,6 +257,11 @@ private: // OpenGL bookkeeping
 	//for markers
 	GLuint m_glMarkerVertBuffer;
 	GLuint m_unMarkerVAO;
+	//for infocube
+	GLuint m_unInfoVertBuffer;
+	GLuint m_unInfoVAO;
+	GLuint m_unInfoIndexBuffer;
+
 
 	int currentset;
 	float elapsedtime;
@@ -946,7 +977,10 @@ bool CMainApplication::HandleInput()
 			//rgh: the name of the variable seems to make it so :o) Possibly so that a different model can be used with the correct deformation
 			//m_rbShowTrackedDevice[unDevice] = state.ulButtonPressed == 0;
 
-			if (!buttonPressed[1][unDevice] && state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu)) {
+			if (!buttonPressed[1][unDevice] && 
+				(state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu) ||
+				state.ulButtonPressed&vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu))
+				) {
 				buttonPressed[1][unDevice] = true;
 				if (firstdevice == -1)
 					firstdevice = unDevice;
@@ -958,13 +992,20 @@ bool CMainApplication::HandleInput()
 				else
 					showAtoms= !showAtoms;
 			}
-			else if (buttonPressed[1][unDevice] && 0 == (state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu)))
+			else if (buttonPressed[1][unDevice] && 
+				0 == (state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu)) &&
+				0 == (state.ulButtonPressed&vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu))
+				)
 			{
 				buttonPressed[1][unDevice] = false;
 			}
 
 			
-			if (!buttonPressed[0][unDevice] && state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_Grip))
+			if (!buttonPressed[0][unDevice] && 
+					(state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_Grip) || 
+					 state.ulButtonPressed&vr::ButtonMaskFromId(vr::k_EButton_Grip) 
+					)
+				)
 			{
 				buttonPressed[0][unDevice] = true;
 				if (firstdevice == -1)
@@ -981,7 +1022,10 @@ bool CMainApplication::HandleInput()
 					if (currentiso > ISOS)
 						currentiso = 0;
 				}
-			} else if (buttonPressed[0][unDevice] && (state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_Grip)) == 0)
+			} else if (buttonPressed[0][unDevice] && (
+				(state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_Grip)) == 0 &&
+				(state.ulButtonPressed&vr::ButtonMaskFromId(vr::k_EButton_Grip)) == 0
+				))
 				buttonPressed[0][unDevice] = false;
 
 			if (state.rAxis[1].x >0.1)
@@ -1161,6 +1205,7 @@ void CMainApplication::HapticFeedback(int device)
 //-----------------------------------------------------------------------------
 void CMainApplication::RenderFrame()
 {
+	int e;
 	// for now as fast as possible
 	if ( m_pHMD )
 	{
@@ -1170,8 +1215,22 @@ void CMainApplication::RenderFrame()
 
 		vr::Texture_t leftEyeTexture = {(void*)leftEyeDesc.m_nResolveTextureId, vr::API_OpenGL, vr::ColorSpace_Gamma };
 		vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture );
+		if ((e = glGetError()) != GL_NO_ERROR) {//error messages 
+			//after 19/02/2017, the SDK gives an 1282 error (possibly because this version is no longer supported
+			//One error is created for each eye, but later passes work well
+			//Discarding the error for now; an update of the code to the latest SDK should fix the issue completely.
+			//dprintf("Gl error after VRCompositor()->Submit leftEyeTexture: %d, %s\n", e, gluErrorString(e));
+		}
+
 		vr::Texture_t rightEyeTexture = {(void*)rightEyeDesc.m_nResolveTextureId, vr::API_OpenGL, vr::ColorSpace_Gamma };
 		vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture );
+		if ((e = glGetError()) != GL_NO_ERROR) {//error messages 
+			//after 19/02/2017, the SDK gives an 1282 error (possibly because this version is no longer supported
+			//One error is created for each eye, but later passes work well
+			//Discarding the error for now; an update of the code to the latest SDK should fix the issue completely.
+			//dprintf("Gl error after VRCompositor()->Submit rightEyeTexture: %d, %s\n", e, gluErrorString(e));
+		}
+
 	}
 
 	if ( m_bVblank && m_bGlFinishHack )
@@ -1367,6 +1426,7 @@ bool CMainApplication::SetupTexturemaps()
 	//					[1,2] Depth texture for depth peeling ping pong (needs to be initialized after SetupStereoRenderTargets)
 	//					[3..ZLAYERS+2] Colour textures for transparency
 	//sdl_textures: 6	[0..5] a b c alpha beta gamma text for axis labels
+	//also initializes information textures
 	//std::string sExecutableDirectory = Path_StripFilename(Path_GetExecutablePath());
 	//std::string strFullPath = Path_MakeAbsolute("../cube_texture.png", sExecutableDirectory);
 
@@ -1406,6 +1466,10 @@ bool CMainApplication::SetupTexturemaps()
 	}
 	*/
 
+	for (int i=0;i<info.size();i++) {
+		info[i].tex=LoadPNG(info[i].filename);
+	}
+
 	return ( m_iTexture != 0 && e==GL_NO_ERROR);
 }
 
@@ -1430,12 +1494,23 @@ void CMainApplication::SetupScene()
 	//clonedAtoms=0;
 	SetupUnitCell();
 	SetupMarker();
+	SetupInfoCube();
+}
+
+void CMainApplication::SetupInfoCube()
+{
+GLenum e;
+e=::SetupInfoCube(&m_unInfoVAO, &m_unInfoVertBuffer, &m_unInfoIndexBuffer);
+if (e!=GL_NO_ERROR)
+	eprintf ("Error in SetupInfoCube()");
 }
 
 void CMainApplication::SetupMarker()
 {
 GLenum e;
 e=::SetupMarker(&m_unMarkerVAO, &m_glMarkerVertBuffer);
+if (e!=GL_NO_ERROR)
+	eprintf ("Error in SetupMarker()");
 }
 
 void CMainApplication::SetupUnitCell()
@@ -2053,11 +2128,12 @@ void CMainApplication::RenderStereoTargets()
 	//this will kill the performance
 	char name[100];
 
+#ifndef NOSAVINGSCREENSHOTS
 	if (savetodisk) {
 		sprintf(name, "%sL%05d.bmp", SCREENSHOT, framecounter);
 		SaveScreenshot(name);
 	}
-
+#endif
  	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 	
 	glDisable( GL_MULTISAMPLE );
@@ -2079,11 +2155,12 @@ void CMainApplication::RenderStereoTargets()
  	glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
  	RenderScene( vr::Eye_Right );
 
+#ifndef NOSAVINGSCREENSHOTS
 	if (savetodisk && saveStereo) {
 		sprintf(name, "%sR%05d.bmp", SCREENSHOT, framecounter);
 		SaveScreenshot(name);
 	}
-
+#endif
  	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
  	
 	glDisable( GL_MULTISAMPLE );
@@ -2097,10 +2174,11 @@ void CMainApplication::RenderStereoTargets()
 
  	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0 );
-
+#ifndef NOSAVINGSCREENSHOTS
 	if (savetodisk) {
 		framecounter++;
 	}
+#endif
 }
 
 void CMainApplication::PaintGrid(const vr::Hmd_Eye &nEye, int iso) {
@@ -2320,12 +2398,6 @@ void CMainApplication::RenderAtoms(const vr::Hmd_Eye &nEye)
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("Gl error before RenderAtoms timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 
-
-
-
-	
-	if ((e = glGetError()) != GL_NO_ERROR)
-		dprintf("Gl error 0 timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 	glBindTexture(GL_TEXTURE_2D, m_iTexture[3+ZLAYERS]);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("Gl error 2 timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
@@ -2344,6 +2416,67 @@ void CMainApplication::CleanDepthTexture ()
 ::CleanDepthTexture(m_iTexture[1]);
 }
 
+void CMainApplication::RenderInfo(const vr::Hmd_Eye &nEye)
+{
+int e;
+glBindVertexArray(m_unInfoVAO);
+glActiveTexture( GL_TEXTURE0 );
+glBindBuffer(GL_ARRAY_BUFFER, m_unInfoVertBuffer);
+glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_unInfoIndexBuffer);
+glUseProgram(m_unRenderModelProgramID);
+
+for (int i=0;i<info.size(); i++) {
+	Matrix4 trans;
+
+	Vector3 iPos(info[i].pos[0], info[i].pos[1], info[i].pos[2]);
+
+	trans.translate(iPos).rotateX(-90).translate(UserPosition);
+
+	Matrix4 scal;
+	scal.scale(info[i].size);
+	Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans*scal;
+	glUniformMatrix4fv(m_nRenderModelMatrixLocation, 1, GL_FALSE, transform.get());
+	glBindTexture(GL_TEXTURE_2D, info[i].tex);
+	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_SHORT, 0);
+	e=glGetError();
+	if (e!=0)
+		eprintf("glerror after RenderInfo, %d, %s", e, glewGetErrorString(e));
+}
+
+//now line
+glUseProgram(m_unUnitCellProgramID);
+for (int i = 0; i < info.size(); i++) {
+	if (info[i].atom < 1)
+		continue;
+	if (info[i].atom-1 > numAtoms[currentset]) {
+		//wrong atom
+		continue;
+	}
+	Vector3 iPos(info[i].pos[0], info[i].pos[1], info[i].pos[2]);
+	Matrix4 nt=Matrix4(0, 0, 0, 0,
+		0, 0, 0, 0,
+		atoms[currentset][(info[i].atom - 1)*4+0] - iPos[0],
+		atoms[currentset][(info[i].atom - 1)*4+1] - iPos[1],
+		atoms[currentset][(info[i].atom - 1)*4+2] - iPos[2],
+		0,
+		iPos[0], iPos[1], iPos[2], 1
+		);//.transpose();
+	Matrix4 trans;
+	trans.rotateX(-90).translate(UserPosition);
+	Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans*nt;
+	glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
+
+	glUniform4fv(m_nUnitCellColourLocation, 1, infolinecolour);
+
+	glDrawArrays(GL_LINES, 24, 2);
+}
+glBindTexture(GL_TEXTURE_2D, 0);
+glBindVertexArray(0);
+}
+
+
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
@@ -2359,6 +2492,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 	glEnable(GL_DEPTH_TEST);
 
 	if (ISOS==0) {
+		RenderInfo(nEye);
 		RenderAtoms(nEye);
 		RenderUnitCell(nEye);
 		if (showcontrollers)
@@ -2395,6 +2529,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 				if ((e = glGetError()) != GL_NO_ERROR)
 					dprintf("Gl error after paintgrid: %d, %s\n", e, gluErrorString(e));
 				if (numAtoms!=0) {
+					RenderInfo(nEye);
 					RenderAtoms(nEye);
 					RenderUnitCell(nEye);
 				}
@@ -2494,6 +2629,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 			glBindTexture(GL_TEXTURE_2D, 0);
 			glUseProgram(m_unSceneProgramID);
 			PaintGrid(nEye, currentiso);
+			RenderInfo(nEye);
 			if (showcontrollers)
 				RenderAllTrackedRenderModels(nEye);
 		} //else currentiso =isos

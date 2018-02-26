@@ -1,3 +1,19 @@
+/*
+# Copyright 2016-2018 The NOMAD Developers Group
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+ # you may not use this file except in compliance with the License.
+ # You may obtain a copy of the License at
+ #
+ #     http://www.apache.org/licenses/LICENSE-2.0
+ #
+ # Unless required by applicable law or agreed to in writing, software
+ # distributed under the License is distributed on an "AS IS" BASIS,
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+*/
+
 #include "markerShaders.h"
 
 const char * const MarkerShaders [] = {
@@ -17,7 +33,6 @@ const char * const MarkerShaders [] = {
 	"out vec3 vrad;" // ellipsoid
 	"void main()\n"
 	"{\n"
-	//"gl_Position = matrix * vec4(position+center, 1);\n"
 	"vcolor=colour;\n"
 	"vcen=centersize.xyz;\n"
 	"vec3 sc=vec3(0.5, 0.5, 0.5);\n"
@@ -55,14 +70,12 @@ const char * const MarkerShaders [] = {
 #else
 "#version 320 es\n"
 #endif
-	//"layout(triangles, equal_spacing, cw) in;\n"
 	"layout(quads, equal_spacing, cw) in;\n"
 	"#define pi 3.1415926535897932384626433832795\n"
 	"uniform mat4 matrix;\n"
-	//"uniform mat4 mv;\n"
 	"in vec4 vcolor[];\n" //color
 	"in vec3 vcen[];"
-	"in vec3 vrad[];" // ellipsoid
+	"in vec3 vrad[];" 
 	"out vec4 color;\n" //color 
 	"out vec3 normal;\n"
 	"void main()\n"
