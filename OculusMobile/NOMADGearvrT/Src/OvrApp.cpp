@@ -34,7 +34,7 @@ void eprintf( const char *fmt, ... )
 	vsprintf( buffer, fmt, args );
 	va_end( args );
 
-	LOG("Error in NOMADGearvrT");
+    LOG("Message from NOMADGearvrT");
 	if (*fmt=='\0')
 		LOG("Empty format");
 	LOG("<%s>", buffer);
@@ -105,33 +105,55 @@ void OvrApp::OneTimeInit( const char * fromPackage, const char * launchIntentJSO
 	OVR_UNUSED( fromPackage );
 	OVR_UNUSED( launchIntentJSON );
 
-    LOG("OneTimeInit, launchintentURI");
+    LOG("NOMADGearVRT, OneTimeInit, launchintentURI");
     LOG(launchIntentURI);
-	LOG("launchIntentURI==null");
+	LOG("NOMADGearVRT, launchIntentURI==null");
 	LOG("%d", launchIntentURI==nullptr);
 	//LOG("length of launchIntentURI=%d", strlen(launchIntentURI));
 	//for (unsigned int i=0;i<strlen(launchIntentURI);i++) {
 	//	LOG("<%c>: [%d]", launchIntentURI[i], launchIntentURI[i]);
 	//}
-	const char *defaultURI="file:///sdcard/Oculus/NOMAD/ViveTDefault.ncfg";
-	//open a default file if none given
-	if (!launchIntentURI || !strcmp(launchIntentURI, "")) {
-		LOG(" OneTimeInit changing launchIntentURI");
-		launchIntentURI=defaultURI;
+	
+	const char *configLocation="/sdcard/NOMAD/NOMADGearVR.cfg";
+	const char *defaultURI="/sdcard/Oculus/NOMAD/ViveTDefault.ncfg";
+
+	char finalURI[1024];
+	FILE *cl = fopen (configLocation, "r");
+	if (cl==nullptr) {
+		LOG("NOMADGearVRT, /sdcard/NOMAD/NOMADGearVR.cfg not found, using default at /sdcard/Oculus/NOMAD/ViveTDefault.ncfg");
+		strcpy(finalURI, defaultURI);
+	} else {
+        fgets(finalURI, 1024, cl);
+        //discard newline
+        int l=strlen(finalURI);
+        if (finalURI[l-1]=='\n')
+            finalURI[l-1]='\0';
+		LOG("NOMADGearVRT, /sdcard/NOMAD/NOMADGearVR.cfg found, using contents=%s", finalURI);
+		fclose (cl);
 	}
 	
-		LOG("OneTimeInit, launchintentURI");
+	
+
+	//open a default file if none given
+	//if (!launchIntentURI || !strcmp(launchIntentURI, "")) {
+	//	LOG(" OneTimeInit changing launchIntentURI");
+	//	launchIntentURI=finalURI;
+	//}
+	
+	LOG("NOMADGearVRT OneTimeInit, launchintentURI");
     LOG(launchIntentURI);
 	
 	
-	const char *configfile=launchIntentURI+6; //discard file://
+	const char *configfile=finalURI; 
 	
 	//change cwd so that relative paths work
 	std::string s(configfile);
 	chdir(s.substr(0, s.find_last_of("\\/")).c_str());
 	
+	LOG("NOMADGEARVRT, configfile=%s", configfile);
+	
 	int r;
-	LOG("OneTimeInit, 8");	
+	LOG("NOMADGearVRT OneTimeInit, 8");	
 	if ((r=loadConfigFile(configfile))<0) {
 		if (-100<r) {
 			eprintf(loadConfigFileErrors[-r]);
@@ -150,7 +172,7 @@ void OvrApp::OneTimeInit( const char * fromPackage, const char * launchIntentJSO
 	
 	}
 	if (!solid) {
-		LOG("No atom glyph specified, using Icosahedron");
+		LOG("NOMADGearVRT No atom glyph specified, using Icosahedron");
 		solid=new Solid(Solid::Type::Icosahedron);
 	}
 	LOG("OneTimeInit, 2");
@@ -185,7 +207,7 @@ LOG("OneTimeInit, 4");
 	//rgh: for now, we don't have any tess-ready phones
 	//if (!PrepareAtomShader(&AtomsP, &AtomMatrixLoc)) {
 		hasTess=false;
-		if (!PrepareAtomShaderNoTess(&AtomsP, &AtomMatrixLoc))
+        if (!PrepareAtomShaderNoTess(&AtomsP, &AtomMatrixLoc, &TotalatomsLoc))
 			eprintf ("PrepareAtomShaderNoTess failed");
 	//};
 //LOG("OneTimeInit, 7");	
@@ -197,7 +219,7 @@ LOG("OneTimeInit, 4");
 	if (e!=GL_NO_ERROR)
 		eprintf ("atomTexture error %d", e);
 //LOG("OneTimeInit, 7A");	
-	e=SetupAtoms(&AtomTVAO, &AtomTBuffer);
+    e=SetupAtoms(&AtomTVAO, &AtomTBuffer, &BondIndices);
 	if (e!=GL_NO_ERROR)
 		eprintf ("SetupAtoms error %d", e);
 //LOG("OneTimeInit, 7B");	
@@ -212,6 +234,15 @@ LOG("OneTimeInit, 4");
 
 	if (ISOS) {
 		PrepareISOShader(&ISOP, &ISOMatrixLoc);
+
+        float m=BACKGROUND[0];
+        m=std::max(m, BACKGROUND[1]);
+        m=std::max(m, BACKGROUND[2]);
+        if (m>0.2f) { //make background darker, preserving colour, so additive blending works
+              for (int i=0;i<3;i++)
+                   BACKGROUND[i]*=0.2f / m;
+        }
+
 
 		std::vector<float> vertices;
 #ifndef INDICESGL32
@@ -236,10 +267,40 @@ LOG("OneTimeInit, 4");
 		for (int p = 0; p < TIMESTEPS*ISOS; p++) {
 			sprintf(tmpname, "%s%d-%s.ply", PATH, timestep, 
 				plyfiles[p % ISOS]);
-			Matrix4f matFinal=Matrix4f::RotationX(-M_PI_2) *
+
+            Matrix4f matFinal;
+            /*matFinal=Matrix4f::RotationX(-M_PI_2) *
 				Matrix4f::Translation(translations[p%ISOS][0],
 					translations[p%ISOS][1],
 					translations[p%ISOS][2]);
+*/
+//gvr
+            if (voxelSize[0]!=-1) {
+                Matrix4f mvs, abcm, matcubetrans, sctrans, sc;
+                mvs=Matrix4f::Scaling(scaling/(float)voxelSize[0], scaling/(float)voxelSize[1],
+                    scaling/(float)voxelSize[2]);
+                matcubetrans=Matrix4f::Translation(cubetrans[0], cubetrans[1], cubetrans[2]);
+
+                for (int i=0;i<3;i++) {
+                    for(int j=0;j<3;j++)
+                           abcm.M[i][j]=abc[i][j];
+                    abcm.M[i][3]=0;
+                }
+                abcm.M[4][4]=1;
+
+                sc=Matrix4f::Scaling(supercell[0], supercell[1], supercell[2]);
+                sctrans=Matrix4f::Translation(-translations[p%ISOS][2],
+                        -translations[p%ISOS][1], -translations[p%ISOS][0]);
+                matFinal = abcm*sctrans*sc*mvs;
+            } else {
+                matFinal=Matrix4f::Translation(translations[p%ISOS][0], translations[p%ISOS][1],
+                            translations[p%ISOS][2]);
+                matFinal=Matrix4f::Scaling(scaling)*matFinal;
+            }
+//end gvr
+
+
+
 			float t[16];
 			for (int i=0;i<4;i++)
 				for (int j=0;j<4;j++)
@@ -295,7 +356,7 @@ void OvrApp::OneTimeShutdown()
 bool OvrApp::OnKeyEvent( const int keyCode, const int repeatCount, const KeyEventType eventType )
 {
     animateTimesteps=!animateTimesteps;
-	eprintf("OnKeyEvent called!");
+    //eprintf("OnKeyEvent called! keycode=%d", keyCode);
     return true;
     /*if ( GuiSys->OnKeyEvent( keyCode, repeatCount, eventType ) )
     {
@@ -306,7 +367,7 @@ bool OvrApp::OnKeyEvent( const int keyCode, const int repeatCount, const KeyEven
 Matrix4f OvrApp::Frame( const VrFrame & vrFrame )
 {
 	
-	LOG("Start Frame");
+	LOG("NOMADGearVRT Start Frame");
     CenterEyeViewMatrix = vrapi_GetCenterEyeViewMatrix( &app->GetHeadModelParms(), &vrFrame.Tracking, NULL );
 
     if (animateTimesteps) {
@@ -316,7 +377,7 @@ Matrix4f OvrApp::Frame( const VrFrame & vrFrame )
             currentSet++;
             if (currentSet>TIMESTEPS-1)
                 currentSet=0;
-			LOG("currentSet updated, animate timesteps %d", currentSet);
+			LOG("NOMADGearVRT currentSet updated, animate timesteps %d", currentSet);
         }
     }
     Matrix4f rot;
@@ -359,7 +420,8 @@ void OvrApp::RenderIsos(const OVR::Matrix4f eyeViewProjection, int iso) {
 	GLenum e;
 	Matrix4f trans=Matrix4f::Translation(UserTranslation[0], UserTranslation[1], UserTranslation[2]);
 	//trans.translate(iPos).rotateX(-90).translate(UserPosition);
-	Matrix4f transform = eyeViewProjection*trans*Matrix4f::Scaling(0.2);
+    //rgh: prescaled on ply load
+    Matrix4f transform = eyeViewProjection*trans/**Matrix4f::Scaling(scaling)*/*Matrix4f::RotationX(-M_PI_2);
 	float t[16];
 	for (int i=0;i<4;i++)
 		for (int j=0;j<4;j++)
@@ -367,7 +429,7 @@ void OvrApp::RenderIsos(const OVR::Matrix4f eyeViewProjection, int iso) {
 	glUseProgram(ISOP);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("1 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
-glUniformMatrix4fv(ISOMatrixLoc, 1, GL_FALSE, t);
+    glUniformMatrix4fv(ISOMatrixLoc, 1, GL_FALSE, t);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("2 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
 
@@ -380,13 +442,17 @@ glUniformMatrix4fv(ISOMatrixLoc, 1, GL_FALSE, t);
 		if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("4 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
 	} else {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        glDepthMask(GL_FALSE);
 		for (int i=0;i<ISOS;i++) {
+            //rgh FIXME, redo this when we have the new rendering code for atom trajectories
 			glBindVertexArray(ISOVAO[currentSet*ISOS+i]);
-			glBindBuffer(GL_ARRAY_BUFFER, ISOBuffer[currentSet*ISOS+i]);
+            glBindBuffer(GL_ARRAY_BUFFER, ISOBuffer[currentSet*ISOS+i]);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ISOIndices[currentSet*ISOS+i]);
 			glEnableVertexAttribArray(0);
 			glEnableVertexAttribArray(1);
-			glEnableVertexAttribArray(2);
+            glEnableVertexAttribArray(2);
 			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(0*sizeof(float)));
 			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(3*sizeof(float)));
 			glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(6*sizeof(float)));
@@ -397,7 +463,10 @@ glUniformMatrix4fv(ISOMatrixLoc, 1, GL_FALSE, t);
 			if ((e = glGetError()) != GL_NO_ERROR)
 				eprintf("6 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
 		}
+        glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);
 	}
+    glBindVertexArray(0);
 }
 
 
@@ -411,13 +480,15 @@ void OvrApp::RenderAtoms(const float *m) //m[16]
 	
 	if (hasTess) {
 	//FIXME, unimplemented
-		LOG("FIXME, No Tess code for atoms yet!");
+		LOG("NOMADGearVRT FIXME, No Tess code for atoms yet!");
 		return;
 	} else { //no tess
 		glBindVertexArray(AtomVAO[0]);
 		glBindTexture(GL_TEXTURE_2D, textures[1]);
 		glUseProgram(AtomsP);
 		glUniformMatrix4fv(AtomMatrixLoc, 1, GL_FALSE, m);
+        glUniform1f(TotalatomsLoc, (float)getTotalAtomsInTexture());
+
 		if (currentSet==0) {
 			glDrawElements(GL_TRIANGLES, numAtoms[currentSet]* 3 * solid->nFaces, 
 #ifndef INDICESGL32				
@@ -463,21 +534,17 @@ if (!showTrajectories)
 
 int e;
 if (!AtomTVAO) {
-	LOG("RenderAtomTrajectoriesUnitCell, no atoms");
+	LOG("NOMADGearVRT RenderAtomTrajectoriesUnitCell, no atoms");
 	return;
 }
 glBindVertexArray(AtomTVAO[0]);
 
-//glUseProgram(UnitCellP);
-//glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, matrix);
-float color[4]={1,0,0,1};
-glUniform4fv(UnitCellColourLoc, 1, color);
+glUniform4fv(UnitCellColourLoc, 1, atomtrajectorycolour);
 if ((e = glGetError()) != GL_NO_ERROR)
-	eprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d\n", e);
-//glEnableVertexAttribArray(0);
-//glDisableVertexAttribArray(1);
+    eprintf("Gl error after glUniform4fv 2 RenderAtomTrajectoriesUnitCell: %d\n", e);
 
 //LOG("atomtrajectories.size()=%d", atomtrajectories.size());
+//rgh FIXME, old code which does not work with large atom sets!
 glBindBuffer(GL_ARRAY_BUFFER, AtomTBuffer[0]);
 
 for (unsigned int i=0;i<atomtrajectories.size();i++) {
@@ -505,7 +572,7 @@ void OvrApp::RenderUnitCell(const Matrix4f eyeViewProjection)
 	if (UnitCellVAO==0)
 		eprintf ("Error, Unit Cell VAO not loaded");
 	int e;
-	
+    Matrix4f sc=Matrix4f::Scaling(scaling);
 	int p[3];
 	for (p[0]=0;p[0]<repetitions[0];(p[0])++)
 		for (p[1]=0;p[1]<repetitions[1];(p[1])++)
@@ -513,58 +580,72 @@ void OvrApp::RenderUnitCell(const Matrix4f eyeViewProjection)
 				{
 					float delta[3];
 					GetDisplacement(p, delta);
-					Vector3f iPos(delta[0]+UserTranslation[0], delta[1]+UserTranslation[1], delta[2]+UserTranslation[2]);
+                    //delta is in atom coordinates, need rotateX(-90)
+                    Vector3f iPos(delta[0]+UserTranslation[0]/scaling, delta[2]+UserTranslation[1]/scaling,
+                            -delta[1]+UserTranslation[2]/scaling);
 					Matrix4f trans=Matrix4f::Translation(iPos);
-					//trans.translate(iPos).rotateX(-90).translate(UserPosition);
-					Matrix4f transform = eyeViewProjection*trans;
+                    Matrix4f transform = eyeViewProjection*sc*trans*Matrix4f::RotationX(-M_PI_2);
 					float t[16];
 					for (int i=0;i<4;i++)
 						for (int j=0;j<4;j++)
 							t[j*4+i]=transform.M[i][j];
 					glUseProgram(UnitCellP);
 					glUniformMatrix4fv(UnitCellMatrixLoc, 1, GL_FALSE, t);
-					if ((e = glGetError()) != GL_NO_ERROR)
+                    if ((e = glGetError()) != GL_NO_ERROR)
 						eprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d\n", e);
-					float color[4]={1,1,1,1};
-					glUniform4fv(UnitCellColourLoc, 1, color);
-					if ((e = glGetError()) != GL_NO_ERROR)
-						eprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d\n", e);
-					glBindVertexArray(UnitCellVAO);
-					if ((e = glGetError()) != GL_NO_ERROR)
-						eprintf("Gl error after glBindVertexArray RenderUnitCell: %d\n", e);
-					glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
-					if ((e = glGetError()) != GL_NO_ERROR)
-						eprintf("Gl error after RenderUnitCell: %d\n", e);
+                    if (displayunitcell) {
+                        glUniform4fv(UnitCellColourLoc, 1, unitcellcolour);
+                        if ((e = glGetError()) != GL_NO_ERROR)
+                            eprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d\n", e);
+                        glBindVertexArray(UnitCellVAO);
+                        if ((e = glGetError()) != GL_NO_ERROR)
+                            eprintf("Gl error after glBindVertexArray RenderUnitCell: %d\n", e);
+                        glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
+                        if ((e = glGetError()) != GL_NO_ERROR)
+                            eprintf("Gl error after RenderUnitCell: %d\n", e);
+                    }
 					//atom trajectories
 					RenderAtomTrajectoriesUnitCell();
 					RenderAtoms(t);
 				}
 }
 
+void OvrApp::RenderAtomTrajectories (const Matrix4f eyeViewProjection)
+{
+    if (!numAtoms)
+        return;
+    const Matrix4f sc=Matrix4f::Scaling(scaling);
+    const Matrix4f trans=Matrix4f::Translation(UserTranslation[0]/scaling,UserTranslation[1]/scaling,
+                UserTranslation[2]/scaling );
+    const Matrix4f transform = eyeViewProjection*sc*trans*Matrix4f::RotationX(-M_PI_2);
+
+    float t[16];
+    for (int i=0;i<4;i++)
+        for (int j=0;j<4;j++)
+            t[j*4+i]=transform.M[i][j];
+
+    glUseProgram(UnitCellP);
+    glUniformMatrix4fv(UnitCellMatrixLoc, 1, GL_FALSE, t);
+    RenderAtomTrajectoriesUnitCell();
+    RenderAtoms(t);
+}
 
 Matrix4f OvrApp::DrawEyeView( const int eye, const float fovDegreesX, const float fovDegreesY, ovrFrameParms & frameParms )
 {
     OVR_UNUSED( frameParms );
-	//LOG ("DrawEyeView 1, timestep=%d", currentSet);
     const Matrix4f eyeViewMatrix = vrapi_GetEyeViewMatrix( &app->GetHeadModelParms(), &CenterEyeViewMatrix, eye );
-    //near, far plane set here: 10000 for earth, 100000 for skymap
     const Matrix4f eyeProjectionMatrix = ovrMatrix4f_CreateProjectionFov( fovDegreesX, fovDegreesY, 0.0f, 0.0f, 1,100000/*1.0f, 0.0f*/ );
     const Matrix4f eyeViewProjection = eyeProjectionMatrix * eyeViewMatrix;
 
     GL( glClearColor( BACKGROUND[0], BACKGROUND[1], BACKGROUND[2], 1.0f ) );
     GL( glClear( GL_COLOR_BUFFER_BIT ) );
 
-    //GL(        glEnable (GL_BLEND));
-    //GL(        glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
     GL( glDepthFunc(GL_LEQUAL));
-    //GL( glUseProgram( Program.program ) );
-    //GL( glUniformMatrix4fv( Program.uView, 1, GL_TRUE, eyeViewMatrix.M[0] ) );
-    //GL( glUniformMatrix4fv( Program.uProjection, 1, GL_TRUE, eyeProjectionMatrix.M[0] ) );
 
-    //glBindTexture(GL_TEXTURE_2D, textures[0]); //white
-	//LOG ("DrawEyeView 2");
-	RenderUnitCell(eyeViewProjection);
-	//LOG ("DrawEyeView 3");
+    if (has_abc)
+        RenderUnitCell(eyeViewProjection);
+    else
+        RenderAtomTrajectories(eyeViewProjection);
 	
 	if (ISOS)
 		RenderIsos(eyeViewProjection, ISOS);
@@ -575,7 +656,6 @@ Matrix4f OvrApp::DrawEyeView( const int eye, const float fovDegreesX, const floa
     GuiSys->RenderEyeView( CenterEyeViewMatrix, eyeViewMatrix, eyeProjectionMatrix );
 
     frameParms.Layers[VRAPI_FRAME_LAYER_TYPE_WORLD].Flags |= VRAPI_FRAME_LAYER_FLAG_CHROMATIC_ABERRATION_CORRECTION;
-	//LOG("End Frame");
     return eyeViewProjection;
 }
 

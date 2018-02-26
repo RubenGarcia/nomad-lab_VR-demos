@@ -25,49 +25,82 @@ public class MainActivity extends VrActivity {
 		System.loadLibrary("ovrapp");
 	}
 
-    public static native long nativeSetAppInterface( VrActivity act, String fromPackageNameString, String commandString, String uriString );
+//http://stackoverflow.com/questions/8854359/exception-open-failed-eacces-permission-denied-on-android
+// Storage Permissions
+private static final int REQUEST_EXTERNAL_STORAGE = 1;
+private static String[] PERMISSIONS_STORAGE = {
+        android.Manifest.permission.READ_EXTERNAL_STORAGE,
+        android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+};
 
+/**
+ * Checks if the app has permission to write to device storage
+ *
+ * If the app does not has permission then the user will be prompted to grant permissions
+ *
+ * @param activity
+ */
+public static void verifyStoragePermissions(android.app.Activity activity) {
+    // Check if we have write permission
+ /*   int permission =  	android.support.v4.app.ActivityCompat.checkSelfPermission(activity, android.Manifest.permission.WRITE_EXTERNAL_STORAGE);
+
+    if (permission != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        // We don't have permission so prompt the user
+        android.support.v4.app.ActivityCompat.requestPermissions(
+                activity,
+                PERMISSIONS_STORAGE,
+                REQUEST_EXTERNAL_STORAGE
+        );
+    }*/
+}
+	
+    public static native long nativeSetAppInterface( VrActivity act, String fromPackageNameString, String commandString, String uriString );
+/*
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if(requestCode==123 && resultCode==RESULT_OK) {
+		String s=data.getDataString();
+		android.util.Log.d("NOMADGearvrT","OnActivityResult, s="+s);
+		String uriString="";
+     		if (s.startsWith("file://")) {
+			uriString=s.substring(7);
+		} else if (s.startsWith("content://com.asus.filemanager.OpenFileProvider/file")) {
+			uriString=s.substring(52);
+		} else {
+			android.net.Uri u=android.net.Uri.parse(s);
+			try {
+			uriString=Filepath.getFilePath (this.getApplicationContext(), u);
+			} catch (java.net.URISyntaxException e) {
+			android.util.Log.d("NOMADgvrT","URISyntaxException, e="+e);
+			uriString=null;
+			}
+		}
+		android.util.Log.d("NOMADgvrT","OnActivityResult, uri="+uriString);
+		nativeSetConfigFile(uriString, android.os.Environment.getExternalStorageDirectory().getPath() + "/");   
+		nativeLoadConfigFile(nativeTreasureHuntRenderer);    
+        }
+    }	
+	*/
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+		
         super.onCreate(savedInstanceState);
-
+		
+		verifyStoragePermissions(this);
+		
 		Intent intent = getIntent();
 		String commandString = VrActivity.getCommandStringFromIntent( intent );
 		String fromPackageNameString = VrActivity.getPackageStringFromIntent( intent );
-		String uriString = VrActivity.getUriStringFromIntent( intent );
-
-		//rgh: if intent, save to tmp file and pass it over
-		if (uriString.startsWith("content://")) {
-			//http://stackoverflow.com/questions/14364091/retrieve-file-path-from-caught-downloadmanager-intent
-			//http://stackoverflow.com/questions/1477269/write-a-binary-downloaded-file-to-disk-in-java
-			//http://stackoverflow.com/questions/4864875/folder-for-temporary-files-creation-in-android-why-does-data-local-tmp-doesnt
-			uriString="file:///data/local/tmp/material.ncfg";
-			try {
-				java.io.InputStream input = getContentResolver().openInputStream(intent.getData());
-				byte[] buffer = new byte[8 * 1024];
-				java.io.FileOutputStream output = new java.io.FileOutputStream("/data/local/tmp/material.ncfg");
-				try{
-					int bytesRead;
-					while((bytesRead = input.read()) != -1){
-						output.write(buffer, 0, bytesRead);
-					}
-				} finally {
-					try{
-						output.close();
-					} catch (Exception e) {
-						uriString="error";
-					}
-					try {
-						input.close();
-					} catch (java.io.IOException e) {
-						uriString="error";
-					}
-				}
-			} catch (java.io.IOException e) {
-				uriString="error";
-			} 
+		String uriString = VrActivity.getUriStringFromIntent( intent );		
+		android.net.Uri u=android.net.Uri.parse(uriString);
+		try {
+			uriString=Filepath.getFilePath (this.getApplicationContext(), u);
+		} catch (java.net.URISyntaxException e) {
+		android.util.Log.d("NOMADgvrT","URISyntaxException, e="+e);
+		uriString=null;
 		}
-		
+
 		setAppPtr( nativeSetAppInterface( this, fromPackageNameString, commandString, uriString ) );
     }   
 }

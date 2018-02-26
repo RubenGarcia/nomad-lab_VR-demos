@@ -43,7 +43,7 @@ private:
 	class OVR::ovrLocale *	Locale;
 
     GLuint			AtomsP, UnitCellP; // framework does not provide support for tesselation and provides many things we don't need.
-	GLint		AtomMatrixLoc, UnitCellMatrixLoc, UnitCellColourLoc;
+    GLint		AtomMatrixLoc, TotalatomsLoc, UnitCellMatrixLoc, UnitCellColourLoc;
     GLint				VertexTransformAttribute, VTAGrid;
 
     ovrMatrix4f			CenterEyeViewMatrix;
@@ -54,7 +54,8 @@ private:
     int animateCounter=0;
     GLuint textures[2]; // white, atoms
 	//if no tesselation is available, we still need the tess atoms for the trajectories!
-	GLuint *AtomTVAO=nullptr, *AtomTBuffer=nullptr, *AtomVAO=nullptr, *AtomBuffer=nullptr, *AtomIndices=nullptr,//[2], atoms, extraatoms
+    GLuint *AtomTVAO=nullptr, *AtomTBuffer=nullptr, BondIndices=0, *AtomVAO=nullptr, *AtomBuffer=nullptr,
+        *AtomIndices=nullptr,//[2], atoms, extraatoms
 		UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer;
 
 	GLuint *ISOVAO=nullptr/*[ISOS*TIMESTEPS]*/, *ISOBuffer=nullptr/*[ISOS*TIMESTEPS]*/,
@@ -65,6 +66,7 @@ private:
 		
 	void RenderAtoms(const float *m);
 	void RenderUnitCell(const OVR::Matrix4f eyeViewProjection);
+    void RenderAtomTrajectories (const OVR::Matrix4f eyeViewProjection);
 	void RenderAtomTrajectoriesUnitCell();
 	bool hasTess=true;
 	void RenderIsos(const OVR::Matrix4f eyeViewProjection, int iso);

@@ -14,7 +14,10 @@ LOCAL_SRC_FILES			:= ../../../Src/OvrApp.cpp ../../../Src/rply/rply.c \
 	../../../Src/NOMADVRLib/UnitCellShaders.cpp \
 	../../../Src/NOMADVRLib/polyhedron.cpp \
 	../../../Src/NOMADVRLib/IsosurfacesGL.cpp \
-	../../../Src/NOMADVRLib/IsoShaders.cpp
+	../../../Src/NOMADVRLib/IsoShaders.cpp \
+	../../../Src/NOMADVRLib/grid.cpp \
+	../../../Src/NOMADVRLib/markerShaders.cpp 
+	
 LOCAL_STATIC_LIBRARIES	:= vrsound vrmodel vrlocale vrgui vrappframework systemutils libovrkernel
 LOCAL_SHARED_LIBRARIES	:= vrapi
 

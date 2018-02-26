@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
 		package="com.lrz.NOMADGearvrT"
-		android:versionCode="1"
-		android:versionName="1.0" >
+		android:versionCode="2"
+		android:versionName="1.0" 
+		android:installLocation="auto"
+		>
+		
 	<uses-sdk android:minSdkVersion="21" android:targetSdkVersion="21" />
 	<!-- Allow reading of the appropriate lens distortion file for the device. -->
 	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
@@ -16,7 +19,7 @@
 	<uses-feature android:name="android.hardware.usb.host" />
 	<!-- Tell the system this app requires OpenGL ES 3.0. -->
 	<!--rgh: For tesselation, we need 3.2-->
-	<uses-feature android:glEsVersion="0x00030002" android:required="true" />
+	<uses-feature android:glEsVersion="0x00030001" android:required="true" />
 	<application
 			android:allowBackup="true"
 			android:icon="@drawable/ic_launcher"
@@ -30,7 +33,8 @@
 				android:label="@string/app_name"
 				android:launchMode="singleTask"
 				android:screenOrientation="landscape"
-				android:configChanges="orientation|screenSize|keyboard|keyboardHidden"> 
+				android:configChanges=	"screenSize|screenLayout|orientation|keyboardHidden|keyboard|navigation"
+				 android:excludeFromRecents="true">
 			<!--Test opening a NOMAD url-->
 			<intent-filter>
 				<action android:name="android.intent.action.VIEW" />
@@ -49,9 +53,10 @@
 					  android:mimeType="application/octet-stream"/>
 			</intent-filter>
 			<!-- This filter lets the apk show up as a launchable icon -->
+			<!-- rgh: hiding as only the gearvrchooser should be shown -->
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />
-				<category android:name="android.intent.category.LAUNCHER" />
+				<category android:name="android.intent.category.INFO" />
 			</intent-filter>
 		</activity>
 	</application>

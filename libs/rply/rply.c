@@ -1,3 +1,26 @@
+/*This code is based on rply, which uses the MIT license*/
+/*This license is compatible with Apache 2.0*/
+
+/* Changes:
+Rubén Jesús García Hernández
+Fix missing initialization, lines 379, 482
+
+/*
+# Copyright 2016-2018 The NOMAD Developers Group
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+*/
+
 /* ----------------------------------------------------------------------
  * RPly library, read/write PLY files
  * Diego Nehab, IMPA
@@ -6,6 +29,9 @@
  * This library is distributed under the MIT License. See notice
  * at the end of this file.
  * ---------------------------------------------------------------------- */
+
+
+
 #include <stdio.h>
 #include <ctype.h>
 #include <assert.h>
@@ -372,7 +398,7 @@ p_ply ply_open(const char *name, p_ply_error_cb error_cb,
 
 p_ply ply_open_from_file(FILE *fp, p_ply_error_cb error_cb,
         long idata, void *pdata) {
-    p_ply ply;
+    p_ply ply=(void*)0;
     if (error_cb == NULL) error_cb = ply_error_cb;
     assert(fp);
     if (!ply_type_check()) {
@@ -475,7 +501,7 @@ p_ply ply_create(const char *name, e_ply_storage_mode storage_mode,
 
 p_ply ply_create_to_file(FILE *fp, e_ply_storage_mode storage_mode,
         p_ply_error_cb error_cb, long idata, void *pdata) {
-    p_ply ply;
+    p_ply ply=(void*)0;
     assert(fp && storage_mode <= PLY_DEFAULT);
     if (!ply_type_check()) {
         error_cb(ply, "Incompatible type system");
