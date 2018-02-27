@@ -4,7 +4,7 @@ Subdirectories:
 	GoogleCardboardAndroid: Demos for Google Cardboard (android)
 	CAVE: Demos for LRZ CAVE-like environment (linux)
 	
-	NOMADVRLib: Shared code between HTC Vive and GearVR demos related to NOMAD.
+	NOMADVRLib: Shared code between HTC Vive, GearVR and Google Cardboard demos related to NOMAD.
 	libs: Other (external) supporting libs shared by HTC Vive, GearVR, Cardboard and CAVE demos
 	
 	webserver: 
@@ -12,4 +12,6 @@ Subdirectories:
 		cgi-bin: cgi scripts to create suitable config files from a material number.
 	
 More platforms will be added in the future.
+
+The code is distributed under the Apache 2.0 License (See LICENSE file).
 

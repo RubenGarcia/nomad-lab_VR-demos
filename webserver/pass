@@ -1,0 +1,7 @@
+#Username and password to authentificate with the IDP
+export USER=
+export PASS=
+
+#Notification email
+export EMAIL=
+
