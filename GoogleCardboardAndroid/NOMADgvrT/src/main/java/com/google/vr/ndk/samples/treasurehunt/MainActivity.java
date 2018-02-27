@@ -1,3 +1,10 @@
+/*Uses code from Stackoverflow which uses the MIT license and the CC BY-SA 3.0*/
+/*These licenses are compatible with Apache 2.0*/
+
+/*
+# Copyright 2016-2018 The NOMAD Developers Group
+*/
+
 /* Copyright 2017 Google Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,6 +56,18 @@ public class MainActivity extends Activity {
     System.loadLibrary("gvr_audio");
     System.loadLibrary("treasurehunt_jni");
   }
+
+
+@Override
+public boolean onKeyUp(int keyCode, KeyEvent event) {
+	android.util.Log.d("NOMADgvrT","onKeyUp, keycode="+keyCode);
+	nativekeyPress(nativeTreasureHuntRenderer, keyCode);
+	return true;
+//Matthias Scheffler Bluetooth Controller, in GAME MODE @->B
+//KeyEvent.BUTTON_X, KeyEvent.BUTTON_Y, KeyEvent.BUTTON_A, KeyEvent.BUTTON_B
+
+}
+
 
 //http://stackoverflow.com/questions/8854359/exception-open-failed-eacces-permission-denied-on-android
 // Storage Permissions
@@ -112,12 +131,6 @@ public static void verifyStoragePermissions(Activity activity) {
 	verifyStoragePermissions(this);
 
 //http://stackoverflow.com/questions/36557879/how-to-use-native-android-file-open-dialog
-/////////
-        //setContentView(R.layout.activity_main);
-
- 
-///////////
-
 
 
 	String externalsd=android.os.Environment.getExternalStorageDirectory().getPath() + "/";
@@ -337,24 +350,5 @@ public static void verifyStoragePermissions(Activity activity) {
   private native void nativeSetConfigFile(String s, String e);
   private native void nativeLoadConfigFile(long nativeTreasureHuntRenderer);
 
-  public void DisplayMessage (final String s)
-  {
-//http://stackoverflow.com/questions/3875184/cant-create-handler-inside-thread-that-has-not-called-looper-prepare
-//rgh: this hangs, need to investigate
-	new Thread()
-	{
-	    public void run()
-	    {
-		MainActivity.this.runOnUiThread(new Runnable()
-		{
-		    public void run()
-		    {
-			android.widget.Toast toast = android.widget.Toast.makeText(MainActivity.this.getApplicationContext(), s,
-				android.widget.Toast.LENGTH_LONG);		        
-		    }
-		});
-	    }
-	}.start();
-
-  }
+  private native void nativekeyPress(long nativeTreasureHuntRenderer, int k);
 }

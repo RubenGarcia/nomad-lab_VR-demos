@@ -1,3 +1,9 @@
+/*Uses code from Stackoverflow which uses the MIT license and the CC BY-SA 3.0*/
+/*These licenses are compatible with Apache 2.0*/
+
+/*
+# Copyright 2016-2018 The NOMAD Developers Group
+*/
 /* Copyright 2017 Google Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +22,6 @@
 #include <unistd.h>
 
 #include "treasure_hunt_renderer.h"  // NOLINT
-#include "treasure_hunt_jni.h"
 
 #include <android/log.h>
 #include <assert.h>
@@ -60,8 +65,6 @@ void eprintf( const char *fmt, ... )
 	if (*fmt=='\0')
 		LOGD("Empty format");
 	LOGD("<%s>", buffer);
-	//rgh: does not work yet
-	//DisplayMessage(buffer);
 }
 
 
@@ -97,6 +100,11 @@ return mvs;
 gvr::Mat4f ScalingMatrix (float v[3]) 
 {
 return ScalingMatrix(v[0], v[1], v[2]);
+}
+
+gvr::Mat4f ScalingMatrix (float s)
+{
+return ScalingMatrix(s,s,s);
 }
 
 //static const float kZNear = 1.0f;
@@ -587,7 +595,7 @@ glGenTextures(2+ZLAYERS, textDepthPeeling);
 				plyfiles[p % ISOS]);
 			gvr::Mat4f trans;
 			gvr::Mat4f matFinal, matcubetrans, mvs, sc, sctrans;
-//rotateX(-90)
+
 		if (voxelSize[0]!=-1) {
 			mvs=ScalingMatrix(scaling/(float)voxelSize[0], scaling/(float)voxelSize[1],
 				scaling/(float)voxelSize[2]);
@@ -603,18 +611,11 @@ glGenTextures(2+ZLAYERS, textDepthPeeling);
 			matFinal=MatrixMul(matFinal,sc);
 			matFinal=MatrixMul(matFinal,mvs);
 		} else {
-			/*trans.m[0][0]=1;trans.m[0][1]=0;trans.m[0][2]=0; trans.m[0][3]=0;
-			trans.m[1][0]=0;trans.m[1][1]=0;trans.m[1][2]=1;trans.m[1][3]=0;
-			trans.m[2][0]=0;trans.m[2][1]=-1;trans.m[2][2]=0; trans.m[2][3]=0;
-			trans.m[3][0]=0;trans.m[3][1]=0;trans.m[3][2]=0; trans.m[3][3]=1;*/
-
 			for (int i=0;i<4;i++)
 				for(int j=0;j<4;j++)
 					matFinal.m[i][j]=(i==j);
 			for (int i=0;i<3;i++)
 				matFinal.m[i][3]=translations[p%ISOS][i];
-
-			//matFinal=MatrixMul(trans, matFinal);
 
 			trans.m[0][0]=scaling;trans.m[0][1]=0;trans.m[0][2]=0; trans.m[0][3]=0;
 			trans.m[1][0]=0;trans.m[1][1]=scaling;trans.m[1][2]=0;trans.m[1][3]=0; 
@@ -1055,10 +1056,11 @@ void TreasureHuntRenderer::RenderAtomTrajectories(const gvr::Mat4f eyeViewProjec
 int e;
 if (!numAtoms)
 	return;
-gvr::Mat4f trans=TranslationMatrix (UserTranslation[0], UserTranslation[1], UserTranslation[2]);
+gvr::Mat4f sc=ScalingMatrix(scaling);
+gvr::Mat4f trans=TranslationMatrix (UserTranslation[0]/scaling, UserTranslation[1]/scaling, UserTranslation[2]/scaling);
 const gvr::Mat4f rot={.m={1,0,0,0, 	0,0,1,0,	0,-1,0,0,	0,0,0,1}};					
 //trans.translate(iPos).rotateX(-90).translate(UserPosition);
-gvr::Mat4f transform = MatrixMul(eyeViewProjection, MatrixMul(trans,rot));
+gvr::Mat4f transform = MatrixMul(eyeViewProjection, MatrixMul(sc, MatrixMul(trans,rot)));
 //gvr::Mat4f transform=eyeViewProjection;					
 float t[16];
 for (int i=0;i<4;i++)
@@ -1095,6 +1097,8 @@ if ((e = glGetError()) != GL_NO_ERROR)
 //glDisableVertexAttribArray(1);
 
 //LOG("atomtrajectories.size()=%d", atomtrajectories.size());
+//rgh FIXME, old code which does not work with large atom sets!
+
 glBindBuffer(GL_ARRAY_BUFFER, AtomTBuffer[0]);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("3 Gl error RenderAtomTrajectoriesUnitCell: %d\n", e);
@@ -1135,6 +1139,7 @@ void TreasureHuntRenderer::RenderUnitCell(const gvr::Mat4f eyeViewProjection)
 	int e;
 	
 	int p[3];
+	gvr::Mat4f sc=ScalingMatrix(scaling);
 	for (p[0]=0;p[0]<repetitions[0];(p[0])++)
 		for (p[1]=0;p[1]<repetitions[1];(p[1])++)
 			for (p[2]=0;p[2]<repetitions[2];(p[2])++)
@@ -1145,10 +1150,11 @@ void TreasureHuntRenderer::RenderUnitCell(const gvr::Mat4f eyeViewProjection)
 						0,1,0,delta[1]+UserTranslation[1],
 						0,0,1,delta[2]+UserTranslation[2],
 						0,0,0,1};*/
-gvr::Mat4f trans=TranslationMatrix (UserTranslation[0], UserTranslation[1], UserTranslation[2]);
+gvr::Mat4f trans=TranslationMatrix (delta[0]+UserTranslation[0]/scaling, delta[2]+UserTranslation[1]/scaling, 
+	-delta[1]+UserTranslation[2]/scaling);
 const gvr::Mat4f rot={.m={1,0,0,0, 	0,0,1,0,	0,-1,0,0,	0,0,0,1}};					
 //trans.translate(iPos).rotateX(-90).translate(UserPosition);
-gvr::Mat4f transform = MatrixMul(eyeViewProjection, MatrixMul(trans,rot));					
+gvr::Mat4f transform = MatrixMul(eyeViewProjection, MatrixMul(sc, MatrixMul(trans,rot)));					
 
 
 
@@ -1161,26 +1167,28 @@ gvr::Mat4f transform = MatrixMul(eyeViewProjection, MatrixMul(trans,rot));
 					glUseProgram(UnitCellP);
 					glUniformMatrix4fv(UnitCellMatrixLoc, 1, GL_FALSE, t);
 					if ((e = glGetError()) != GL_NO_ERROR)
-						eprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d\n", e);	
-					glUniform4fv(UnitCellColourLoc, 1, unitcellcolour);
-					if ((e = glGetError()) != GL_NO_ERROR)
-						eprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d\n", e);
-					glBindVertexArray(UnitCellVAO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, UnitCellIndexBuffer);
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("1 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
-	glBindBuffer(GL_ARRAY_BUFFER, UnitCellBuffer);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (const void *)(0));
-	glEnableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-	glDisableVertexAttribArray(2);
-	glDisableVertexAttribArray(3);
-					if ((e = glGetError()) != GL_NO_ERROR)
-						eprintf("Gl error after glBindVertexArray RenderUnitCell: %d\n", e);
-					glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
-					//glDrawElements(GL_TRIANGLES, 24, GL_UNSIGNED_INT, 0);
-					if ((e = glGetError()) != GL_NO_ERROR)
-						eprintf("Gl error after RenderUnitCell: %d\n", e);
+						eprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d\n", e);
+					if (displayunitcell) {
+						glUniform4fv(UnitCellColourLoc, 1, unitcellcolour);
+						if ((e = glGetError()) != GL_NO_ERROR)
+							eprintf("Gl error after glUniform4fv 2 RenderUnitCell: %d\n", e);
+						glBindVertexArray(UnitCellVAO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, UnitCellIndexBuffer);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("1 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
+		glBindBuffer(GL_ARRAY_BUFFER, UnitCellBuffer);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (const void *)(0));
+		glEnableVertexAttribArray(0);
+		glDisableVertexAttribArray(1);
+		glDisableVertexAttribArray(2);
+		glDisableVertexAttribArray(3);
+						if ((e = glGetError()) != GL_NO_ERROR)
+							eprintf("Gl error after glBindVertexArray RenderUnitCell: %d\n", e);
+						glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
+						//glDrawElements(GL_TRIANGLES, 24, GL_UNSIGNED_INT, 0);
+						if ((e = glGetError()) != GL_NO_ERROR)
+							eprintf("Gl error after RenderUnitCell: %d\n", e);
+					}
 					//atom trajectories
 					RenderAtomTrajectoriesUnitCell();
 					RenderAtoms(t);

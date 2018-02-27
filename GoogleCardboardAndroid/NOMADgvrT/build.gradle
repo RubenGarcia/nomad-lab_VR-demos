@@ -6,12 +6,13 @@ model {
         buildToolsVersion = "25.0.2"
 
         defaultConfig.with {
-            applicationId = "com.google.vr.ndk.samples.treasurehunt"
+            applicationId = "com.lrz.nomadvr"
             minSdkVersion.apiLevel = 19
             targetSdkVersion.apiLevel = 23
-            versionCode = 1
-            versionName = "1.0"
+            versionCode = 8
+            versionName = "1.2"
         }
+
     }
     android.buildTypes {
         release {

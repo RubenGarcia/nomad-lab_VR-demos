@@ -1,3 +1,10 @@
+/*Uses code from Stackoverflow which uses the MIT license and the CC BY-SA 3.0*/
+/*These licenses are compatible with Apache 2.0*/
+
+/*
+# Copyright 2016-2018 The NOMAD Developers Group
+*/
+
 /* Copyright 2017 Google Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,12 +25,11 @@
 
 #include <memory>
 
-#include "treasure_hunt_renderer.h"  // NOLINT
 #include "vr/gvr/capi/include/gvr.h"
 #include "vr/gvr/capi/include/gvr_audio.h"
 #include "NOMADVRLib/atoms.hpp" //for TMPDIR
 
-#include "treasure_hunt_jni.h"
+#include "treasure_hunt_renderer.h" 
 
 #define JNI_METHOD(return_type, method_name) \
   JNIEXPORT return_type JNICALL              \
@@ -55,16 +61,6 @@ inline TreasureHuntRenderer *native(jlong ptr) {
 
     genv->CallStaticVoidMethod(jc, mid, jurl, jpath);	
 }*/
-
-void DisplayMessage (const char *s)
-{
-	JNIEnv *env;
-    	javaVM->AttachCurrentThread(&env, nullptr);
-	jstring js = env->NewStringUTF(s);
-	jclass cls = env->GetObjectClass(jo);
-	jmethodID mid = env->GetMethodID(cls, "DisplayMessage", "(Ljava/lang/String;)V");
-	env->CallVoidMethod(jo, mid, js);
-} 
 
 extern "C" {
 
