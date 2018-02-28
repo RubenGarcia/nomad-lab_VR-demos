@@ -431,8 +431,12 @@ int loadConfigFile(const char * f)
 			e = readAtomsAnalyticsJson(file, &numAtoms, &timesteps, &atoms, abc, &clonedAtoms);
 			if (e<0)
 				return e - 400;
-			numClonedAtoms = clonedAtoms[0].size() / 4;
-			has_abc = true;
+
+			if (has_abc)
+				numClonedAtoms = clonedAtoms[0].size() / 4;
+			else
+				numClonedAtoms=0;
+
 			updateTIMESTEPS(timesteps);
 		}
 		else if (!strcmp(s, "baseurl")) {

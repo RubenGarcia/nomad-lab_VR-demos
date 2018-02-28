@@ -571,45 +571,93 @@ int readAtomsAnalyticsJson(const char *const f, int **numatoms, int *timesteps, 
 	rapidjson::Document json;
 	json.ParseStream(is);
 	fclose(fp);
-	*timesteps = 1;
-	*pos = new float*[*timesteps];
-	*numatoms = new int[*timesteps];
-	*clonedAtoms=new std::vector<float>[*timesteps];
-	if (!json.HasParseError() && json.HasMember("atom_positions")) {
-		if (json.HasMember("lattice_vectors")) {
-			const rapidjson::GenericValue<rapidjson::UTF8<> > &lv = json["lattice_vectors"];
-			const rapidjson::GenericValue<rapidjson::UTF8<> > &flatdata = lv["flatData"];
-			for (int i=0;i<3;i++)
-				for (int j=0;j<3;j++)
-					abc[i][j]=flatdata[i*3+j].GetFloat()*1e10; // meter -> aangstrom
-		} else return (-4);
-		const rapidjson::GenericValue<rapidjson::UTF8<> > &result = json["atom_positions"];
-		if (!result.HasMember("shape"))
-			return (-1);
-		const rapidjson::GenericValue<rapidjson::UTF8<> > &shape = result["shape"]; //[numatoms, 3]
-		**numatoms = shape[0].GetInt();
-		(*pos)[0] = new float[**numatoms * 4];
-		if (json.HasMember("atom_species")) {
-		const rapidjson::GenericValue<rapidjson::UTF8<> > &results = json["atom_species"];
-		for (int i = 0; i < **numatoms ; i++)
-			(*pos)[0][i*4+3]=results[i].GetInt()-1;
+	*timesteps = 0;
+	//later, when we know the timesteps
+	//*pos = new float*[*timesteps];
+	//*numatoms = new int[*timesteps];
+	//*clonedAtoms=new std::vector<float>[*timesteps];
+	if (!json.HasParseError()) {
+		//section_system
+		if (!json.HasMember("section_system"))
+			return -3;
+		const rapidjson::GenericValue<rapidjson::UTF8<> > &ss = json ["section_system"];
+		if (!ss.IsArray())
+			return -3;
 
+		//first check how many of the arrrays have atoms, then fill the information
 
-		//atoms are stored in space coordinates, in meters
-		//rgh FIXME: disable cloned atoms for now
-		const rapidjson::GenericValue<rapidjson::UTF8<> > &flatdata = result["flatData"];
-		for (int i = 0; i < **numatoms ; i++) {
-			for (int j=0;j<3;j++)
-				(*pos)[0][i*4+j] = flatdata[i*3+j].GetFloat()*1e10; //we store them in aangstrom
-			CloneSpatialAtoms((*pos)[0], (*pos)[0][3], *clonedAtoms);
+		for (rapidjson::SizeType i = 0; i < ss.Size(); i++) {
+			const rapidjson::GenericValue<rapidjson::UTF8<> > & el=ss[i];
+			if (el.HasMember("atom_positions")) 
+				(*timesteps)++;
 		}
-	}
-	else return (-2);
 
-	}
-	else return (-3);
+		if (*timesteps==0) {
+			eprintf ("No atom_positions in json");
+			return -3;
+		} 
 
-	TransformAtoms(*clonedAtoms, abc);
+		*pos = new float*[*timesteps];
+		*numatoms = new int[*timesteps];
+		*clonedAtoms=new std::vector<float>[*timesteps];
+		for (int i=0;i<*timesteps;i++)
+			(*clonedAtoms)[i].clear();
+
+		//Rubén García: Per-timestep lattice vectors not supported. 
+		//Using only the first ones
+
+		int currenttime=0;
+		for (rapidjson::SizeType i = 0; i < ss.Size(); i++) {
+			const rapidjson::GenericValue<rapidjson::UTF8<> > & el=ss[i];
+
+			if (!el.HasMember("lattice_vectors") || !el.HasMember("atom_positions")) 
+				continue;
+
+			if (currenttime==0) {// take the lattice vectors only once; verify they are real vectors
+				const rapidjson::GenericValue<rapidjson::UTF8<> > &lv = el["lattice_vectors"];
+				const rapidjson::GenericValue<rapidjson::UTF8<> > &flatdata = lv["flatData"];
+				bool allzeros=true;
+				for (int i=0;i<3;i++)
+					for (int j=0;j<3;j++) {
+						abc[i][j]=flatdata[i*3+j].GetFloat()*1e10; // meter -> aangstrom
+						if (abc[i][j]!=0)
+							allzeros=false;
+					}
+				if (!allzeros)
+					has_abc=true;
+			}
+
+			const rapidjson::GenericValue<rapidjson::UTF8<> > &result = el["atom_positions"];
+			if (!result.HasMember("shape"))
+				return (-1);
+			const rapidjson::GenericValue<rapidjson::UTF8<> > &shape = result["shape"]; //[numatoms, 3]
+			(*numatoms)[currenttime] = shape[0].GetInt();
+			(*pos)[currenttime] = new float[**numatoms * 4];
+			if (el.HasMember("atom_species")) {
+				const rapidjson::GenericValue<rapidjson::UTF8<> > &results = el["atom_species"];
+				for (int i = 0; i < **numatoms ; i++)
+					(*pos)[currenttime][i*4+3]=results[i].GetInt()-1;
+
+
+				//atoms are stored in space coordinates, in meters
+				const rapidjson::GenericValue<rapidjson::UTF8<> > &flatdata = result["flatData"];
+				for (int i = 0; i < **numatoms ; i++) {
+					for (int j=0;j<3;j++)
+						(*pos)[currenttime][i*4+j] = flatdata[i*3+j].GetFloat()*1e10; //we store them in aangstrom
+
+					if (has_abc)
+						CloneSpatialAtoms((*pos)[currenttime], (*pos)[currenttime][3], (*clonedAtoms)+currenttime);
+				}
+			} // if atom_species
+			else return (-2);
+			currenttime++;
+		} // for ss.size
+	} // json parse error
+	else return -3;
+
+	if (has_abc)
+		for (int i=0;i<*timesteps;i++)
+			TransformAtoms((*clonedAtoms)+i, abc);
 	return 0;
 }
 
@@ -653,14 +701,21 @@ int readAtomsJson (const char *const f, int **numatoms, int *timesteps, float **
 		if (!result["a"].IsString() || !result["b"].IsString() || !result["c"].IsString())
 			return -2;
 		const char *myabc[3]={result["a"].GetString(), result["b"].GetString(), result["c"].GetString()};
+		bool allzeros=true;
 		for (int j=0;j<3;j++) {
 			r=sscanf(myabc[j], "(%f,%f,%f)", &(abc[j][0]), &(abc[j][1]), &(abc[j][2]));
 			if (r!=3)
 				return -5;
-			for (int k=0;k<3;k++)
+			for (int k=0;k<3;k++) {
 				abc[j][k]*=1e10; //using angstrom internally
+				if (abc[j][k]!=0)
+					allzeros=false;
+			}
 		}
-		
+
+		if (!allzeros)
+			has_abc=true;
+
 	}
 
 
@@ -694,7 +749,7 @@ int readAtomsJson (const char *const f, int **numatoms, int *timesteps, float **
 		const rapidjson::GenericValue<rapidjson::UTF8<> > &label=result["label"];
 		if (!label.IsInt())
 			return -2;
-		int k=label.GetInt();
+		int k=label.GetInt()-1;
 		(**pos)[4*i + 3]=(float)k;
 		const char *stringpos=result["position"].GetString();
 		
@@ -703,14 +758,17 @@ int readAtomsJson (const char *const f, int **numatoms, int *timesteps, float **
 			return -4;
 		//clone 
 		//https://gitlab.mpcdf.mpg.de/nomad-lab/encyclopedia-gui/blob/lauri_viz/viztools/structure/src/typescript/structureviewer.ts
-		Clone (tmppos, (float)k, *clonedAtoms);
+		//Rubén García, abc may be all 0 values; then we should not clone
+		if (has_abc) {
+			Clone (tmppos, (float)k, *clonedAtoms);
 		//atom positions in the abc domain, must multiply.
-		for (int s=0;s<3;s++)
-			(**pos)[4*i+s]=tmppos[0]*abc[0][s]+tmppos[1]*abc[1][s]+tmppos[2]*abc[2][s];
-
+			for (int s=0;s<3;s++)
+				(**pos)[4*i+s]=tmppos[0]*abc[0][s]+tmppos[1]*abc[1][s]+tmppos[2]*abc[2][s];
+		}
 	
 	}
-	TransformAtoms(*clonedAtoms, abc);
+	if (has_abc) 
+		TransformAtoms(*clonedAtoms, abc);
 
 //eprintf ("readAtomsJson, end");
 return 0;
