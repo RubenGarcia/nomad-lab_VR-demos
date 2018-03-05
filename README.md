@@ -1,3 +1,19 @@
+Purpose of this code:
+	The NOMADVR application can be used to visualize in virtual reality
+	different materials science datasets provided by NOMAD or final users.
+	Multiple platforms are supported by this code.
+	
+Context:
+	NOMADVR is provided in the context of the NOMAD Center of Excellence.
+	Datasets from the Encyclopedia and Archive are supported by NOMADVR.
+
+Requirements:
+	-Supported virtual reality hardware: HTC Vive or Oculus Rift, GearVR,
+		Google Cardboard for Android, or the LRZ CAVE environment.
+
+Usage Instructions:
+	See https://www.nomad-coe.eu/the-project/graphics/VR-prototype
+		
 Subdirectories:
 	OpenVR: Demos for HTC Vive.
 	OculusMobile: Demos for GearVR.
