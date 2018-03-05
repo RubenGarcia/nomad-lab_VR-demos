@@ -1,8 +1,11 @@
 This demo is based on 
+the LMU Geophysics Visualization for CAVE environments
 https://svn.lrz.de/repos/v2t/projects/demos/demoBunge/
 Revision 1538
 
 For use in LRZ CAVE and Powerwall.
+
+The demo depends on screenlib and synchlib LRZ libraries.
 
 Use in suse:
 Run once:
@@ -21,8 +24,8 @@ use in ubuntu:
 
 
 Run demo (on cavemaster 2): 
-./demoBunge_server /sw/config/mlib/cave_2.conf
+./NOMADCaveT_server /sw/config/mlib/cave_2.conf <file.ncfg>
 Run demo (on cavemaster 1):
-./demoBunge_server /sw/config/mlib/cave_1.conf
+./NOMADCaveT_server /sw/config/mlib/cave_1.conf <file.ncfg>
 
-WAIT 5 minutes
+
