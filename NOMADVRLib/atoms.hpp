@@ -62,6 +62,7 @@ void TransformAtoms(std::vector<float>* clonedAtoms, const float abc[3][3]);
 extern bool inv_abc_init;
 extern float inv_abc[3][3];
 
+extern const char * const atomNames[];
 extern std::vector<const char*> extraAtomNames;
 extern std::vector<float*> extraAtomData;
 

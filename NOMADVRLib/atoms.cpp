@@ -28,7 +28,7 @@
 
 #include "eprintf.h"
 #include "atoms.hpp"
-#include "ConfigFile.h"
+#include "ConfigFileAtoms.h"
 #include "rapidjson/document.h" 
 #include "rapidjson/filereadstream.h"
 #include "happyhttp/happyhttp.h"

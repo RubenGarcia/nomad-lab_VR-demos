@@ -36,9 +36,6 @@ float scaling;
 float markerscaling;
 
 float BACKGROUND[3];
-int* numAtoms; //[timesteps]
-float **atoms; //[timesteps][numAtoms[i]*4] //xyzu, u=atom number
-bool fixedAtoms; 
 
 float atomScaling;
 std::vector<float> *clonedAtoms;
@@ -55,11 +52,8 @@ bool showTrajectories;
 std::vector<int> atomtrajectories;
 std::vector<std::vector<int>> atomtrajectoryrestarts;
 
-float abc[3][3]; //basis vectors
-bool has_abc = false;
 bool displayunitcell;
-float supercell[3];
-int voxelSize[3];
+
 float unitcellcolour[4];
 float supercellcolour[4];
 
@@ -79,7 +73,6 @@ float nearclip, farclip;
 //markers such as hole positions and electron positions
 float ** markers;
 float ** markercolours;
-float cubetrans[3];
 
 float animationspeed;
 float movementspeed;

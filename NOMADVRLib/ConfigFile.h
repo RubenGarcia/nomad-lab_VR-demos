@@ -19,6 +19,7 @@
 #include <vector>
 #include "MyGL.h"
 #include "polyhedron.h"
+#include "ConfigFileAtoms.h"
 
 extern const char * PATH;
 extern const char * SCREENSHOT;
@@ -31,9 +32,7 @@ extern float userpos[3];
 extern float scaling;
 
 extern float BACKGROUND[3];
-extern int* numAtoms; //[timesteps]
-extern float **atoms; //[timesteps][numAtoms[i]*4] //xyzu, u=atom number
-extern bool fixedAtoms; //all timesteps use the atoms for timestep 0. Used for excitons etc.
+
 extern float atomScaling;
 extern std::vector<float> *clonedAtoms;
 extern std::vector<int> bonds;
@@ -49,10 +48,8 @@ extern bool showTrajectories;
 extern std::vector<int> atomtrajectories;
 extern std::vector<std::vector<int>> atomtrajectoryrestarts;
 
-extern float abc[3][3]; //basis vectors
-extern bool has_abc;
 extern bool displayunitcell;
-extern float supercell[3];
+
 extern float markerscaling;
 extern float unitcellcolour[4];
 extern float supercellcolour[4];
@@ -79,8 +76,6 @@ extern float movementspeed;  //how fast to move the user
 //markers such as hole positions and electron positions
 extern float ** markers;
 extern float ** markercolours;
-extern float cubetrans[3];
-extern int voxelSize[3];
 
 extern const char * loadConfigFileErrors[];
 
