@@ -25,6 +25,10 @@ Subdirectories:
 	
 	NOMADVRLib: Shared code between HTC Vive, GearVR and Google Cardboard demos related to NOMAD.
 	libs: Other (external) supporting libs shared by HTC Vive, GearVR, Cardboard and CAVE demos
+		happyhttp (Zlib license)
+		LodePNG (Zlib license)
+		rapidjson (MIT license)
+		rply (BSD 3-clause license)
 	
 	webserver: 
 		htdocs: Web pages containing the VR software and documentation.
