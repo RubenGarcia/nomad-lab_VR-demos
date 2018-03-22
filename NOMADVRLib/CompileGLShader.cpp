@@ -69,6 +69,10 @@ GLuint CompileGLShader( const char *pchShaderName, const char *pchVertexShader, 
 
 	//tess
 	if (pchTessEvalShader) {
+#if defined (__APPLE__) && !defined (GL_TESS_EVALUATION_SHADER)
+        eprintf ("Tess Eval Shaders unsupported on IOS");
+        return 0;
+#else
 		GLuint  nSceneTessShader = glCreateShader(GL_TESS_EVALUATION_SHADER);
 		glShaderSource(nSceneTessShader, 1, &pchTessEvalShader, nullptr);
 		glCompileShader(nSceneTessShader);
@@ -88,6 +92,7 @@ GLuint CompileGLShader( const char *pchShaderName, const char *pchVertexShader, 
 		}
 		glAttachShader(unProgramID, nSceneTessShader);
 		glDeleteShader(nSceneTessShader); // the program hangs onto this once it's attached
+#endif
 	}
 
 	glLinkProgram( unProgramID );

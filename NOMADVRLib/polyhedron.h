@@ -20,6 +20,8 @@
 #ifndef __POLYHEDRON_H
 #define __POLYHEDRON_H
 
+#include <math.h>
+
 class Icosahedron {
 public:
     static const int nFaces;

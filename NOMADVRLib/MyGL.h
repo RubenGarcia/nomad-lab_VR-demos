@@ -18,6 +18,7 @@
 #define __MYGL_H
 
 //FIXME, support more platforms in the future
+#ifndef __APPLE__
 #if defined(WIN32) || defined(CAVE)
 	#include <GL/glew.h>
 #else // Samsung GearVR + Oculus Mobile
@@ -36,5 +37,15 @@
 		#define GL_DEPTH_COMPONENT32 GL_DEPTH_COMPONENT32_OES
 	#endif
 #endif //WIN32
+#else //__APPLE__
+//#include <OpenGLES/EAGL.h>
+#include <OpenGLES/ES3/gl.h>
+#include <OpenGLES/ES3/glext.h>
+//#ifndef glGenVertexArrays
+//#define glGenVertexArrays glGenVertexArraysOES
+//#define glBindVertexArray glBindVertexArrayOES
+//#define glDeleteVertexArrays glDeleteVertexArraysOES
+//#endif
+#endif //__APPLE__
 
 #endif //__MYGL_H

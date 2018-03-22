@@ -305,8 +305,13 @@ bool SetupDepthPeeling(int renderWidth, int renderHeight, int zlayers, GLuint *t
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, renderWidth, renderHeight, 0, 
 			GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, 0);
 #else // 32 unsupported in GLES 3.0
+#ifdef __APPLE__
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, renderWidth, renderHeight, 0,
+                     GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+#else
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, renderWidth, renderHeight, 0, 
 			GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+#endif
 #endif
 
 		if ((e = glGetError()) != GL_NO_ERROR)

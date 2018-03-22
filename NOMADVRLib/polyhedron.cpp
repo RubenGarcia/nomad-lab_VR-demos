@@ -90,8 +90,8 @@ const int Tetrahedron::Faces[] = {
 
 const int Tetrahedron::nVerts = 4;
 const float Tetrahedron::Verts[] = {
-	sqrt(2.0f)/sqrt(3.0f)*1,		0,	-1.0f/sqrt(3.0f),
-	-sqrt(2.0f) / sqrt(3.0f) * 1, 0, -1.0f / sqrt(3.0f),
-	0,			sqrt(2.0f)/sqrt(3.0f), 1.0f / sqrt(3.0f),
-	0,			-sqrt(2.0f) / sqrt(3.0f), 1.0f / sqrt(3.0f),
+	sqrtf(2.0f)/sqrtf(3.0f)*1.0f,		0.0f,	-1.0f/sqrtf(3.0f),
+	-sqrtf(2.0f) / sqrtf(3.0f) * 1.0f, 0.0f, -1.0f / sqrtf(3.0f),
+	0.0f,			sqrtf(2.0f)/sqrtf(3.0f), 1.0f / sqrtf(3.0f),
+	0.0f,			-sqrtf(2.0f) / sqrtf(3.0f), 1.0f / sqrtf(3.0f),
 };

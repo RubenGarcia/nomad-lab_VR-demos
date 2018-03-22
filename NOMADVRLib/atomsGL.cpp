@@ -60,7 +60,11 @@ GLenum atomTexture(GLuint t)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, finalatoms, 1, 0, GL_RGBA, GL_FLOAT, a);
+#ifdef __APPLE__
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, finalatoms, 1, 0, GL_RGBA, GL_FLOAT, a);
+#else
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, finalatoms, 1, 0, GL_RGBA, GL_FLOAT, a);
+#endif
 
 	glBindTexture( GL_TEXTURE_2D, 0 );
 	if ((e = glGetError()) != GL_NO_ERROR) {

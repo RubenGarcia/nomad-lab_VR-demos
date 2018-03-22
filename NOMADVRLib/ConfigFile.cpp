@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "ConfigFile.h"
 #include "atoms.hpp"
