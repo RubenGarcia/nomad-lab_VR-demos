@@ -577,7 +577,7 @@ bool CMainApplication::BInit()
 	if( m_bDebugOpenGL )
 		SDL_GL_SetAttribute( SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_DEBUG_FLAG );
 
-	m_pWindow = SDL_CreateWindow( "Geophysics OpenVR SDL", nWindowPosX, nWindowPosY, m_nWindowWidth, m_nWindowHeight, unWindowFlags );
+	m_pWindow = SDL_CreateWindow( "NOMAD OpenVR", nWindowPosX, nWindowPosY, m_nWindowWidth, m_nWindowHeight, unWindowFlags );
 	if (m_pWindow == NULL)
 	{
 		printf( "%s - Window could not be created! SDL Error: %s\n", __FUNCTION__, SDL_GetError() );
@@ -2129,7 +2129,7 @@ void CMainApplication::RenderStereoTargets()
 	char name[100];
 
 #ifndef NOSAVINGSCREENSHOTS
-	if (savetodisk) {
+	if (menubutton==Record && savetodisk) {
 		sprintf(name, "%sL%05d.bmp", SCREENSHOT, framecounter);
 		SaveScreenshot(name);
 	}
@@ -2156,7 +2156,7 @@ void CMainApplication::RenderStereoTargets()
  	RenderScene( vr::Eye_Right );
 
 #ifndef NOSAVINGSCREENSHOTS
-	if (savetodisk && saveStereo) {
+	if (menubutton == Record &&savetodisk && saveStereo) {
 		sprintf(name, "%sR%05d.bmp", SCREENSHOT, framecounter);
 		SaveScreenshot(name);
 	}
@@ -2175,7 +2175,7 @@ void CMainApplication::RenderStereoTargets()
  	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0 );
 #ifndef NOSAVINGSCREENSHOTS
-	if (savetodisk) {
+	if (menubutton == Record && savetodisk) {
 		framecounter++;
 	}
 #endif
@@ -2492,11 +2492,20 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 	glEnable(GL_DEPTH_TEST);
 
 	if (ISOS==0) {
-		RenderInfo(nEye);
+		//simple transparency model for markers
+		if (showAtoms) {
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		}
+		if (menubutton==Infobox && savetodisk)
+			RenderInfo(nEye);
 		RenderAtoms(nEye);
 		RenderUnitCell(nEye);
 		if (showcontrollers)
 			RenderAllTrackedRenderModels(nEye);
+		if (showAtoms) {
+			glDisable(GL_BLEND);
+		}
 		return;
 	}
 
@@ -2529,7 +2538,8 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 				if ((e = glGetError()) != GL_NO_ERROR)
 					dprintf("Gl error after paintgrid: %d, %s\n", e, gluErrorString(e));
 				if (numAtoms!=0) {
-					RenderInfo(nEye);
+					if (menubutton == Infobox && savetodisk)
+						RenderInfo(nEye);
 					RenderAtoms(nEye);
 					RenderUnitCell(nEye);
 				}
@@ -2629,7 +2639,8 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 			glBindTexture(GL_TEXTURE_2D, 0);
 			glUseProgram(m_unSceneProgramID);
 			PaintGrid(nEye, currentiso);
-			RenderInfo(nEye);
+			if (menubutton == Infobox && savetodisk)
+				RenderInfo(nEye);
 			if (showcontrollers)
 				RenderAllTrackedRenderModels(nEye);
 		} //else currentiso =isos

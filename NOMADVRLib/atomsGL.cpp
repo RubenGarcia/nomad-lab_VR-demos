@@ -280,69 +280,76 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLu
 	float *current=tmp;
 	
 	const int atomlimit=30;
-	const float bondscaling=0.7f;
 
-	numBonds=new int[getAtomTimesteps() ];
 	for (int p=0;p<getAtomTimesteps() ;p++) {
+		for (int a = 0; a < numAtoms[p]; a++) {
+			for (int k = 0; k < 4; k++) {
+				*current++ = atoms[p][4 * a + k];
+			}
+		} //a
+	}
 
-			for (int a = 0; a < numAtoms[p]; a++) {
-				for (int k = 0; k < 4; k++) {
-					*current++ = atoms[p][4 * a + k];
-				}
-			} //a
-
-		if (numAtoms[0]<atomlimit) {
-		//eprintf ("searching bonds basic");
-		//bonds FIXME quadractic complexity	
-				for (int a1=0; a1 < numAtoms[p]; a1++) {
-					for (int a2=a1+1; a2 < numAtoms[p]; a2++) {
-						float d=0, r;
-						for (int k=0;k<3;k++) {
-							float dif=atoms[p][4 * a1 + k]-atoms[p][4 * a2 + k];
-							d+=dif*dif;
-						}
-						r=atomRadius(static_cast<int>(atoms[p][4 * a1 + 3]))+
-							atomRadius(static_cast<int>(atoms[p][4 * a2 + 3]));
-						if (d*bondscaling<r*r) {// bond
-							bonds.push_back(a1+(p==0?0:numAtoms[p-1]));
-							bonds.push_back(a2+(p==0?0:numAtoms[p-1]));
+	if (!displaybonds) {
+		numBonds=nullptr;
+		for (int p=1; p<getAtomTimesteps() ;p++) 
+				numAtoms[p]+=numAtoms[p-1];
+	} else {
+		numBonds=new int[getAtomTimesteps() ];
+		//can be slow, add loading screen here if Vive
+		for (int p=0;p<getAtomTimesteps() ;p++) {
+ 
+		if (numAtoms[p]<atomlimit) {
+			//eprintf ("searching bonds basic");
+			//bonds FIXME quadractic complexity	
+					for (int a1=0; a1 < numAtoms[p]; a1++) {
+						for (int a2=a1+1; a2 < numAtoms[p]; a2++){
+							float d=0, r;
+							for (int k=0;k<3;k++) {
+								float dif=atoms[p][4 * a1 + k]-atoms[p][4 * a2 + k];
+								d+=dif*dif;
+							}
+							r=atomRadius(static_cast<int>(atoms[p][4 * a1 + 3]))+
+								atomRadius(static_cast<int>(atoms[p][4 * a2 + 3]));
+							if (d*bondscaling<r*r) {// bond
+								bonds.push_back(a1+(p==0?0:numAtoms[p-1]));
+								bonds.push_back(a2+(p==0?0:numAtoms[p-1]));
+							}
 						}
 					}
-				}
-		} else { //more than 30 atoms, try grid optimization
-		//eprintf ("searching bonds grid");
+			} else { //more than 30 atoms, try grid optimization
+			//eprintf ("searching bonds grid");
 
-			float m[3];
-			float M[3];
-			for (int k=0; k<3;k++) {
-				m[k]=M[k]=atoms[p][k];
-			}
-			for (int a = 1; a < numAtoms[p]; a++) {
+				float m[3];
+				float M[3];
 				for (int k=0; k<3;k++) {
-					if (m[k]>atoms[p][4*a+k])
-						m[k]=atoms[p][4*a+k];
-					if (M[k]<atoms[p][4*a+k])
-						M[k]=atoms[p][4*a+k];
+					m[k]=M[k]=atoms[p][k];
+				}
+				for (int a = 1; a < numAtoms[p]; a++) {
+					for (int k=0; k<3;k++) {
+						if (m[k]>atoms[p][4*a+k])
+							m[k]=atoms[p][4*a+k];
+						if (M[k]<atoms[p][4*a+k])
+							M[k]=atoms[p][4*a+k];
+					}
+				}
+				grid g(m, M, pow(numAtoms[p], 1.0f/3.0f), bondscaling);
+				for (int a = 1; a < numAtoms[p]; a++) 
+					g.add(atoms[p]+4*a);
+				for (int a = 0; a < numAtoms[p]; a++) {
+					std::vector<float*> found=g.find(atoms[p]+4*a);
+					for (int b=0;b<found.size();b++) {
+						//if (found[b] < tmp+4*a) // already got this bound
+						//	continue;
+						bonds.push_back(a+(p==0?0:numAtoms[p-1]));
+						bonds.push_back(((found[b]-atoms[p])/4)+(p==0?0:numAtoms[p-1]));
+					}
 				}
 			}
-			grid g(m, M, pow(numAtoms[p], 1.0f/3.0f), bondscaling);
-			for (int a = 1; a < numAtoms[p]; a++) 
-				g.add(atoms[p]+4*a);
-			for (int a = 0; a < numAtoms[p]; a++) {
-				std::vector<float*> found=g.find(atoms[p]+4*a);
-				for (int b=0;b<found.size();b++) {
-					//if (found[b] < tmp+4*a) // already got this bound
-					//	continue;
-					bonds.push_back(a+(p==0?0:numAtoms[p-1]));
-					bonds.push_back(((found[b]-atoms[p])/4)+(p==0?0:numAtoms[p-1]));
-				}
-			}
-		}
-		numBonds[p]=bonds.size();
-		if (p!=0)
-			numAtoms[p]+=numAtoms[p-1];
-	} //p
-
+			numBonds[p]=bonds.size();
+			if (p!=0)
+				numAtoms[p]+=numAtoms[p-1];
+		} //p
+	} // showbonds
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
 	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(3 * sizeof(float)));
 	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * totalatoms * 4 , tmp,
@@ -354,7 +361,7 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLu
 
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf( "opengl error %d, end of SetupAtoms, l %d\n", e, __LINE__);
-
+	
 	if (showTrajectories) {
 			//fill the restart buffer
 		//use abc for measuring
@@ -405,18 +412,19 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLu
 	}
 	delete[] tmp;
 	//bonds
-	glBindVertexArray((*AtomVAO)[2]);
-	glBindBuffer(GL_ARRAY_BUFFER, (*AtomVertBuffer)[0]);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *BondIndices);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int)*bonds.size(), bonds.data(), GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
-	glEnableVertexAttribArray(0);
-	glBindVertexArray(0);
-
-	e=glGetError();
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf( "opengl error %d, creating chemical bonds, l %d\n", e, __LINE__);
-
+	if (displaybonds) {
+		glBindVertexArray((*AtomVAO)[2]);
+		glBindBuffer(GL_ARRAY_BUFFER, (*AtomVertBuffer)[0]);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *BondIndices);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int)*bonds.size(), bonds.data(), GL_STATIC_DRAW);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
+		glEnableVertexAttribArray(0);
+		glBindVertexArray(0);
+	
+		e=glGetError();
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf( "opengl error %d, creating chemical bonds, l %d\n", e, __LINE__);
+	}
 	//now clones
 	if (basisvectorreps ||!clonedAtoms) //do not replicate
 		return e;

@@ -29,4 +29,6 @@ extern int voxelSize[3];
 
 extern float supercell[3];
 
+extern float bondscaling;
+
 #endif //CONFIGFILEATOMS_H

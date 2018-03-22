@@ -77,6 +77,8 @@ float ** markercolours;
 float animationspeed;
 float movementspeed;
 
+menubutton_t menubutton;
+
 std::vector<information> info;
 
 const char * loadConfigFileErrors[] =
@@ -233,6 +235,10 @@ void initState()
 	infolinecolour[1] = 1.0f;
 	infolinecolour[2] = 0.0f;
 	infolinecolour[3] = 1.0f;
+
+	menubutton = Record;
+
+	bondscaling = 0.7f;
 }
 
 int loadConfigFile(const char * f)
@@ -636,10 +642,25 @@ int loadConfigFile(const char * f)
 			r=fscanf (F, "%f %f %f", infolinecolour, infolinecolour+1, infolinecolour+2);
 			if (r<3)
 				eprintf ("Error reading atomtrajectorycolour value");
-		} else if (!strcmp (s, "animationspeed")) {
-			r=fscanf (F, "%f", &animationspeed);
+		}
+		else if (!strcmp(s, "animationspeed")) {
+			r = fscanf(F, "%f", &animationspeed);
+			if (r < 1)
+				eprintf("Error reading animationspeed");
+		}
+		else if (!strcmp(s, "")) {
+			r = fscanf(F, "%f", &bondscaling);
 			if (r<1)
-				eprintf ("Error reading animationspeed");
+				eprintf("Error reading bondscaling");
+			bondscaling = sqrt(bondscaling);
+		} else if (!strcmp(s, "menubutton")) {
+			r = fscanf(F, "%s", s);
+			if (!strcmp(s, "Record"))
+				menubutton = Record;
+			else if (!strcmp(s, "Infobox"))
+				menubutton = Infobox;
+			else if (!strcmp (s, "Nothing"))
+				menubutton = Nothing;
 		} else if (!strcmp (s, "movementspeed")) {
 			r=fscanf (F, "%f", &movementspeed);
 			if (r<1)

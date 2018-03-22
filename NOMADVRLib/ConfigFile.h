@@ -89,6 +89,15 @@ struct information {
 	GLuint tex;
 };
 
+typedef enum {
+	Record,
+	Infobox,
+	Nothing
+} menubutton_t;
+
+extern menubutton_t menubutton;
+
 extern std::vector<information> info;
+
 
 #endif //__CONFIGFILE_H

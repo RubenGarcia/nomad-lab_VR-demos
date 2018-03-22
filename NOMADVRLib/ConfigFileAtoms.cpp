@@ -25,3 +25,5 @@ float cubetrans[3];
 
 float supercell[3];
 int voxelSize[3];
+
+float bondscaling;
