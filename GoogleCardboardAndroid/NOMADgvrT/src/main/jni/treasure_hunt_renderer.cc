@@ -522,6 +522,11 @@ glGenTextures(2+ZLAYERS, textDepthPeeling);
 		eprintf ("SetupUnitCell error %d", e);
 		error=-406;
 	}
+	e=SetupMarkerNoTess(&MarkerVAO, &MarkerVertBuffer, &MarkerIndexBuffer);
+	if (e!=GL_NO_ERROR) {
+		eprintf ("SetupMarkerNoTess error %d", e);
+		error=-411;
+	}
 
   // Because we are using 2X MSAA, we can render to half as many pixels and
   // achieve similar quality.
@@ -540,6 +545,9 @@ glGenTextures(2+ZLAYERS, textDepthPeeling);
   viewport_list_.reset(
       new gvr::BufferViewportList(gvr_api_->CreateEmptyBufferViewportList()));
 
+   if (ISOS || markers) {
+	PrepareISOShader(&ISOP, &ISOMatrixLoc);
+   }
 //isosurfaces
 	if (ISOS) {
 		currentIso=ISOS;
@@ -568,7 +576,6 @@ glGenTextures(2+ZLAYERS, textDepthPeeling);
 			error=-408;
 		}
 		SetupBlending(&BlendVAO, &BlendBuffer, &BlendIndices);
-		PrepareISOShader(&ISOP, &ISOMatrixLoc);
 
 		std::vector<float> vertices;
 #ifndef INDICESGL32
@@ -952,6 +959,42 @@ if (curDataPos!=ISOS) {
 glBindVertexArray(0);
 }
 
+void TreasureHuntRenderer::RenderMarker(const float *m) //m[16]
+{
+int e;
+if (!markers)
+	return;
+
+glEnable(GL_BLEND);
+glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+glBindVertexArray(MarkerVAO);
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("b %d", e);
+glUseProgram(ISOP);
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("c %d", e);
+glUniformMatrix4fv(ISOMatrixLoc, 1, GL_FALSE, m);
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("d %d, matrixloc=%d, program=%d", e, ISOMatrixLoc, ISOP); 
+glDrawElements(GL_TRIANGLES, 3*3*MARKERSOLID::nFaces, 
+#ifndef INDICESGL32				
+				GL_UNSIGNED_SHORT, (void*)(currentSet*sizeof(unsigned short)*3*3*MARKERSOLID::nFaces
+)
+#else
+				GL_UNSIGNED_INT, (void*)(currentSet*sizeof(unsigned int)*3*3*MARKERSOLID::nFaces
+)
+#endif
+	);
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("e %d", e);
+glBindVertexArray(0);
+if ((e = glGetError()) != GL_NO_ERROR)
+	eprintf("f %d", e);
+
+glDisable(GL_BLEND);
+}
+
+
 void TreasureHuntRenderer::RenderAtoms(const float *m) //m[16]
 {
 	//eprintf ("RenderAtoms start numatoms %d, timestep %d", numAtoms[currentSet], currentSet);
@@ -966,37 +1009,37 @@ void TreasureHuntRenderer::RenderAtoms(const float *m) //m[16]
 		return;
 	} else { //no tess
 		glBindVertexArray(AtomVAO[0]);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, AtomIndices[0]);
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("1 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
-	glBindBuffer(GL_ARRAY_BUFFER, AtomBuffer[0]);
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("2 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, AtomIndices[0]);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("1 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
+		glBindBuffer(GL_ARRAY_BUFFER, AtomBuffer[0]);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("2 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7*sizeof(float), (const void *)0);
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("3 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7*sizeof(float), (const void *)0);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("3 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
 
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (const void *)(3*sizeof(float)));
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("4 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (const void *)(3*sizeof(float)));
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("4 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
 
-	glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (const void *)(6 * sizeof(float)));
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("5 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
+		glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (const void *)(6 * sizeof(float)));
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("5 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
 
 		glBindTexture(GL_TEXTURE_2D, textures[1]);
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("6 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("6 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
 
 		glUseProgram(AtomsP);
 		glUniform1f(totalatomsLocation, (float)getTotalAtomsInTexture());
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("7 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("7 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
 
 		glUniformMatrix4fv(AtomMatrixLoc, 1, GL_FALSE, m);
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("8 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("8 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
 
 		if (currentSet==0) {
 			glDrawElements(GL_TRIANGLES, numAtoms[currentSet]* 3 * solid->nFaces, 
@@ -1006,8 +1049,8 @@ void TreasureHuntRenderer::RenderAtoms(const float *m) //m[16]
 				GL_UNSIGNED_INT,
 #endif	
 				0);
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("9 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			eprintf("9 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
 
 		} else {
 			glDrawElements(GL_TRIANGLES, (numAtoms[currentSet]-numAtoms[currentSet-1]) * 3 * solid->nFaces,
@@ -1017,8 +1060,8 @@ void TreasureHuntRenderer::RenderAtoms(const float *m) //m[16]
 				GL_UNSIGNED_INT, (void*)(numAtoms[currentSet-1]*sizeof(unsigned int)*3*solid->nFaces)
 #endif
 				);
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("10 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
+			if ((e = glGetError()) != GL_NO_ERROR)
+				eprintf("10 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
 
 		}
 		if ((e = glGetError()) != GL_NO_ERROR)
@@ -1028,12 +1071,12 @@ void TreasureHuntRenderer::RenderAtoms(const float *m) //m[16]
 			glBindVertexArray(AtomVAO[1]);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, AtomIndices[1]);
 			glBindBuffer(GL_ARRAY_BUFFER, AtomBuffer[1]);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7*sizeof(float), (const void *)0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (const void *)(3*sizeof(float)));
-	glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (const void *)(6 * sizeof(float)));
+			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7*sizeof(float), (const void *)0);
+			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (const void *)(3*sizeof(float)));
+			glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (const void *)(6 * sizeof(float)));
 
-	if ((e = glGetError()) != GL_NO_ERROR)
-		eprintf("5 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
+			if ((e = glGetError()) != GL_NO_ERROR)
+				eprintf("5 Gl error RenderAtom timestep =%d: %d\n", currentSet, e);
 			glDrawElements(GL_TRIANGLES, numClonedAtoms* 3 * solid->nFaces, 
 #ifndef INDICESGL32				
 				GL_UNSIGNED_SHORT,
@@ -1072,6 +1115,7 @@ if ((e = glGetError()) != GL_NO_ERROR)
 	eprintf("Gl error after glUniform4fv 1 RenderAtomTrajectories: %d\n", e);
 RenderAtomTrajectoriesUnitCell();
 RenderAtoms(t);
+RenderMarker(t);
 }
 
 void TreasureHuntRenderer::RenderAtomTrajectoriesUnitCell()
@@ -1192,6 +1236,7 @@ gvr::Mat4f transform = MatrixMul(eyeViewProjection, MatrixMul(sc, MatrixMul(tran
 					//atom trajectories
 					RenderAtomTrajectoriesUnitCell();
 					RenderAtoms(t);
+					RenderMarker(t);
 				}
 }
 

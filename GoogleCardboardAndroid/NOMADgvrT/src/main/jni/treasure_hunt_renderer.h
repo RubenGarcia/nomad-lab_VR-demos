@@ -162,7 +162,8 @@ GLuint peelingFramebuffer;
 	//if no tesselation is available, we still need the tess atoms for the trajectories!
 	GLuint *AtomTVAO=nullptr, *AtomTBuffer=nullptr, *AtomVAO=nullptr, *AtomBuffer=nullptr, *AtomIndices=nullptr,//[2], atoms, extraatoms
 		BondIndices,
-		UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer;
+		UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer,
+		MarkerVAO, MarkerVertBuffer, MarkerIndexBuffer;
 GLuint			AtomsP, UnitCellP; // framework does not provide support for tesselation and provides many things we don't need.
 	GLint		AtomMatrixLoc, UnitCellMatrixLoc, UnitCellColourLoc, totalatomsLocation;
 GLuint	TransP=0, BlendP=0;
@@ -182,6 +183,7 @@ bool animateMovement=false;
 int currentIso;
 
 void RenderAtoms(const float *m);
+void RenderMarker(const float *m);
 void RenderUnitCell(const gvr::Mat4f eyeViewProjection);
 void RenderAtomTrajectoriesUnitCell();
 void RenderAtomTrajectories(const gvr::Mat4f eyeViewProjection);

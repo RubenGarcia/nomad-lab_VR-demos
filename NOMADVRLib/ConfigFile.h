@@ -76,6 +76,7 @@ extern float movementspeed;  //how fast to move the user
 //markers such as hole positions and electron positions
 extern float ** markers;
 extern float ** markercolours;
+#define MARKERSOLID Octahedron
 
 extern const char * loadConfigFileErrors[];
 

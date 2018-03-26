@@ -81,7 +81,6 @@ GLenum SetupAtomsNoTess (GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer/*[3]*
 	//atoms, cloned atoms
 	//rgh: FIXME: add AtomVAO[2] for atom trajectories
 {
-	//eprintf ("SetupAtomsNoTess 1");
 if (!numAtoms)
 		return 0;
 
@@ -90,15 +89,12 @@ if (!solid) {
 	return 0;
 }
 
-//eprintf ("SetupAtomsNoTess 2");
-	//for now, render an icosahedron
 	//http://prideout.net/blog/?p=48 //public domain code
-	//xyz nxnynz u=atom type ; 7 floats
+	//xyz nxnynz u=atom type ; 7 floats; u only used for colour
 	int e;
 
 	int totalatoms=numAtoms[getAtomTimesteps() -1];
 	
-//eprintf ("SetupAtomsNoTess 2");
 	*AtomVAO = new GLuint[4]; //atoms, cloned atoms, unused (bonds use Tess atom positions), trajectories
 	*AtomIndexBuffer= new GLuint[3];//atoms, cloned atoms, bonds
 	*AtomVertBuffer = new GLuint[3];//atoms, cloned atoms, trajectories
@@ -106,25 +102,19 @@ if (!solid) {
 	glGenVertexArrays(4, *AtomVAO);
 	glGenBuffers(2, *AtomIndexBuffer);
 	glGenBuffers(3, *AtomVertBuffer);
-//eprintf ("SetupAtomsNoTess 3");
 	glBindVertexArray((*AtomVAO)[0]);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, (*AtomIndexBuffer)[0]);
 	glBindBuffer(GL_ARRAY_BUFFER, (*AtomVertBuffer)[0]);
-//eprintf ("SetupAtomsNoTess 4");
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
 	glEnableVertexAttribArray(2);
 	glDisableVertexAttribArray(3);
-	//eprintf ("SetupAtomsNoTess 5, totalatoms=%d, nVerts=%d", totalatoms, solid->nVerts);
 	float *tmp = new float[solid->nVerts * 7 * totalatoms];
-	//eprintf ("SetupAtomsNoTess 6");
 #ifdef INDICESGL32		
 	int *tmpi = new int[solid->nFaces*3 * totalatoms];
-	//eprintf ("SetupAtomsNoTess 7");
 	int *currenti=tmpi;
 #else
 	unsigned short *tmpi = new unsigned short[solid->nFaces*3 * totalatoms];
-	//eprintf ("SetupAtomsNoTess 7B");
 	unsigned short *currenti=tmpi;
 #endif
 
@@ -168,8 +158,6 @@ if (!solid) {
 	if (glGetError() != GL_NO_ERROR)
 		eprintf("opengl error attrib pointer 0\n");
 
-	//glBindVertexArray(0);
-	//glDisableVertexAttribArray(0);
 	delete[] tmp;
 	delete[] tmpi;
 	if ((e = glGetError()) != GL_NO_ERROR)
@@ -178,17 +166,13 @@ if (!solid) {
 	//FIXME TODO: cloned atoms
 	tmp = new float[solid->nVerts * 7 * numClonedAtoms];
 	current=tmp;
-	//eprintf ("SetupAtomsNoTess 6");
 #ifdef INDICESGL32		
 	tmpi = new int[solid->nFaces*3 * numClonedAtoms];
-	//eprintf ("SetupAtomsNoTess 7");
 	currenti=tmpi;
 #else
 	tmpi = new unsigned short[solid->nFaces*3 * numClonedAtoms];
-	//eprintf ("SetupAtomsNoTess 7B");
 	currenti=tmpi;
 #endif
-	//eprintf ("Before For 2");
 
 	for (int a = 0; a < numClonedAtoms; a++) {
 		const int atomNumber = static_cast<int>(clonedAtoms[0][4 * a + 3]);
@@ -206,9 +190,6 @@ if (!solid) {
 			*currenti++ = solid->Faces[i] + a*solid->nVerts;
 	} //a
 	
-	//eprintf ("After For 2");
-
-
 	glBindVertexArray((*AtomVAO)[1]);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, (*AtomIndexBuffer)[1]);
 	glBindBuffer(GL_ARRAY_BUFFER, (*AtomVertBuffer)[1]);
@@ -525,8 +506,104 @@ GLenum SetupInfoCube (GLuint *VAO, GLuint *VertBuffer, GLuint *IndexBuffer)
 	return glGetError();
 }
 
-GLenum SetupMarker(GLuint *MarkerVAO, GLuint *MarkerVertBuffer)
+float getMarkerLobeScaling(int l, int k)
 {
+	if (l == k)
+		return 2.0f;
+	return 0.5f;
+}
+
+GLenum SetupMarkerNoTess(GLuint *MarkerVAO, GLuint *MarkerVertBuffer, GLuint *MarkerIndexBuffer)
+{
+	if (!markers)
+		return glGetError();
+
+	GLenum e;
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("opengl error %d, begin of SetupMarkerNoTess\n", e, __LINE__);
+
+	glGenVertexArrays(1, MarkerVAO);
+	glGenBuffers(1, MarkerVertBuffer);
+	glGenBuffers(1, MarkerIndexBuffer);
+
+	glBindVertexArray(*MarkerVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, *MarkerVertBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *MarkerIndexBuffer);
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(2);
+	glDisableVertexAttribArray(3);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 10 * sizeof(float), (const void *)0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 10 * sizeof(float), (const void *)(3 * sizeof(float)));
+	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 10 * sizeof(float), (const void *)(6 * sizeof(float)));
+
+	float *tmp = new float[10 * MARKERSOLID::nVerts*3* TIMESTEPS]; //xyz, nxnynz, rgba; compatible with IsoShaders
+	float *current = tmp;
+	for (int i = 0; i < TIMESTEPS; i++) {
+		for (int l = 0; l < 3; l++) {//3 ellipsoids
+			for (int j = 0; j < MARKERSOLID::nVerts; j++) {
+				for (int k = 0; k < 3; k++) { //pos
+					float s = getMarkerLobeScaling(l, k);
+					*current++ = s*MARKERSOLID::Verts[j * 3 + k] * markerscaling * atomScaling/* * atomRadius(0)*/ +
+						markers[i][k];
+				}
+				float length=0;
+				for (int k = 0; k < 3; k++) { //normal; normalized in IsoShader
+					float s = getMarkerLobeScaling(l, k);
+					*current = MARKERSOLID::Verts[j * 3 + k]*s;
+					length += (*current)*(*current);
+					current++;
+				}
+				length=1.0f / sqrtf(length);
+				for (int k=0;k<3;k++) {
+					*(current-1-k)*=length;
+				}
+				for (int k = 0; k < 4; k++) { //colour
+					*current++ = markercolours[i][k];
+				}
+			}
+		}
+	}
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 10 * MARKERSOLID::nVerts * 3 * TIMESTEPS, tmp,
+		GL_STATIC_DRAW);
+
+	delete[] tmp;
+#ifdef INDICESGL32		
+	int *tmpi=new int[TIMESTEPS * 3 * Icosahedron::nFaces * 3];
+	int * currenti;
+#else
+	short *tmpi = new short[TIMESTEPS * 3 * Icosahedron::nFaces * 3];
+	short *currenti;
+#endif
+
+	currenti = tmpi;
+	for (int i = 0; i < TIMESTEPS; i++) {
+		for (int l = 0; l < 3; l++) {//ellipsoids
+			for (int j = 0; j < MARKERSOLID::nFaces; j++) {
+				for (int k = 0; k < 3; k++) {
+					*currenti++ = MARKERSOLID::Faces[j * 3 + k] + 
+						MARKERSOLID::nVerts * (l+3*i);
+				}
+			}
+		}
+	}
+
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+#ifdef INDICESGL32		
+		sizeof(int)*MARKERSOLID::nFaces * 3 * TIMESTEPS * 3
+#else
+		sizeof(unsigned int)*MARKERSOLID::nFaces * 3 * TIMESTEPS * 3
+#endif
+		, tmpi, GL_STATIC_DRAW);
+	delete[] tmpi;
+	glBindVertexArray(0);
+	return e;
+}
+
+GLenum SetupMarker(GLuint *MarkerVAO, GLuint *MarkerVertBuffer)
+{//requires tesselation
 	if (!markers)
 		return glGetError();
 	GLenum e;
