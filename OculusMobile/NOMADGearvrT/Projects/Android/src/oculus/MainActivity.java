@@ -15,6 +15,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.content.Intent;
 import com.oculus.vrappframework.VrActivity;
+import com.lrz.NOMADGearvrT.R;
 
 public class MainActivity extends VrActivity {
 	public static final String TAG = "NOMADGearvrT";
@@ -82,8 +83,52 @@ public static void verifyStoragePermissions(android.app.Activity activity) {
         }
     }	
 	*/
+	
+	private void SaveToDisk (java.io.InputStream is, java.lang.String name)
+	{ //https://stackoverflow.com/questions/10854211/android-store-inputstream-in-file
+	try {
+		try {
+			java.io.File f=new java.io.File(name);
+			java.io.OutputStream output = new java.io.FileOutputStream(f);
+			try {
+				byte[] buffer = new byte[4 * 1024]; // or other buffer size
+				int read;
+
+				while ((read = is.read(buffer)) != -1) {
+					output.write(buffer, 0, read);
+				}
+
+			output.flush();
+			} finally {
+			output.close();
+			}
+		} finally {
+			is.close();
+		}
+	} catch (java.io.IOException e) {
+			android.util.Log.d("NOMADgvrT","java.io.IOException, e="+e);
+	}
+	}
+	
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+		
+		//export example file
+		java.io.File d= new java.io.File ("/sdcard/Oculus/NomadGearVR");
+		try{
+			if (!d.exists()) {
+				d.mkdir();
+			}
+		} 
+		catch(java.lang.SecurityException e){
+			android.util.Log.d("NOMADgvrT","java.lang.SecurityException, e="+e);
+		} 
+		java.io.InputStream is=this.getApplicationContext().getResources().
+			openRawResource (com.lrz.NOMADGearvrT.R.raw.xyz);
+		SaveToDisk(is, "/sdcard/Oculus/NomadGearVR/cytosine.xyz");
+		is=this.getApplicationContext().getResources().openRawResource (com.lrz.NOMADGearvrT.R.raw.ncfg);
+		SaveToDisk(is, "/sdcard/Oculus/NomadGearVR/cytosine.ncfg");
+		//end export
 		
         super.onCreate(savedInstanceState);
 		
@@ -98,9 +143,10 @@ public static void verifyStoragePermissions(android.app.Activity activity) {
 			uriString=Filepath.getFilePath (this.getApplicationContext(), u);
 		} catch (java.net.URISyntaxException e) {
 		android.util.Log.d("NOMADgvrT","URISyntaxException, e="+e);
-		uriString=null;
+		uriString="/sdcard/Oculus/NomadGearVR/cytosine.ncfg";
 		}
 
+		android.util.Log.d("NOMADgvrT","Uristring is="+uriString);
 		setAppPtr( nativeSetAppInterface( this, fromPackageNameString, commandString, uriString ) );
     }   
 }

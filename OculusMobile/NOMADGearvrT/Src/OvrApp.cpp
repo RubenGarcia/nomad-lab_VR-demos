@@ -115,12 +115,12 @@ void OvrApp::OneTimeInit( const char * fromPackage, const char * launchIntentJSO
 	//}
 	
 	const char *configLocation="/sdcard/NOMAD/NOMADGearVR.cfg";
-	const char *defaultURI="/sdcard/Oculus/NOMAD/ViveTDefault.ncfg";
+	const char *defaultURI="/sdcard/Oculus/NomadGearVR/cytosine.ncfg";
 
 	char finalURI[1024];
 	FILE *cl = fopen (configLocation, "r");
 	if (cl==nullptr) {
-		LOG("NOMADGearVRT, /sdcard/NOMAD/NOMADGearVR.cfg not found, using default at /sdcard/Oculus/NOMAD/ViveTDefault.ncfg");
+		LOG("NOMADGearVRT, /sdcard/NOMAD/NOMADGearVR.cfg not found, using default at /sdcard/Oculus/NomadGearVR/cytosine.ncfg");
 		strcpy(finalURI, defaultURI);
 	} else {
         fgets(finalURI, 1024, cl);
@@ -175,14 +175,14 @@ void OvrApp::OneTimeInit( const char * fromPackage, const char * launchIntentJSO
 		LOG("NOMADGearVRT No atom glyph specified, using Icosahedron");
 		solid=new Solid(Solid::Type::Icosahedron);
 	}
-	LOG("OneTimeInit, 2");
+//	LOG("OneTimeInit, 2");
 	const ovrJava * java = app->GetJava();
 	SoundEffectContext = new ovrSoundEffectContext( *java->Env, java->ActivityObject );
 	SoundEffectContext->Initialize();
 	SoundEffectPlayer = new OvrGuiSys::ovrDummySoundEffectPlayer();
-LOG("OneTimeInit, 3");
+//LOG("OneTimeInit, 3");
 	Locale = ovrLocale::Create( *app, "default" );
-LOG("OneTimeInit, 4");
+//LOG("OneTimeInit, 4");
 	String fontName;
 	GetLocale().GetString( "@string/font_name", "efigs.fnt", fontName );
 	GuiSys->Init( this->app, *SoundEffectPlayer, fontName.ToCStr(), &app->GetDebugLines() );
@@ -232,9 +232,16 @@ LOG("OneTimeInit, 4");
 	if (e!=GL_NO_ERROR)
 		eprintf ("SetupUnitCell error %d", e);
 
-	if (ISOS) {
-		PrepareISOShader(&ISOP, &ISOMatrixLoc);
+    e=SetupMarkerNoTess(&MarkerVAO, &MarkerVertBuffer, &MarkerIndexBuffer);
+    if (e!=GL_NO_ERROR) {
+        eprintf ("SetupMarkerNoTess error %d", e);
+    }
 
+    if (ISOS || markers) {
+        PrepareISOShader(&ISOP, &ISOMatrixLoc);
+    }
+
+    if (ISOS) {
         float m=BACKGROUND[0];
         m=std::max(m, BACKGROUND[1]);
         m=std::max(m, BACKGROUND[2]);
@@ -469,11 +476,44 @@ void OvrApp::RenderIsos(const OVR::Matrix4f eyeViewProjection, int iso) {
     glBindVertexArray(0);
 }
 
+void OvrApp::RenderMarker(const float *m) //m[16]
+{
+int e;
+if (!markers)
+    return;
 
+glEnable(GL_BLEND);
+glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+glBindVertexArray(MarkerVAO);
+if ((e = glGetError()) != GL_NO_ERROR)
+    eprintf("b %d", e);
+glUseProgram(ISOP);
+if ((e = glGetError()) != GL_NO_ERROR)
+    eprintf("c %d", e);
+glUniformMatrix4fv(ISOMatrixLoc, 1, GL_FALSE, m);
+if ((e = glGetError()) != GL_NO_ERROR)
+    eprintf("d %d, matrixloc=%d, program=%d", e, ISOMatrixLoc, ISOP);
+glDrawElements(GL_TRIANGLES, 3*3*MARKERSOLID::nFaces,
+#ifndef INDICESGL32
+                GL_UNSIGNED_SHORT, (void*)(currentSet*sizeof(unsigned short)*3*3*MARKERSOLID::nFaces
+)
+#else
+                GL_UNSIGNED_INT, (void*)(currentSet*sizeof(unsigned int)*3*3*MARKERSOLID::nFaces
+)
+#endif
+    );
+if ((e = glGetError()) != GL_NO_ERROR)
+    eprintf("e %d", e);
+glBindVertexArray(0);
+if ((e = glGetError()) != GL_NO_ERROR)
+    eprintf("f %d", e);
+
+glDisable(GL_BLEND);
+}
 
 void OvrApp::RenderAtoms(const float *m) //m[16]
 {
-	eprintf ("RenderAtoms start numatoms %d", numAtoms);
+    //eprintf ("RenderAtoms start numatoms %d", numAtoms);
 	int e;
 	if (numAtoms==0)
 		return;
@@ -607,6 +647,7 @@ void OvrApp::RenderUnitCell(const Matrix4f eyeViewProjection)
 					//atom trajectories
 					RenderAtomTrajectoriesUnitCell();
 					RenderAtoms(t);
+                    RenderMarker(t);
 				}
 }
 
@@ -628,6 +669,7 @@ void OvrApp::RenderAtomTrajectories (const Matrix4f eyeViewProjection)
     glUniformMatrix4fv(UnitCellMatrixLoc, 1, GL_FALSE, t);
     RenderAtomTrajectoriesUnitCell();
     RenderAtoms(t);
+    RenderMarker(t);
 }
 
 Matrix4f OvrApp::DrawEyeView( const int eye, const float fovDegreesX, const float fovDegreesY, ovrFrameParms & frameParms )

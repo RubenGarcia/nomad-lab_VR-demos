@@ -56,7 +56,8 @@ private:
 	//if no tesselation is available, we still need the tess atoms for the trajectories!
     GLuint *AtomTVAO=nullptr, *AtomTBuffer=nullptr, BondIndices=0, *AtomVAO=nullptr, *AtomBuffer=nullptr,
         *AtomIndices=nullptr,//[2], atoms, extraatoms
-		UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer;
+        UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer,
+        MarkerVAO, MarkerVertBuffer, MarkerIndexBuffer;
 
 	GLuint *ISOVAO=nullptr/*[ISOS*TIMESTEPS]*/, *ISOBuffer=nullptr/*[ISOS*TIMESTEPS]*/,
 		*ISOIndices=nullptr/*[ISOS*TIMESTEPS]*/;
@@ -65,6 +66,7 @@ private:
 	int *numISOIndices=nullptr/*[ISOS*TIMESTEPS]*/;
 		
 	void RenderAtoms(const float *m);
+    void RenderMarker(const float *m);
 	void RenderUnitCell(const OVR::Matrix4f eyeViewProjection);
     void RenderAtomTrajectories (const OVR::Matrix4f eyeViewProjection);
 	void RenderAtomTrajectoriesUnitCell();

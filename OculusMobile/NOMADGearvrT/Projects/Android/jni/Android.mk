@@ -6,7 +6,9 @@ include ../../../../../cflags.mk
 
 LOCAL_MODULE			:= ovrapp
 LOCAL_SRC_FILES			:= ../../../Src/OvrApp.cpp ../../../Src/rply/rply.c \
-	../../../Src/NOMADVRLib/ConfigFile.cpp ../../../Src/NOMADVRLib/atoms.cpp \
+	../../../Src/NOMADVRLib/ConfigFile.cpp \
+	../../../Src/NOMADVRLib/ConfigFileAtoms.cpp \
+	../../../Src/NOMADVRLib/atoms.cpp \
 	../../../Src/happyhttp/happyhttp.cpp \
 	../../../Src/NOMADVRLib/atomsGL.cpp \
 	../../../Src/NOMADVRLib/CompileGLShader.cpp \
