@@ -130,10 +130,12 @@ unsigned int geo[2]; //window width, height
 	//if no tesselation is available, we still need the tess atoms for the trajectories!
 GLuint *AtomTVAO=nullptr, *AtomTBuffer=nullptr, BondIndices=0,
 	*AtomVAO=nullptr, *AtomBuffer=nullptr, *AtomIndices=nullptr,//[2], atoms, extraatoms
-	UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer;
+	UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer,
+	MarkerVAO, MarkerVertBuffer;
 GLuint	AtomsP, UnitCellP; 
-GLint	AtomMatrixLoc, totalatomsLocation, UnitCellMatrixLoc, UnitCellColourLoc;
-GLuint	TransP=0, BlendP=0;
+GLint	AtomMatrixLoc, totalatomsLocation, UnitCellMatrixLoc, UnitCellColourLoc,
+		MarkerMatrixLoc;
+GLuint	TransP=0, BlendP=0, MarkerP=0;
 GLint	TransMatrixLoc=-1;
 bool hasTess=true;
 
@@ -146,6 +148,7 @@ int *numISOIndices=nullptr/*[ISOS*TIMESTEPS]*/;
 
 void RenderAtoms(const float *m);
 void RenderAtomBonds(const float *m);
+void RenderMarkers(const float *m);
 void RenderUnitCell(const glm::mat4 eyeViewProjection);
 void RenderAtomTrajectoriesUnitCell();
 void RenderAtomTrajectories(const glm::mat4 eyeViewProjection);
@@ -256,6 +259,12 @@ if (e!=GL_NO_ERROR) {
 		error=-401;
 		return ;
 	}
+
+	if (!PrepareMarkerShader(&MarkerP, &MarkerMatrixLoc)) {
+		eprintf("OneTimeInit, failure compiling Marker Shader");
+		error=-410;
+		return ;
+	}
 	
 	if (!PrepareAtomShader(&AtomsP, &AtomMatrixLoc, &totalatomsLocation)) {
 		hasTess=false;
@@ -295,6 +304,15 @@ bool er;
 		eprintf ("SetupUnitCell error %d", e);
 		error=-406;
 	}
+
+	//setupmarker
+	e=::SetupMarker(&MarkerVAO, &MarkerVertBuffer);
+	if (e!=GL_NO_ERROR) {
+		eprintf ("Error in SetupMarker() %d", e);
+		error=-409;
+	}
+	//setupinfocube
+
 //now isosurfaces
 	if (ISOS) {
 		er=::SetupDepthPeeling(geo[0], geo[1], ZLAYERS, 
@@ -486,26 +504,30 @@ glm::decompose(wand, scale, rotation, translation, skew, perspective);
 
 glm::mat4 st;
 m_node->getSceneTrafo(st);
-//fprintf (stderr, "st = ");
-//for (int i=0;i<4;i++)
-//	for (int j=0;j<4;j++)
-//		fprintf (stderr, "%f ", st[i][j]);
-//fprintf(stderr, "\n");
+
+glm::mat4 userposTranslation(1,0,0,0,
+	0,1,0,0,
+	0,0,1,0,
+		-globalscaling*userpos[0],
+		-globalscaling*userpos[1],
+		-globalscaling*userpos[2],1);
+
 //rgh FIXME: cache these numbers, do not calculate twice per frame
 if(error)
 	return;
 
 if (ISOS) {
+	//has translation internally
 	RenderIsos(pvmat*st, curDataPos, pvmat, selectedPoints);
 } else if (has_abc) {
 	glm::mat4 trans(1.0);
 	trans=glm::rotate(trans, (float)-M_PI_2, glm::vec3(1.f,0.f,0.f));	
-	RenderUnitCell(pvmat*st*trans);
+	RenderUnitCell(pvmat*st*trans*userposTranslation);
 } else {
 	//atom trajectories
 	glm::mat4 trans(1.0);
 	trans=glm::rotate(trans, (float)-M_PI_2, glm::vec3(1.f,0.f,0.f));
-	RenderAtomTrajectories(pvmat*st*trans);
+	RenderAtomTrajectories(pvmat*st*trans*userposTranslation);
 }
 
 
@@ -560,17 +582,10 @@ void sceneManager::displayFunction(){
     	//rgh: no lods in this demo //m_posData->setLOD(curDataPos[0]);
     	m_oldDataPos = curDataPos;
     }
-    glm::mat4 user; m_node->getUserTrafo(user);
+//    glm::mat4 user; m_node->getUserTrafo(user);
 
-//rgh: parameter not needed in this demo
-//    m_posData->getShader()->setUserPos(glm::vec3(user[3]));
-//    m_NegData->getShader()->setUserPos(glm::vec3(user[3]));
-
-
-    glm::mat4 viewRotOnly = viewMat;
-    viewRotOnly[3] = glm::vec4(0.,0.,0.,1.);
-
-
+//    glm::mat4 viewRotOnly = viewMat;
+//    viewRotOnly[3] = glm::vec4(0.,0.,0.,1.);
 
     glDrawBuffer(GL_BACK_LEFT);
     {
@@ -733,43 +748,42 @@ void sceneManager::RenderAtoms(const float *m) //m[16]
 		glUseProgram(AtomsP);
 		glUniform1f(totalatomsLocation, (float)getTotalAtomsInTexture());
 
-		//eprintf ("1");
 		float levelso[4] = { TESSSUB, TESSSUB, TESSSUB, TESSSUB };
 		float levelsi[2] = { TESSSUB, TESSSUB};
-		//eprintf ("2");
+
 		glPatchParameterfv(GL_PATCH_DEFAULT_OUTER_LEVEL,levelso);
 		glPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL,levelsi);
 		glPatchParameteri(GL_PATCH_VERTICES, 1);
-		//eprintf ("3");
+
 		glBindVertexArray(AtomTVAO[0]);
 		glEnableVertexAttribArray(0);
 		glEnableVertexAttribArray(1);
-		//eprintf ("4");
+
 		glBindBuffer(GL_ARRAY_BUFFER, AtomTBuffer[0]);
-		//eprintf ("5");
+
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 
 			4 * sizeof(float), (const void *)(0));
-		//eprintf ("6");
+
 		glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 
 			4 * sizeof(float), (const void *)(3 * sizeof(float)));
-		//eprintf ("7");
+
 		//trans.translate(iPos).rotateX(-90).translate(UserPosition);
 		//Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans;
 		//Matrix4 mv=GetCurrentViewMatrix(nEye)*trans;
 
 		glUniformMatrix4fv(AtomMatrixLoc, 1, GL_FALSE, m);
 
-		//glUniformMatrix4fv(m_nAtomMVLocation, 1, GL_FALSE, mv.get());
+
 		if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("Gl error 4 timestep =%d: %d, %s\n", m_oldTime, 
 				e, gluErrorString(e));
-		//eprintf ("8");
+
 		if (m_oldTime==0 || fixedAtoms)
 			glDrawArrays(GL_PATCHES, 0, numAtoms[0]);
 		else
 			glDrawArrays(GL_PATCHES, numAtoms[m_oldTime-1], 
 				numAtoms[m_oldTime]-numAtoms[m_oldTime-1]);
-		//eprintf ("9");
+
 	
 		if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("Gl error after RenderAtoms timestep =%d: %d, %s\n", 
@@ -909,24 +923,33 @@ if (numBonds) {
 glBindVertexArray(0);
 }
 
+void sceneManager::RenderMarkers(const float *t)
+{
+if (markers) {
+	int e;
+	glBindVertexArray(MarkerVAO);
+	glUseProgram(MarkerP);
+	glUniformMatrix4fv(MarkerMatrixLoc, 1, GL_FALSE, t);
+	glDrawArraysInstanced(GL_PATCHES, m_oldTime, 1, 3);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("Gl error after Render Atom markers timestep =%d: %d, %s\n", 
+			m_oldTime, e, gluErrorString(e));
+	glBindVertexArray(0);
+}
+}
+
 void sceneManager::RenderAtomTrajectories(const glm::mat4 eyeViewProjection)
 {
 int e;
 if (!numAtoms)
 	return;
-//eprintf ("RenderAtomTrajectories start");
-/*glm::mat4 trans={1,0,0,UserTranslation[0],
-		0,1,0,UserTranslation[1],
-		0,0,1,UserTranslation[2],
-		0,0,0,1};
-*/					
-//trans.translate(iPos).rotateX(-90).translate(UserPosition);
+
 glm::mat4 scale={globalscaling*scaling,0,0,0,  
 		0,globalscaling*scaling,0,0,
 		0,0,globalscaling*scaling,0,
 		0,0,0,1};
-glm::mat4 transform =  eyeViewProjection*scale; //MatrixMul(eyeViewProjection,trans);
-//gvr::Mat4f transform=eyeViewProjection;					
+glm::mat4 transform =  eyeViewProjection*scale; 
+				
 float t[16];
 for (int i=0;i<4;i++)
 	for (int j=0;j<4;j++)
@@ -938,15 +961,13 @@ if ((e = glGetError()) != GL_NO_ERROR)
 RenderAtomTrajectoriesUnitCell();
 RenderAtoms(t);
 //now bonds
-//return;
 RenderAtomBonds(t);
+RenderMarkers(t);
 
 } //RenderAtomTrajectories
 
 void sceneManager::RenderAtomTrajectoriesUnitCell()
 {
-//eprintf ("RenderAtomTrajectoriesUnitCell start");
-	//now trajectories
 if (!showTrajectories)
 	return;
 
@@ -962,10 +983,6 @@ glBindVertexArray(AtomTVAO[0]);
 glUniform4fv(UnitCellColourLoc, 1, atomtrajectorycolour);
 if ((e = glGetError()) != GL_NO_ERROR)
 	eprintf("Gl error after glUniform4fv 2 RenderAtomTrajectoriesUnitCell: %d\n", e);
-//glEnableVertexAttribArray(0);
-//glDisableVertexAttribArray(1);
-
-//LOG("atomtrajectories.size()=%d", atomtrajectories.size());
 glBindBuffer(GL_ARRAY_BUFFER, AtomTBuffer[0]);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf("3 Gl error RenderAtomTrajectoriesUnitCell: %d\n", e);
@@ -1027,11 +1044,13 @@ if (selectedPoints.number==4) {
 std::string mystring=std::string("Timestep ")+std::to_string(timestep)+
 	"\nIso "+std::to_string(curDataPos)+"\n";
 
+char texts[200];
+
 if (selectedPoints.number==2) {
 	float l=glm::length(b1)/globalscaling/scaling;
-	char text[200];
-	sprintf (text, "Distance: %0.2f Angstrom (%0.2f Bohr)\n", l, l*1.88973);
-	mystring+=text;
+
+	sprintf (texts, "Distance: %0.2f Angstrom (%0.2f Bohr)\n", l, l*1.88973);
+	mystring+=texts;
 } else if (selectedPoints.number==3)
 	mystring+="Angle: "+
 		std::to_string(glm::degrees(glm::angle(glm::normalize(b1), glm::normalize(b2))))+"°";
@@ -1086,10 +1105,27 @@ void sceneManager::RenderIsos(const glm::mat4 eyeViewProjection, int curDataPos,
 	const glm::mat4 pvmat, const SelectedPoints& selectedPoints)
 {
 GLenum e;
+
+glm::mat4 userposTranslation(1,0,0,0,
+	0,1,0,0,
+	0,0,1,0,
+		-globalscaling*userpos[0],
+		-globalscaling*userpos[1],
+		-globalscaling*userpos[2],1);
+
+glm::mat4 userposTranslationISO(1,0,0,0,
+	0,1,0,0,
+	0,0,1,0,
+		-globalscaling*userpos[0],
+		-globalscaling*userpos[2],
+		+globalscaling*userpos[1],1);
+
+glm::mat4 evpISOS=eyeViewProjection*userposTranslationISO;
+
 float t[16];
 for (int i=0;i<4;i++)
 	for (int j=0;j<4;j++)
-		t[j*4+i]=eyeViewProjection[j][i];
+		t[j*4+i]=evpISOS[j][i];
 
 
 if (curDataPos!=ISOS) {
@@ -1103,12 +1139,12 @@ if (curDataPos!=ISOS) {
 		if (has_abc) {
 			glm::mat4 trans(1.0);
 			trans=glm::rotate(trans, (float)-M_PI_2, glm::vec3(1.f,0.f,0.f));
-			RenderUnitCell(eyeViewProjection*trans);
+			RenderUnitCell(eyeViewProjection*trans*userposTranslation);
 		} else {
 			//atom trajectories
 			glm::mat4 trans(1.0);
 			trans=glm::rotate(trans, (float)-M_PI_2, glm::vec3(1.f,0.f,0.f));
-			RenderAtomTrajectories(eyeViewProjection*trans);
+			RenderAtomTrajectories(eyeViewProjection*trans*userposTranslation);
 		}
 		RenderText(pvmat, curDataPos, m_oldTime, selectedPoints);
 } else {//transparency
@@ -1133,13 +1169,13 @@ if ((e = glGetError()) != GL_NO_ERROR)
 			glm::mat4 trans(1.0);
 			trans=glm::rotate(trans, (float)-M_PI_2, 
 				glm::vec3(1.f,0.f,0.f));
-			RenderUnitCell(eyeViewProjection*trans);
+			RenderUnitCell(eyeViewProjection*trans*userposTranslation);
 		} else {
 			//atom trajectories
 			glm::mat4 trans(1.0);
 			trans=glm::rotate(trans, (float)-M_PI_2, 
 				glm::vec3(1.f,0.f,0.f));
-			RenderAtomTrajectories(eyeViewProjection*trans);
+			RenderAtomTrajectories(eyeViewProjection*trans*userposTranslation);
 		}
 		RenderText(pvmat, curDataPos, m_oldTime, selectedPoints);
 	}
@@ -1180,12 +1216,7 @@ void sceneManager::RenderUnitCell(const glm::mat4 eyeViewProjection)
 						(globalscaling*scaling ,
 						globalscaling*scaling,
 						globalscaling*scaling));
-//						={1,0,0,delta[0]/*+UserTranslation[0]*/,
-//						0,1,0,delta[1]/*+UserTranslation[1]*/,
-//						0,0,1,delta[2]/*+UserTranslation[2]*/,
-//						0,0,0,1};
 					
-					//trans.translate(iPos).rotateX(-90).translate(UserPosition);
 					glm::mat4 transform = eyeViewProjection*trans;
 
 					float t[16];
@@ -1216,15 +1247,13 @@ void sceneManager::RenderUnitCell(const glm::mat4 eyeViewProjection)
 						if ((e = glGetError()) != GL_NO_ERROR)
 							eprintf("Gl error after glBindVertexArray RenderUnitCell: %d\n", e);
 						glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
-						//glDrawElements(GL_TRIANGLES, 24, GL_UNSIGNED_INT, 0);
 						if ((e = glGetError()) != GL_NO_ERROR)
 							eprintf("Gl error after RenderUnitCell: %d\n", e);
 					}	
 					//atom trajectories
-					//rgh: disable for now
 					RenderAtomTrajectoriesUnitCell();
 					RenderAtoms(t);
 					RenderAtomBonds(t);
-					
+					RenderMarkers(t);
 				}
 }
