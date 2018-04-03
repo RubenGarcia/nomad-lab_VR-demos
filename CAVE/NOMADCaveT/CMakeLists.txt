@@ -59,12 +59,15 @@ set(SOURCES
        src/main.cpp src/textRendering.cpp
 	src/NOMADVRLib/atoms.cpp	src/NOMADVRLib/CompileGLShader.cpp	
 	src/NOMADVRLib/polyhedron.cpp   src/NOMADVRLib/UnitCellShaders.cpp
-	src/NOMADVRLib/atomsGL.cpp	src/NOMADVRLib/ConfigFile.cpp	
+	src/NOMADVRLib/atomsGL.cpp	src/NOMADVRLib/ConfigFile.cpp
+	src/NOMADVRLib/ConfigFileAtoms.cpp	
 	src/NOMADVRLib/TessShaders.cpp	src/NOMADVRLib/IsosurfacesGL.cpp
 	src/NOMADVRLib/IsoShaders.cpp	src/NOMADVRLib/Grid.cpp
-	src/NOMADVRLib/markerShaders.cpp
+	src/NOMADVRLib/markerShaders.cpp src/NOMADVRLib/TexturedShaders.cpp
+	src/NOMADVRLib/LoadPNG.cpp
 	src/happyhttp/happyhttp.cpp
 	src/rply/rply.c
+	src/LodePNG/lodepng.cpp
 )
 
 

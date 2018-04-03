@@ -63,6 +63,7 @@ public:
     std::shared_ptr<synchlib::SynchObject<int> > m_pCurrentDataTimeSyncher;
 	std::shared_ptr<synchlib::SynchObject<SelectedPoints> >
 		m_pCurrentDataPointSyncher;
+    std::shared_ptr<synchlib::SynchObject<bool> > m_pInfoBoxSyncher;
 
 private:
     void updateButtonActions();
@@ -87,6 +88,7 @@ private:
 	SelectedPoints selectedPoints={0};
     std::fstream cameraFile;
  	int TIMESTEPS=1;
+	bool showInfobox=true;
 
 };
 
@@ -109,6 +111,8 @@ void sceneManager::startThreads(){
     m_pCurrentDataPointSyncher->setData(p);
     m_pCurrentDataPointSyncher->send();
 
+    m_pInfoBoxSyncher->setData(true);
+    m_pInfoBoxSyncher->send();
 
     m_updateButtonsThread  = new std::thread( std::bind(&sceneManager::updateButtonActions,this));
 }
@@ -121,6 +125,8 @@ void sceneManager::synch()
 	m_pCurrentDataTimeSyncher->send();
 	m_pCurrentDataPointSyncher->setData(selectedPoints);
 	m_pCurrentDataPointSyncher->send();
+	m_pInfoBoxSyncher->setData(showInfobox);
+	m_pInfoBoxSyncher->send();
 	m_oldTimeForSwap = Clock::now();
 }
 
@@ -185,8 +191,14 @@ bool longpress=false;
 			longpress=true;
 			std::cout << "longpress true in B0\n";
 		}//dur
-	}//m_pressB0
-	
+	} else {//m_pressB0 
+	//central button to show and hide info
+		if ((!longpress & dur>100) ||(longpress && dur>500)) {
+			showInfobox=!showInfobox;
+			sync();
+			longpress=true;
+		}
+	}
         //wait 5 ms
         usleep(5000);
 
@@ -345,6 +357,11 @@ int main( int argc, char **argv )
 	sceneM.m_pCurrentDataPointSyncher=currentDataPointsSyncher;
 	server.addSynchObject(currentDataPointsSyncher, synchlib::renderServer::SENDER,0,0); //manual sending
 
+	std::shared_ptr<synchlib::SynchObject<bool> > 
+		InfoBoxSyncher = 
+			synchlib::SynchObject<bool>::create();
+	sceneM.m_pInfoBoxSyncher=InfoBoxSyncher;
+	server.addSynchObject(InfoBoxSyncher, synchlib::renderServer::SENDER,0,0); //manual
 
         std::function<void(void)> dispFunc = std::bind(&sceneManager::displayFunction,&sceneM);
         std::function<void(char,int,int)>  keyFunc = std::bind(&sceneManager::keyboardFunction,&sceneM,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3);

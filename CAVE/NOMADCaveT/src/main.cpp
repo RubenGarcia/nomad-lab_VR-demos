@@ -45,10 +45,12 @@
 
 #include "NOMADVRLib/TessShaders.h"
 #include "NOMADVRLib/UnitCellShaders.h"
-
+#include "NOMADVRLib/TexturedShaders.h"
 #include "NOMADVRLib/CompileGLShader.h"
 
 #include "NOMADVRLib/IsosurfacesGL.h"
+
+#include "NOMADVRLib/LoadPNG.h"
 
 #include "defines.h"
 
@@ -88,6 +90,12 @@ public:
 	m_pCurrentDataPointSyncher->setData(p);
 	}
 
+    void setInfoboxSyncher(std::shared_ptr<synchlib::SynchObject<bool> > sy)
+	{
+	m_pInfoboxSyncher=sy;
+	m_pInfoboxSyncher->setData(true);
+	}
+
 private:
     m3d::Renderer* m_ren;
     synchlib::renderNode* m_node;
@@ -111,7 +119,7 @@ bool initGLSelectedPoints();
 std::shared_ptr<synchlib::SynchObject<int> > m_pCurrentDataPosSyncher;
 std::shared_ptr<synchlib::SynchObject<int> > m_pCurrentDataTimeSyncher;
 std::shared_ptr<synchlib::SynchObject<SelectedPoints> > m_pCurrentDataPointSyncher;
-
+std::shared_ptr<synchlib::SynchObject<bool> > m_pInfoboxSyncher;
 int m_oldDataPos = 0;
 int m_oldTime = 0;
 
@@ -131,12 +139,12 @@ unsigned int geo[2]; //window width, height
 GLuint *AtomTVAO=nullptr, *AtomTBuffer=nullptr, BondIndices=0,
 	*AtomVAO=nullptr, *AtomBuffer=nullptr, *AtomIndices=nullptr,//[2], atoms, extraatoms
 	UnitCellVAO, UnitCellBuffer, UnitCellIndexBuffer,
-	MarkerVAO, MarkerVertBuffer;
+	MarkerVAO, MarkerVertBuffer, InfoVAO, InfoBuffer, InfoIndexBuffer;
 GLuint	AtomsP, UnitCellP; 
 GLint	AtomMatrixLoc, totalatomsLocation, UnitCellMatrixLoc, UnitCellColourLoc,
 		MarkerMatrixLoc;
-GLuint	TransP=0, BlendP=0, MarkerP=0;
-GLint	TransMatrixLoc=-1;
+GLuint	TransP=0, BlendP=0, MarkerP=0, InfoP=0;
+GLint	TransMatrixLoc=-1, InfoMatrixLoc=-1;
 bool hasTess=true;
 
 GLuint *ISOVAO=nullptr/*[ISOS*TIMESTEPS]*/, *ISOBuffer=nullptr/*[ISOS*TIMESTEPS]*/,
@@ -149,6 +157,7 @@ int *numISOIndices=nullptr/*[ISOS*TIMESTEPS]*/;
 void RenderAtoms(const float *m);
 void RenderAtomBonds(const float *m);
 void RenderMarkers(const float *m);
+void RenderInfo (const glm::mat4& m);
 void RenderUnitCell(const glm::mat4 eyeViewProjection);
 void RenderAtomTrajectoriesUnitCell();
 void RenderAtomTrajectories(const glm::mat4 eyeViewProjection);
@@ -277,6 +286,23 @@ if (e!=GL_NO_ERROR) {
 		}
 	};
 
+	for (int i=0;i<info.size();i++) {
+		info[i].tex=LoadPNG(info[i].filename);
+	}
+
+	if (info.size()!=0) {
+		InfoP = CompileGLShader( 
+		TexturedShaders[SHADERNAME],
+		TexturedShaders[SHADERVERTEX],
+		TexturedShaders[SHADERFRAGMENT]
+		);
+		InfoMatrixLoc = glGetUniformLocation( InfoP, "matrix" );
+		if( InfoMatrixLoc == -1 ) {
+			eprintf( "Unable to find matrix uniform in textured shader \n");
+			error=-412;
+		}
+	}
+
 	//atom texture
 
 	e=atomTexture(textures[1]);
@@ -312,6 +338,10 @@ bool er;
 		error=-409;
 	}
 	//setupinfocube
+	e=::SetupInfoCube(&InfoVAO, &InfoBuffer, &InfoIndexBuffer);
+	if (e!=GL_NO_ERROR)
+		eprintf ("Error in SetupInfoCube()");
+
 
 //now isosurfaces
 	if (ISOS) {
@@ -705,6 +735,11 @@ const unsigned int geo[2]={static_cast<unsigned int>(conf.m_wall_conf[ownIP.str(
 		sceneM.setCDPtSyncher(currentDataPointsSyncher);
 		node->addSynchObject(currentDataPointsSyncher,synchlib::renderNode::RECEIVER,0);
 
+		std::shared_ptr<synchlib::SynchObject<bool> > 
+			infoboxSyncher = synchlib::SynchObject<bool>::create();
+		sceneM.setInfoboxSyncher (infoboxSyncher);
+		node->addSynchObject(infoboxSyncher, synchlib::renderNode::RECEIVER,0);
+
 		std::function<void(void)> dispFunc = std::bind(&sceneManager::displayFunction,&sceneM);
 		std::function<void(char,int,int)>  keyFunc = std::bind(&sceneManager::keyboardFunction,&sceneM,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3);
 		std::function<void(char,int,int)>  keyRFunc = std::bind(&sceneManager::keyReleaseFunction,&sceneM,std::placeholders::_1,std::placeholders::_2,std::placeholders::_3);
@@ -938,6 +973,74 @@ if (markers) {
 }
 }
 
+void sceneManager::RenderInfo(const glm::mat4& m)
+{
+int e;
+if (info.size()==0)
+	return;
+
+bool display=false;
+m_pInfoboxSyncher->getData(display);
+if (!display)
+	return;
+
+glBindVertexArray(InfoVAO);
+glActiveTexture( GL_TEXTURE0 );
+glBindBuffer(GL_ARRAY_BUFFER, InfoBuffer);
+glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, InfoIndexBuffer);
+glUseProgram(InfoP);
+
+for (int i=0;i<info.size(); i++) {
+	glm::mat4 trans(1);
+	glm::vec3 iPos(info[i].pos[0], info[i].pos[1], info[i].pos[2]);
+
+	trans=glm::translate(trans, iPos);
+
+	glm::mat4 scal(1);
+	scal=glm::scale(scal, glm::vec3 (info[i].size, info[i].size, info[i].size));
+	glm::mat4 transform = m*trans*scal;
+	glUniformMatrix4fv(InfoMatrixLoc, 1, GL_FALSE, 
+		glm::value_ptr(transform));
+	glBindTexture(GL_TEXTURE_2D, info[i].tex);
+	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_SHORT, 0);
+	e=glGetError();
+	if (e!=0)
+		eprintf("glerror after RenderInfo, %d, %s", e, glewGetErrorString(e));
+}
+
+//now line
+glUseProgram(UnitCellP);
+for (int i = 0; i < info.size(); i++) {
+	if (info[i].atom < 1)
+		continue;
+	if (info[i].atom-1 > numAtoms[m_oldTime]) {
+		//wrong atom
+		continue;
+	}
+	glm::vec3 iPos(info[i].pos[0], info[i].pos[1], info[i].pos[2]);
+	glm::mat4 nt(0, 0, 0, 0,
+		0, 0, 0, 0,
+		atoms[m_oldTime][(info[i].atom - 1)*4+0] - iPos[0],
+		atoms[m_oldTime][(info[i].atom - 1)*4+1] - iPos[1],
+		atoms[m_oldTime][(info[i].atom - 1)*4+2] - iPos[2],
+		0,
+		iPos[0], iPos[1], iPos[2], 1
+		);//.transpose();
+	glm::mat4 trans;
+	glm::mat4 transform = m*trans*nt;
+	glUniformMatrix4fv(UnitCellMatrixLoc, 1, GL_FALSE, glm::value_ptr(transform));
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("Gl error after glUniform4fv 1 RenderInfo: %d, %s\n", e, gluErrorString(e));
+
+	glUniform4fv(UnitCellColourLoc, 1, infolinecolour);
+
+	glDrawArrays(GL_LINES, 24, 2);
+}
+glBindTexture(GL_TEXTURE_2D, 0);
+glBindVertexArray(0);
+
+}
+
 void sceneManager::RenderAtomTrajectories(const glm::mat4 eyeViewProjection)
 {
 int e;
@@ -963,6 +1066,7 @@ RenderAtoms(t);
 //now bonds
 RenderAtomBonds(t);
 RenderMarkers(t);
+RenderInfo(transform);
 
 } //RenderAtomTrajectories
 
@@ -1255,5 +1359,6 @@ void sceneManager::RenderUnitCell(const glm::mat4 eyeViewProjection)
 					RenderAtoms(t);
 					RenderAtomBonds(t);
 					RenderMarkers(t);
+					RenderInfo(transform);
 				}
 }
