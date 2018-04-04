@@ -546,7 +546,7 @@ GLenum SetupMarkerNoTess(GLuint *MarkerVAO, GLuint *MarkerVertBuffer, GLuint *Ma
 			for (int j = 0; j < MARKERSOLID::nVerts; j++) {
 				for (int k = 0; k < 3; k++) { //pos
 					float s = getMarkerLobeScaling(l, k);
-					*current++ = s*MARKERSOLID::Verts[j * 3 + k] * markerscaling * atomScaling/* * atomRadius(0)*/ +
+					*current++ = s*MARKERSOLID::Verts[j * 3 + k] * markerscaling * atomScaling * atomRadius(0) +
 						markers[i][k];
 				}
 				float length=0;

@@ -14,6 +14,8 @@
  # limitations under the License.
 */
 
+#include "ConfigFileAtoms.h"
+
 float abc[3][3]; //basis vectors
 bool has_abc = false;
 
@@ -27,3 +29,4 @@ float supercell[3];
 int voxelSize[3];
 
 float bondscaling;
+float bondThickness;

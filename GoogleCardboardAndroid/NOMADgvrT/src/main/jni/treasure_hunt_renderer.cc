@@ -1089,6 +1089,25 @@ void TreasureHuntRenderer::RenderAtoms(const float *m) //m[16]
 			if ((e = glGetError()) != GL_NO_ERROR)
 				eprintf("Gl error after Render cloned Atom timestep =%d: %d\n", currentSet, e);
 		} // painting cloned atoms
+		//now bonds
+		if (numBonds && displaybonds /*&& showAtoms*/) {
+			glLineWidth(bondThickness);
+			glBindVertexArray(AtomTVAO[2]);
+			glUseProgram(UnitCellP);
+			glUniformMatrix4fv(UnitCellMatrixLoc, 1, GL_FALSE, m);
+			glUniform4fv(UnitCellColourLoc, 1, bondscolours);
+			if ((e = glGetError()) != GL_NO_ERROR)
+				eprintf("Gl error after Render Atom bonds uniform timestep =%d: %d\n", currentSet, e);
+			if (currentSet==0||fixedAtoms)
+				glDrawElements(GL_LINES, numBonds[0],  GL_UNSIGNED_INT, (void*)0);
+			else
+				glDrawElements(GL_LINES, numBonds[currentSet]-numBonds[currentSet-1], GL_UNSIGNED_INT, 
+					(void*)(sizeof(int)*numBonds[currentSet-1]) );
+			glLineWidth(1.0f);
+			if ((e = glGetError()) != GL_NO_ERROR)
+				eprintf("Gl error after Render Atom bonds timestep =%d: %d\n", currentSet, e);
+			glBindVertexArray(0);
+		}
 	} // no tess
 }
 

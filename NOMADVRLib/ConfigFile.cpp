@@ -240,6 +240,7 @@ void initState()
 	menubutton = Record;
 
 	bondscaling = 0.7f;
+	bondThickness = 1.0f;
 }
 
 int loadConfigFile(const char * f)
@@ -649,12 +650,17 @@ int loadConfigFile(const char * f)
 			if (r < 1)
 				eprintf("Error reading animationspeed");
 		}
-		else if (!strcmp(s, "")) {
+		else if (!strcmp(s, "bondscaling")) {
 			r = fscanf(F, "%f", &bondscaling);
 			if (r<1)
 				eprintf("Error reading bondscaling");
 			bondscaling = sqrt(bondscaling);
-		} else if (!strcmp(s, "menubutton")) {
+		} else if (!strcmp(s, "bondthickness")) {
+			r = fscanf(F, "%f", &bondThickness);
+			if (r<1)
+				eprintf("Error reading bondthickness");
+		}
+		else if (!strcmp(s, "menubutton")) {
 			r = fscanf(F, "%s", s);
 			if (!strcmp(s, "Record"))
 				menubutton = Record;

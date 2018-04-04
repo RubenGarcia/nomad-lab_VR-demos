@@ -130,8 +130,6 @@ void loadConfigFile(void);
 
 //gles 2 does not have vao, porting demo to gles3
 
-int currentset;
-
   gvr::Mat4f head_view_;
   gvr::Mat4f model_cube_;
   gvr::Mat4f camera_;
