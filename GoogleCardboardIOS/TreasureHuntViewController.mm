@@ -1,3 +1,4 @@
+/*# Copyright 2016-2018 The NOMAD Developers Group*/
 /*
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
@@ -19,16 +20,26 @@
 #import "GVROverlayView.h"
 #import "treasure_hunt_renderer.h"
 
+#include "FileBrowser/FileBrowser.h"
+#include "FileBrowser-Swift.h"
+
 @interface TreasureHuntViewController ()<GLKViewControllerDelegate, GVROverlayViewDelegate> {
   gvr_context *_gvrContext;
   std::unique_ptr<TreasureHuntRenderer> _renderer;
 }
 @end
 
+NSString * filename;
+
 @implementation TreasureHuntViewController
 
 - (void)dealloc {
   gvr_destroy(&_gvrContext);
+}
+
+
+- (UIViewController *)presentingViewControllerForSettingsDialog {
+    return self;
 }
 
 - (void)viewDidLoad {
@@ -47,6 +58,7 @@
       [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(didTapGLView:)];
   [self.view addGestureRecognizer:tapGesture];
 
+    
   // Create an OpenGL ES context and assign it to the view loaded from storyboard
   GLKView *glkView = (GLKView *)self.view;
   glkView.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
@@ -62,11 +74,26 @@
 
   // Create GVR context.
   _gvrContext = gvr_create();
+    
+    FileBrowser *fb=[[FileBrowser alloc] initWithInitialPath: nullptr allowEditing:NO  showCancelButton:NO];
+    
+    void (^ _Nullable didSelectFileCallback)(FBFile * _Nonnull) = ^(FBFile * _Nonnull file)
+    {
+        filename=[[file filePath] path];
+        NSFileManager *filemgr = [NSFileManager defaultManager];
+   //http://www.techotopia.com/index.php/Working_with_Directories_on_iPhone_OS#The_Application_Documents_Directory        
+        if ([filemgr changeCurrentDirectoryPath: [filename stringByDeletingLastPathComponent]] == NO)
+            NSLog(@"Cannot change current directory");
 
-  // Initialize TreasureHuntRenderer.
-  _renderer.reset(new TreasureHuntRenderer(_gvrContext));
-  _renderer->InitializeGl();
-}
+        _renderer->setConfigFile (filename);
+        _renderer->InitializeGl();
+    };
+    
+    fb.didSelectFile=didSelectFileCallback;
+    //[self.navigationController pushViewController:fb animated:YES];
+    [self presentViewController:fb animated:YES completion:nil];
+    _renderer.reset(new TreasureHuntRenderer(_gvrContext));
+  }
 
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
   // GVR only supports landscape right orientation for inserting the phone in the viewer.
@@ -104,9 +131,6 @@
   NSLog(@"User pressed back button");
 }
 
-- (UIViewController *)presentingViewControllerForSettingsDialog {
-  return self;
-}
 
 - (void)didPresentSettingsDialog:(BOOL)presented {
   // The overlay view is presenting the settings dialog. Pause our rendering while presented.

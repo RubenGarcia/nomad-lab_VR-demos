@@ -45,6 +45,10 @@ class TreasureHuntRenderer {
    */
   ~TreasureHuntRenderer();
 
+    
+    void setConfigFile (NSString * filename);
+
+    
   /**
    * Initialize any GL-related objects. This should be called on the rendering
    * thread with a valid GL context.
@@ -106,7 +110,7 @@ class TreasureHuntRenderer {
   gvr::BufferViewport scratch_viewport_;
 
   gvr::Mat4f head_view_;
-  gvr::Mat4f model_cube_;
+  //gvr::Mat4f model_cube_;
   gvr::Mat4f camera_;
   gvr::Mat4f view_;
   gvr::Mat4f modelview_projection_cube_;
@@ -148,8 +152,10 @@ class TreasureHuntRenderer {
     void RenderAtomTrajectories(const gvr::Mat4f eyeViewProjection);
     void RenderIsos(const gvr::Mat4f eyeViewProjection, int curDataPos);
     float UserTranslation[3]={10,0,0};
-    
+    NSString * configfilename=nullptr;
     int error=0;
+    bool openGLIsInitialized=false;
+
 };
 
 #endif  // TREASUREHUNT_APP_SRC_MAIN_JNI_TREASUREHUNTRENDERER_H_  // NOLINT

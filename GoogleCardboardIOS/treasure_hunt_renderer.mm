@@ -164,22 +164,20 @@ static void CheckGLError(const char* label) {
 
 }  // namespace
 
+void TreasureHuntRenderer::setConfigFile (NSString * filename)
+{
+    configfilename=filename;
+    loadConfigFile();
+}
+
+
 void TreasureHuntRenderer::loadConfigFile(void)
 {
-   //http://www.techotopia.com/index.php/Working_with_Directories_on_iPhone_OS#The_Application_Documents_Directory
-    NSArray *dirPaths;
-    NSString *docsDir;
-    
-    dirPaths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,
-                                                   NSUserDomainMask, YES);
-    
-    docsDir = [dirPaths objectAtIndex:0];
-    NSFileManager *filemgr = [NSFileManager defaultManager];
+    if (configfilename==nullptr)
+        return;
 
-    if ([filemgr changeCurrentDirectoryPath: docsDir] == NO)
-        NSLog(@"Cannot change current directory");
     
-    if ((error=::loadConfigFile("cytosine.ncfg"))<0) {
+    if ((error=::loadConfigFile(configfilename.UTF8String))<0) {
         if (-100<error) {
             eprintf(loadConfigFileErrors[-error]);
             eprintf("Config file reading error");
@@ -211,13 +209,14 @@ TreasureHuntRenderer::TreasureHuntRenderer(
     : gvr_api_(gvr::GvrApi::WrapNonOwned(gvr_context)),
       scratch_viewport_(gvr_api_->CreateBufferViewport())
 {
-    loadConfigFile();
+    //won't have config file until later
+//    loadConfigFile();
 }
 
 TreasureHuntRenderer::~TreasureHuntRenderer() {}
 
 void TreasureHuntRenderer::InitializeGl() {
-  gvr_api_->InitializeGl();
+    gvr_api_->InitializeGl();
 
     glGenTextures(2, textures);
     glGenTextures(2+ZLAYERS, textDepthPeeling);
@@ -288,9 +287,13 @@ void TreasureHuntRenderer::InitializeGl() {
 
   viewport_list_.reset(new gvr::BufferViewportList(gvr_api_->CreateEmptyBufferViewportList()));
 
+    openGLIsInitialized=true;
 }
 
 void TreasureHuntRenderer::DrawFrame() {
+    if (!openGLIsInitialized)
+        return;
+
   viewport_list_->SetToRecommendedBufferViewports();
     
     if (animateTimesteps) {
@@ -520,6 +523,8 @@ void TreasureHuntRenderer::RenderAtoms(const float *m) //m[16]
         LOGW("FIXME, No Tess code for atoms yet!");
         return;
     } else { //no tess
+        if (AtomVAO==nullptr) //not yet loaded
+            return;
         glBindVertexArray(AtomVAO[0]);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, AtomIndices[0]);
         if ((e = glGetError()) != GL_NO_ERROR)
