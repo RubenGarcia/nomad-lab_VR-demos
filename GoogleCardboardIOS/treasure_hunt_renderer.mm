@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "AudioToolbox/AudioToolbox.h"
 #include "treasure_hunt_renderer.h"
 
 #include <assert.h>
@@ -153,7 +154,7 @@ static gvr::Recti CalculatePixelSpaceRect(const gvr::Sizei& texture_size,
       static_cast<int>(rect.bottom), static_cast<int>(rect.top)};
   return result;
 }
-
+    
 static void CheckGLError(const char* label) {
   int gl_error = glGetError();
   if (gl_error != GL_NO_ERROR) {
@@ -170,6 +171,41 @@ void TreasureHuntRenderer::setConfigFile (NSString * filename)
     loadConfigFile();
 }
 
+void TreasureHuntRenderer::keypress (int k)
+{
+    switch (k) { //A B C D -> Y A X B
+        //case 'u':
+
+        case 'h':
+            animateMovement=!animateMovement;
+            break;
+        case 'y':
+            animateTimesteps=!animateTimesteps;
+            break;
+        //case 'j':
+            //up down left right
+        case 'w':
+            currentSet++;
+            if (currentSet>TIMESTEPS-1)
+                currentSet=0;
+            break;
+        case 'x':
+            currentSet--;
+            if (currentSet<0)
+                currentSet=TIMESTEPS-1;
+            break;
+        case 'a':
+            currentIso++;
+            if (currentIso>ISOS)
+                currentIso=0;
+            break;
+        case 'd':
+            currentIso--;
+            if (currentIso<0)
+                currentIso=ISOS;
+            break;
+    }
+}
 
 void TreasureHuntRenderer::loadConfigFile(void)
 {
@@ -209,6 +245,8 @@ TreasureHuntRenderer::TreasureHuntRenderer(
     : gvr_api_(gvr::GvrApi::WrapNonOwned(gvr_context)),
       scratch_viewport_(gvr_api_->CreateBufferViewport())
 {
+    
+    controllers=[GCController controllers];
     //won't have config file until later
 //    loadConfigFile();
 }
@@ -335,8 +373,8 @@ void TreasureHuntRenderer::DrawFrame() {
     }
     
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_FRONT);
+    glDisable(GL_CULL_FACE);
+    //glCullFace(GL_FRONT);
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_BLEND);
     
@@ -378,6 +416,7 @@ void TreasureHuntRenderer::DrawFrame() {
 
 void TreasureHuntRenderer::OnTriggerEvent() {
     animateMovement=!animateMovement;
+    AudioServicesPlayAlertSound(kSystemSoundID_Vibrate);
 }
 
 void TreasureHuntRenderer::OnPause() {
@@ -779,6 +818,7 @@ void TreasureHuntRenderer::DrawEye(gvr::Eye eye, const gvr::Mat4f& view_matrix,
             pixel_rect.right - pixel_rect.left,
             pixel_rect.top - pixel_rect.bottom);
 
+  CheckGLError("Before glClear");  
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   CheckGLError("ColorParam");
 

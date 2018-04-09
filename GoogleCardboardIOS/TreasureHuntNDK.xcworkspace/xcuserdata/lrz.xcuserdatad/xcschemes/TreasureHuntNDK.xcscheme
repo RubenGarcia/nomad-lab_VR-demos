@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "12BEE99D1C8F53AB002F8361"
-               BuildableName = "NOMADVRSDK.app"
-               BlueprintName = "NOMADVRSDK"
-               ReferencedContainer = "container:NOMADVRSDK.xcodeproj">
+               BuildableName = "NOMADVR.app"
+               BlueprintName = "NOMADVR"
+               ReferencedContainer = "container:NOMADVR.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -56,9 +56,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "12BEE99D1C8F53AB002F8361"
-            BuildableName = "NOMADVRSDK.app"
-            BlueprintName = "NOMADVRSDK"
-            ReferencedContainer = "container:NOMADVRSDK.xcodeproj">
+            BuildableName = "NOMADVR.app"
+            BlueprintName = "NOMADVR"
+            ReferencedContainer = "container:NOMADVR.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <AdditionalOptions>
@@ -70,16 +70,6 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "12BEE99D1C8F53AB002F8361"
-            BuildableName = "NOMADVRSDK.app"
-            BlueprintName = "NOMADVRSDK"
-            ReferencedContainer = "container:NOMADVRSDK.xcodeproj">
-         </BuildableReference>
-      </BuildableProductRunnable>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

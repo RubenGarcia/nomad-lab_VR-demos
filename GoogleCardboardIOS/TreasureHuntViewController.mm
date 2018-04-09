@@ -26,12 +26,27 @@
 @interface TreasureHuntViewController ()<GLKViewControllerDelegate, GVROverlayViewDelegate> {
   gvr_context *_gvrContext;
   std::unique_ptr<TreasureHuntRenderer> _renderer;
+  NSMutableArray *mycommands;
+
 }
 @end
 
 NSString * filename;
 
+
 @implementation TreasureHuntViewController
+
+
+//https://stackoverflow.com/questions/3717141/how-to-detect-keyboard-events-on-hardware-keyboard-on-iphone-ios
+- (BOOL)canBecomeFirstResponder
+{
+    return YES;
+}
+
+- (NSArray *)keyCommands
+{
+    return mycommands;
+}
 
 - (void)dealloc {
   gvr_destroy(&_gvrContext);
@@ -41,6 +56,8 @@ NSString * filename;
 - (UIViewController *)presentingViewControllerForSettingsDialog {
     return self;
 }
+
+
 
 - (void)viewDidLoad {
   [super viewDidLoad];
@@ -89,11 +106,54 @@ NSString * filename;
         _renderer->InitializeGl();
     };
     
+    
+    //https://gist.github.com/ferbass/0ddea86e6b2eb5915fabdbfe9f151a5e
     fb.didSelectFile=didSelectFileCallback;
     //[self.navigationController pushViewController:fb animated:YES];
     [self presentViewController:fb animated:YES completion:nil];
     _renderer.reset(new TreasureHuntRenderer(_gvrContext));
+    
+    //keys
+    NSMutableArray *commands = [[NSMutableArray alloc] init];
+    /* Up */
+    [commands addObject:[UIKeyCommand keyCommandWithInput:UIKeyInputUpArrow modifierFlags:kNilOptions action:@selector(handleCommand:)]];
+    /* Down */
+    [commands addObject:[UIKeyCommand keyCommandWithInput:UIKeyInputDownArrow modifierFlags:kNilOptions action:@selector(handleCommand:)]];
+    /* Left */
+    [commands addObject:[UIKeyCommand keyCommandWithInput:UIKeyInputLeftArrow modifierFlags:kNilOptions action:@selector(handleCommand:)]];
+    /* Right */
+    [commands addObject:[UIKeyCommand keyCommandWithInput:UIKeyInputRightArrow modifierFlags:kNilOptions action:@selector(handleCommand:)]];
+    
+    //VRPark, ABCD=uhyj, arrows: up down left right = wxad
+    
+    UIKeyModifierFlags f[]={
+        //UIKeyModifierAlphaShift,
+        //UIKeyModifierShift,
+        //UIKeyModifierControl,
+        //UIKeyModifierAlternate,
+        //UIKeyModifierCommand,
+        //UIKeyModifierControl | UIKeyModifierAlternate,
+        //UIKeyModifierControl | UIKeyModifierCommand,
+        //UIKeyModifierAlternate | UIKeyModifierCommand,
+        //UIKeyModifierControl | UIKeyModifierAlternate | UIKeyModifierCommand,
+        kNilOptions
+    };
+    NSString *characters = @"uhyjwxad";
+    for (NSInteger i = 0; i < characters.length; i++) {
+        for (int j=0;j<1;j++) {
+        NSString *input = [characters substringWithRange:NSMakeRange(i, 1)];
+            [commands addObject:[UIKeyCommand keyCommandWithInput:input modifierFlags:f[j] action:@selector(handleCommand:)]];
+        }
+    }
+    mycommands = commands.copy;
+//    [self.addKeyCommand:mycommands];
   }
+
+- (void)handleCommand:(UIKeyCommand *)command
+{
+    _renderer->keypress (command.input.UTF8String[0]);
+    
+}
 
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
   // GVR only supports landscape right orientation for inserting the phone in the viewer.

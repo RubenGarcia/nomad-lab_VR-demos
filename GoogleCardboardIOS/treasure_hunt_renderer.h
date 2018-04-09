@@ -20,6 +20,9 @@
 #import <OpenGLES/ES3/gl.h>
 #import <OpenGLES/ES3/glext.h>
 
+//https://www.raywenderlich.com/66532/ios-7-game-controller-tutorial
+#include "GameController/GameController.h"
+
 #include <memory>
 #include <string>
 #include <thread>  // NOLINT
@@ -75,7 +78,11 @@ class TreasureHuntRenderer {
    */
   void OnResume();
 
+    void keypress (int k);
+
  private:
+  NSArray<GCController *> *controllers=nullptr;
+    
   int CreateTexture(int width, int height, int textureFormat, int textureType);
 
   /**

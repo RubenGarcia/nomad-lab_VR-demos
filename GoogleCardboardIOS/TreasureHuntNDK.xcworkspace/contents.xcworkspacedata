@@ -2,7 +2,7 @@
 <Workspace
    version = "1.0">
    <FileRef
-      location = "group:/Users/lrz/gvr-ios-sdk/Samples/TreasureHuntNDK/NOMADVRSDK.xcodeproj">
+      location = "group:/Users/lrz/gvr-ios-sdk/Samples/TreasureHuntNDK/NOMADVR.xcodeproj">
    </FileRef>
    <FileRef
       location = "group:Pods/Pods.xcodeproj">
