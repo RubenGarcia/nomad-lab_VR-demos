@@ -9,7 +9,8 @@ Context:
 
 Requirements:
 	-Supported virtual reality hardware: HTC Vive or Oculus Rift, GearVR,
-		Google Cardboard for Android, or the LRZ CAVE environment.
+		Google Cardboard for Android or IOS, or the LRZ CAVE 
+		environment.
 
 Usage Instructions:
 	See https://www.nomad-coe.eu/the-project/graphics/VR-prototype
@@ -18,6 +19,9 @@ Subdirectories:
 	OpenVR: Demos for HTC Vive.
 	OculusMobile: Demos for GearVR.
 	GoogleCardboardAndroid: Demos for Google Cardboard (android)
+	GoogleCardboardIOS: Demo for Google Cardboard (IOS)
+	GoogleCardboard: Common files between Google Cardboard for Android
+		and for IOS
 	CAVE: Demos for LRZ CAVE-like environment (linux)
 
 	NOMADGearVRChooser: Android app to select the dataset for GearVR, which
