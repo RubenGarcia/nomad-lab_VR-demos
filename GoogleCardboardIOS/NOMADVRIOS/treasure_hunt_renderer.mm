@@ -31,7 +31,7 @@
 #include "NOMADVRLib/IsosurfacesGL.h"
 #include "NOMADVRLib/eprintf.h"
 
-#include "GoogleCardboard/aux.h"
+#include "GoogleCardboard/auxiliary.h"
 
 #define LOG_TAG "NOMADVRIOS"
 #define LOGW(...) NSLog(@__VA_ARGS__)

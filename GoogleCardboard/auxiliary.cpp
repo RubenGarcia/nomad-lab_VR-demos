@@ -15,7 +15,7 @@
  */
 
 #include <math.h>
-#include "aux.h"
+#include "auxiliary.h"
 
 gvr::Mat4f TranslationMatrix (float x, float y, float z)
 {
