@@ -240,6 +240,7 @@ if (e!=GL_NO_ERROR) {
 	eprintf ("OpenGL error after loading config file %d", e);
 	error=-409;
 }
+
 glGenTextures(2, textures);
 e=glGetError();
 if (e!=GL_NO_ERROR) {
@@ -398,6 +399,7 @@ bool er;
 				else
 					mvs=glm::scale(mvs, glm::vec3(globalscaling*scaling,
 						globalscaling*scaling, globalscaling*scaling));
+
 				matcubetrans=glm::translate(matcubetrans,glm::vec3(cubetrans[0], 
 					cubetrans[1], cubetrans[2]));
 				glm::mat4 abcm (abc[0][0], abc[0][1], abc[0][2], 0,
@@ -942,6 +944,15 @@ void sceneManager::RenderAtomBonds(const float *t)
 {
 GLenum e;
 if (numBonds) {
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("Gl error at start of RenderAtomBonds, %d, %s\n",
+			 e, gluErrorString(e));
+	//rgh: glLineWidth > 1 returns invalid value according to new standard
+	//glLineWidth(bondThickness);
+	//if ((e = glGetError()) != GL_NO_ERROR)
+	//	eprintf("Gl error after Render Atom bonds glLineWidth "
+	//		"timestep =%d, bondThickness=%f: %d, %s\n", 
+	//		m_oldTime, bondThickness, e, gluErrorString(e));
 	glBindVertexArray(AtomTVAO[2]);
 	if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("Gl error after Render Atom bonds glBindVertexArray timestep =%d: %d, %s\n", m_oldTime, e, gluErrorString(e));
@@ -956,7 +967,8 @@ if (numBonds) {
 	else
 		glDrawElements(GL_LINES, numBonds[m_oldTime]-numBonds[m_oldTime-1], GL_UNSIGNED_INT, 
 			(void*)(sizeof(int)*numBonds[m_oldTime-1]) );
-
+	//glBindVertexArray(0);
+	//glLineWidth(1.0f);
 	if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("Gl error after Render Atom bonds timestep =%d: %d, %s\n", m_oldTime, e, gluErrorString(e));
 }

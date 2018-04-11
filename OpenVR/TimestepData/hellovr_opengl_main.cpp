@@ -61,6 +61,7 @@
 #include "NOMADVRLib/TessShaders.h"
 #include "NOMADVRLib/UnitCellShaders.h"
 #include "NOMADVRLib/IsoShaders.h"
+#include "NOMADVRLib/TexturedShaders.h"
 #include "NOMADVRLib/CompileGLShader.h"
 
 #include "NOMADVRLib/polyhedron.h"
@@ -1326,31 +1327,9 @@ bool CMainApplication::CreateAllShaders()
 	}
 
 	m_unRenderModelProgramID = CompileGLShader( 
-		"render model",
-
-		// vertex shader
-		"#version 410\n"
-		"uniform mat4 matrix;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec3 v3NormalIn;\n"
-		"layout(location = 2) in vec2 v2TexCoordsIn;\n"
-		"out vec2 v2TexCoord;\n"
-		"void main()\n"
-		"{\n"
-		"	v2TexCoord = v2TexCoordsIn;\n"
-		"	gl_Position = matrix * vec4(position.xyz, 1);\n"
-		"}\n",
-
-		//fragment shader
-		"#version 410 core\n"
-		"uniform sampler2D diffuse;\n"
-		"in vec2 v2TexCoord;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"   outputColor = texture( diffuse, v2TexCoord);\n"
-		"}\n"
-
+		TexturedShaders[SHADERNAME],
+		TexturedShaders[SHADERVERTEX],
+		TexturedShaders[SHADERFRAGMENT]
 		);
 	m_nRenderModelMatrixLocation = glGetUniformLocation( m_unRenderModelProgramID, "matrix" );
 	if( m_nRenderModelMatrixLocation == -1 )
@@ -2420,6 +2399,8 @@ void CMainApplication::CleanDepthTexture ()
 void CMainApplication::RenderInfo(const vr::Hmd_Eye &nEye)
 {
 int e;
+if (info.size()==0)
+	return;
 glBindVertexArray(m_unInfoVAO);
 glActiveTexture( GL_TEXTURE0 );
 glBindBuffer(GL_ARRAY_BUFFER, m_unInfoVertBuffer);
@@ -2467,7 +2448,8 @@ for (int i = 0; i < info.size(); i++) {
 	Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans*nt;
 	glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
 	if ((e = glGetError()) != GL_NO_ERROR)
-		dprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
+		dprintf("Gl error after glUniform4fv 1 RenderInfo: %d, %s\n", 
+			e, gluErrorString(e));
 
 	glUniform4fv(m_nUnitCellColourLocation, 1, infolinecolour);
 

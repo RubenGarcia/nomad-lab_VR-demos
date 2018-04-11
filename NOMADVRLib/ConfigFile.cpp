@@ -85,15 +85,15 @@ std::vector<information> info;
 const char * loadConfigFileErrors[] =
 {
 	"All Ok",//0
-	"file could not be opened", //-1
-	"unrecognized parameter",//-2
-	"values with no previous iso", //-3
-	"colours with no previous iso",//-4
-	"translations with no previous correct iso",//-5
-	"Missing isos and xyzfile",//-6
-	"missing values",//-7
-	"timesteps from config file and from atom file do not match",//-8, unused, now minimum is used
-	"isos parameter specified twice",//-9
+	"File could not be opened", //-1
+	"Unrecognized parameter",//-2
+	"Values with no previous iso", //-3
+	"Colours with no previous iso",//-4
+	"Translations with no previous correct iso",//-5
+	"Isos present but no timestep value given",//-6
+	"Missing values",//-7
+	"Timesteps from config file and from atom file do not match",//-8, unused, now minimum is used
+	"Isos parameter specified twice",//-9
 	"Error reading unit cell parameters", //-10
 	"Error reading repetitions",//-11
 	"Non-periodic, but repetitions requested", //-12
@@ -101,8 +101,8 @@ const char * loadConfigFileErrors[] =
 	"Error loading config file",// -14
 	"Error reading atomglyph", //-15
 	"Error reading token", //-16
-	"markers with no previous correct timesteps parameter", //-17
-	"markercolours with no previous correct timesteps parameter", //-18
+	"Markers with no previous correct timesteps parameter", //-17
+	"Markercolours with no previous correct timesteps parameter", //-18
 	"Error reading atomcolour", // -19
 	"Error reading newatom", //-20
 	"Error loading xyz file, add 100 to see the error",//<-100
@@ -701,10 +701,10 @@ int loadConfigFile(const char * f)
 //verification and additional processing
 	fclose(F);
 
-	/*if (ISOS == 0 && numAtoms==0) {
-		eprintf( "Missing isos and atomfile parameter\n");
+	if (ISOS != 0 && TIMESTEPS==0) {
+		eprintf( "Isos requested, but no timesteps indicated\n");
 		return -6;
-	} */
+	} 
 	if (ISOS !=0 && plyfiles[0] == 0) {
 		eprintf( "Missing values parameter\n");
 		fclose(F);
