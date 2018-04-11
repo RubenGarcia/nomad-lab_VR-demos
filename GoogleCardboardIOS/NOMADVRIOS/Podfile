@@ -1,4 +1,4 @@
-target 'NOMADVRSDK' do
+target 'NOMADVR' do
   pod 'GVRSDK'
   pod 'GVRAudioSDK'
   source 'https://github.com/CocoaPods/Specs.git'

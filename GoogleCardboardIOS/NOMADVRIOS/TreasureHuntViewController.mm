@@ -1,3 +1,4 @@
+/*# Copyright 2016-2018 The NOMAD Developers Group*/
 /*
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
@@ -19,17 +20,44 @@
 #import "GVROverlayView.h"
 #import "treasure_hunt_renderer.h"
 
+#include "FileBrowser/FileBrowser.h"
+#include "FileBrowser-Swift.h"
+
 @interface TreasureHuntViewController ()<GLKViewControllerDelegate, GVROverlayViewDelegate> {
   gvr_context *_gvrContext;
   std::unique_ptr<TreasureHuntRenderer> _renderer;
+  NSMutableArray *mycommands;
+
 }
 @end
 
+NSString * filename;
+
+
 @implementation TreasureHuntViewController
+
+
+//https://stackoverflow.com/questions/3717141/how-to-detect-keyboard-events-on-hardware-keyboard-on-iphone-ios
+- (BOOL)canBecomeFirstResponder
+{
+    return YES;
+}
+
+- (NSArray *)keyCommands
+{
+    return mycommands;
+}
 
 - (void)dealloc {
   gvr_destroy(&_gvrContext);
 }
+
+
+- (UIViewController *)presentingViewControllerForSettingsDialog {
+    return self;
+}
+
+
 
 - (void)viewDidLoad {
   [super viewDidLoad];
@@ -47,6 +75,7 @@
       [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(didTapGLView:)];
   [self.view addGestureRecognizer:tapGesture];
 
+    
   // Create an OpenGL ES context and assign it to the view loaded from storyboard
   GLKView *glkView = (GLKView *)self.view;
   glkView.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
@@ -62,10 +91,68 @@
 
   // Create GVR context.
   _gvrContext = gvr_create();
+    
+    FileBrowser *fb=[[FileBrowser alloc] initWithInitialPath: nullptr allowEditing:NO  showCancelButton:NO];
+    
+    void (^ _Nullable didSelectFileCallback)(FBFile * _Nonnull) = ^(FBFile * _Nonnull file)
+    {
+        filename=[[file filePath] path];
+        NSFileManager *filemgr = [NSFileManager defaultManager];
+   //http://www.techotopia.com/index.php/Working_with_Directories_on_iPhone_OS#The_Application_Documents_Directory        
+        if ([filemgr changeCurrentDirectoryPath: [filename stringByDeletingLastPathComponent]] == NO)
+            NSLog(@"Cannot change current directory");
 
-  // Initialize TreasureHuntRenderer.
-  _renderer.reset(new TreasureHuntRenderer(_gvrContext));
-  _renderer->InitializeGl();
+        _renderer->setConfigFile (filename);
+        _renderer->InitializeGl();
+    };
+    
+    
+    //https://gist.github.com/ferbass/0ddea86e6b2eb5915fabdbfe9f151a5e
+    fb.didSelectFile=didSelectFileCallback;
+    //[self.navigationController pushViewController:fb animated:YES];
+    [self presentViewController:fb animated:YES completion:nil];
+    _renderer.reset(new TreasureHuntRenderer(_gvrContext));
+    
+    //keys
+    NSMutableArray *commands = [[NSMutableArray alloc] init];
+    /* Up */
+    [commands addObject:[UIKeyCommand keyCommandWithInput:UIKeyInputUpArrow modifierFlags:kNilOptions action:@selector(handleCommand:)]];
+    /* Down */
+    [commands addObject:[UIKeyCommand keyCommandWithInput:UIKeyInputDownArrow modifierFlags:kNilOptions action:@selector(handleCommand:)]];
+    /* Left */
+    [commands addObject:[UIKeyCommand keyCommandWithInput:UIKeyInputLeftArrow modifierFlags:kNilOptions action:@selector(handleCommand:)]];
+    /* Right */
+    [commands addObject:[UIKeyCommand keyCommandWithInput:UIKeyInputRightArrow modifierFlags:kNilOptions action:@selector(handleCommand:)]];
+    
+    //VRPark, ABCD=uhyj, arrows: up down left right = wxad
+    
+    UIKeyModifierFlags f[]={
+        //UIKeyModifierAlphaShift,
+        //UIKeyModifierShift,
+        //UIKeyModifierControl,
+        //UIKeyModifierAlternate,
+        //UIKeyModifierCommand,
+        //UIKeyModifierControl | UIKeyModifierAlternate,
+        //UIKeyModifierControl | UIKeyModifierCommand,
+        //UIKeyModifierAlternate | UIKeyModifierCommand,
+        //UIKeyModifierControl | UIKeyModifierAlternate | UIKeyModifierCommand,
+        kNilOptions
+    };
+    NSString *characters = @"uhyjwxad";
+    for (NSInteger i = 0; i < characters.length; i++) {
+        for (int j=0;j<1;j++) {
+        NSString *input = [characters substringWithRange:NSMakeRange(i, 1)];
+            [commands addObject:[UIKeyCommand keyCommandWithInput:input modifierFlags:f[j] action:@selector(handleCommand:)]];
+        }
+    }
+    mycommands = commands.copy;
+//    [self.addKeyCommand:mycommands];
+  }
+
+- (void)handleCommand:(UIKeyCommand *)command
+{
+    _renderer->keypress (command.input.UTF8String[0]);
+    
 }
 
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
@@ -104,9 +191,6 @@
   NSLog(@"User pressed back button");
 }
 
-- (UIViewController *)presentingViewControllerForSettingsDialog {
-  return self;
-}
 
 - (void)didPresentSettingsDialog:(BOOL)presented {
   // The overlay view is presenting the settings dialog. Pause our rendering while presented.
