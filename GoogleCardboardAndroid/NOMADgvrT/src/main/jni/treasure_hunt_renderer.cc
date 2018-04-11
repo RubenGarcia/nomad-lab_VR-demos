@@ -39,7 +39,7 @@
 #include "NOMADVRLib/polyhedron.h"
 #include "NOMADVRLib/IsosurfacesGL.h"
 
-#include "GoogleCardboard/aux.h"
+#include "GoogleCardboard/auxiliary.h"
 
 #define LOG_TAG "NOMADgvrT"
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
