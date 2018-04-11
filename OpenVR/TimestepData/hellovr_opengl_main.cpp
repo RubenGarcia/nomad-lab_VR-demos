@@ -1687,8 +1687,9 @@ void CMainApplication::SetupIsosurfaces()
 			Matrix4 matFinal;
 			//matFinal.translate(translations[p%ISOS][0]+cubetrans[0], translations[p%ISOS][1]+cubetrans[1], translations[p%ISOS][2]+cubetrans[2]);
 			Matrix4 matcubetrans, mvs;
-			if (voxelSize[0]!=-1) {
-			mvs.scale(1.0f / (float)voxelSize[0], 1.0f / (float)voxelSize[1], 1.0f / (float)voxelSize[2]);
+			if (voxelSize[0]!=-1 ||has_abc) {
+			if (voxelSize[0]!=-1)
+				mvs.scale(1.0f / (float)voxelSize[0], 1.0f / (float)voxelSize[1], 1.0f / (float)voxelSize[2]);
 			matcubetrans.translate(cubetrans[0], cubetrans[1], cubetrans[2]); //angstrom
 			//if abc, in abc coordinates
 			/*Matrix4 abcm (abc[0][0], abc[1][0], abc[2][0], 0,

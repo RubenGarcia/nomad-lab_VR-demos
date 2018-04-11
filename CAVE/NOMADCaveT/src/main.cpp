@@ -387,12 +387,17 @@ bool er;
 				plyfiles[p % ISOS]);
 			float mat[16];
 			glm::mat4 matFinal, matcubetrans, mvs, sc, sctrans;
-			if (voxelSize[0]!=-1) {
+			if (voxelSize[0]!=-1 || has_abc) {
 //We scale in RenderUnitCell by globalscaling so that atoms look large enough on the cave. 
 //So we need to scale here as well.
-				mvs=glm::scale(mvs, glm::vec3(globalscaling*scaling / (float)voxelSize[0], 
+				if (voxelSize[0]!=-1)
+					mvs=glm::scale(mvs,
+						glm::vec3(globalscaling*scaling / (float)voxelSize[0],
 						globalscaling*scaling / (float)voxelSize[1], 
 						globalscaling*scaling / (float)voxelSize[2]));
+				else
+					mvs=glm::scale(mvs, glm::vec3(globalscaling*scaling,
+						globalscaling*scaling, globalscaling*scaling));
 				matcubetrans=glm::translate(matcubetrans,glm::vec3(cubetrans[0], 
 					cubetrans[1], cubetrans[2]));
 				glm::mat4 abcm (abc[0][0], abc[0][1], abc[0][2], 0,

@@ -496,10 +496,14 @@ glGenTextures(2+ZLAYERS, textDepthPeeling);
 				plyfiles[p % ISOS]);
 			gvr::Mat4f trans;
 			gvr::Mat4f matFinal, matcubetrans, mvs, sc, sctrans;
-
-		if (voxelSize[0]!=-1) {
-			mvs=ScalingMatrix(scaling/(float)voxelSize[0], scaling/(float)voxelSize[1],
-				scaling/(float)voxelSize[2]);
+			
+		if (voxelSize[0]!=-1 || has_abc) {
+			if (voxelSize[0]==-1)
+				mvs=ScalingMatrix(scaling);
+			else
+				mvs=ScalingMatrix(scaling/(float)voxelSize[0], scaling/(float)voxelSize[1],
+					scaling/(float)voxelSize[2]);
+					
 			matcubetrans=TranslationMatrix(cubetrans);
 			gvr::Mat4f abcm {abc[0][0], abc[0][1], abc[0][2], 0,
 					abc[1][0], abc[1][1], abc[1][2], 0,

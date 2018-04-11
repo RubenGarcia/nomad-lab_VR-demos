@@ -282,10 +282,13 @@ void OvrApp::OneTimeInit( const char * fromPackage, const char * launchIntentJSO
 					translations[p%ISOS][2]);
 */
 //gvr
-            if (voxelSize[0]!=-1) {
+            if (voxelSize[0]!=-1 ||has_abc) {
                 Matrix4f mvs, abcm, matcubetrans, sctrans, sc;
-                mvs=Matrix4f::Scaling(scaling/(float)voxelSize[0], scaling/(float)voxelSize[1],
-                    scaling/(float)voxelSize[2]);
+                if (voxelSize[0]==-1)
+                    mvs=Matrix4f::Scaling(scaling);
+                else
+                    mvs=Matrix4f::Scaling(scaling/(float)voxelSize[0], scaling/(float)voxelSize[1],
+                        scaling/(float)voxelSize[2]);
                 matcubetrans=Matrix4f::Translation(cubetrans[0], cubetrans[1], cubetrans[2]);
 
                 for (int i=0;i<3;i++) {
