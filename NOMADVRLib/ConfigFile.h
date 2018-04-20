@@ -72,6 +72,7 @@ extern float nearclip, farclip;
 
 extern float animationspeed; //how fast to change to next timestep
 extern float movementspeed;  //how fast to move the user
+extern int sidebuttontimestep; //clicking the second side button: timestep ++, -- or do nothing 
 
 //markers such as hole positions and electron positions
 extern float ** markers;

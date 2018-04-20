@@ -179,12 +179,14 @@
     <ClCompile Include="NOMADVRLib\atomsGL.cpp" />
     <ClCompile Include="NOMADVRLib\CompileGLShader.cpp" />
     <ClCompile Include="NOMADVRLib\ConfigFile.cpp" />
+    <ClCompile Include="NOMADVRLib\ConfigFileAtoms.cpp" />
     <ClCompile Include="NOMADVRLib\Grid.cpp" />
     <ClCompile Include="NOMADVRLib\IsoShaders.cpp" />
     <ClCompile Include="NOMADVRLib\IsosurfacesGL.cpp" />
     <ClCompile Include="NOMADVRLib\markerShaders.cpp" />
     <ClCompile Include="NOMADVRLib\polyhedron.cpp" />
     <ClCompile Include="NOMADVRLib\TessShaders.cpp" />
+    <ClCompile Include="NOMADVRLib\TexturedShaders.cpp" />
     <ClCompile Include="NOMADVRLib\UnitCellShaders.cpp" />
     <ClCompile Include="rply\rply.c" />
   </ItemGroup>
@@ -198,6 +200,7 @@
     <ClInclude Include="NOMADVRLib\atomsGL.h" />
     <ClInclude Include="NOMADVRLib\CompileGLShader.h" />
     <ClInclude Include="NOMADVRLib\ConfigFile.h" />
+    <ClInclude Include="NOMADVRLib\ConfigFileAtoms.h" />
     <ClInclude Include="NOMADVRLib\eprintf.h" />
     <ClInclude Include="NOMADVRLib\Grid.h" />
     <ClInclude Include="NOMADVRLib\IsoShaders.h" />

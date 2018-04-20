@@ -56,25 +56,23 @@ GLenum atomTexture(GLuint t)
 		a[(i+atomsInPeriodicTable)*4+3]=extraAtomData[i][3]*atomScaling;
 	}
 	glBindTexture(GL_TEXTURE_2D, t); //atom texture
-    if ((e = glGetError()) != GL_NO_ERROR) {
-        eprintf( "opengl error %d, atomTexture bind\n", e);
-    }
+	if ((e = glGetError()) != GL_NO_ERROR) {
+		eprintf("opengl error %d, atomTexture bind\n", e);
+	}
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    if ((e = glGetError()) != GL_NO_ERROR) {
-        eprintf( "opengl error %d, atomTexture parameter\n", e);
-    }
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, finalatoms, 1, 0, GL_RGBA, GL_FLOAT, a);
-    if ((e = glGetError()) != GL_NO_ERROR) {
-        eprintf( "opengl error %d, atomTexture glTexImage2D\n", e);
-    }
-	glBindTexture( GL_TEXTURE_2D, 0 );
-    
 	if ((e = glGetError()) != GL_NO_ERROR) {
-		eprintf( "opengl error %d, atomTexture\n", e);
+		eprintf("opengl error %d, atomTexture parameter\n", e);
+	}
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, finalatoms, 1, 0, GL_RGBA, GL_FLOAT, a);
+	if ((e = glGetError()) != GL_NO_ERROR) {
+		eprintf("opengl error %d, atomTexture glTexImage2D\n", e);
+	}
+	glBindTexture( GL_TEXTURE_2D, 0 );
+	if ((e = glGetError()) != GL_NO_ERROR) {
+		eprintf("opengl error %d, atomTexture\n", e);
 	}
 	delete [] a;
 	return e;
@@ -414,7 +412,7 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLu
 	
 		e=glGetError();
 		if ((e = glGetError()) != GL_NO_ERROR)
-			eprintf( "opengl error %d, creating chemical bonds, l %d\n", e, __LINE__);
+			eprintf("opengl error %d, creating chemical bonds, l %d\n", e, __LINE__);
 	}
 	//now clones
 	if (basisvectorreps ||!clonedAtoms) //do not replicate

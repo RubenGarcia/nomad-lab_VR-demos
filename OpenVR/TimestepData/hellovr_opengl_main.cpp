@@ -1015,9 +1015,11 @@ bool CMainApplication::HandleInput()
 					seconddevice=unDevice;
 
 				if (unDevice == firstdevice) {
-					currentset--;
+					currentset+=sidebuttontimestep;
 					if (currentset < 0)
 						currentset = TIMESTEPS - 1;
+					else if (currentset > TIMESTEPS - 1)
+						currentset=0;
 				} else {
 					currentiso++;
 					if (currentiso > ISOS)
@@ -1150,7 +1152,7 @@ void CMainApplication::HapticFeedback(int device)
 			else
 				mycurrentset=currentset;
 			vr::HmdMatrix34_t mat=dp.mDeviceToAbsoluteTracking;
-			Vector3 controllerPos(mat.m[0][3], mat.m[1][3],mat.m[2][3]);
+			Vector3 controllerPos(mat.m[0][3]/scaling, mat.m[1][3]/scaling,mat.m[2][3]/scaling);
 			int atomsInTimestep;
 			if (mycurrentset==0)
 				atomsInTimestep=numAtoms[0];
@@ -1326,7 +1328,7 @@ bool CMainApplication::CreateAllShaders()
 		return false;
 	}
 
-	m_unRenderModelProgramID = CompileGLShader( 
+	m_unRenderModelProgramID = CompileGLShader(
 		TexturedShaders[SHADERNAME],
 		TexturedShaders[SHADERVERTEX],
 		TexturedShaders[SHADERFRAGMENT]
@@ -1474,6 +1476,7 @@ void CMainApplication::SetupScene()
 	SetupUnitCell();
 	SetupMarker();
 	SetupInfoCube();
+	movementspeed/=scaling;
 }
 
 void CMainApplication::SetupInfoCube()
@@ -1667,6 +1670,7 @@ void CMainApplication::SetupIsosurfaces()
 			//matFinal.translate(translations[p%ISOS][0]+cubetrans[0], translations[p%ISOS][1]+cubetrans[1], translations[p%ISOS][2]+cubetrans[2]);
 			Matrix4 matcubetrans, mvs;
 			if (voxelSize[0]!=-1 ||has_abc) {
+				mvs.scale(scaling);
 			if (voxelSize[0]!=-1)
 				mvs.scale(1.0f / (float)voxelSize[0], 1.0f / (float)voxelSize[1], 1.0f / (float)voxelSize[2]);
 			matcubetrans.translate(cubetrans[0], cubetrans[1], cubetrans[2]); //angstrom
@@ -1684,11 +1688,11 @@ void CMainApplication::SetupIsosurfaces()
 			Matrix4 sc;
 			sc.scale(supercell[0], supercell[1], supercell[2]);
 			Matrix4 sctrans;
-			sctrans.translate(-translations[p%ISOS][2], -translations[p%ISOS][1], -translations[p%ISOS][0]);
+			sctrans.translate(-translations[p%ISOS][2]*scaling, -translations[p%ISOS][1]*scaling, -translations[p%ISOS][0]*scaling);
 			matFinal = rot*abcm*sctrans*sc*mvs;
 			} else {
-				matFinal.translate(translations[p%ISOS][0], translations[p%ISOS][1], translations[p%ISOS][2]);
-				matFinal=mat*matFinal;
+				matFinal.translate(translations[p%ISOS][0]*scaling, translations[p%ISOS][1]*scaling, translations[p%ISOS][2]*scaling);
+				matFinal=mat*matFinal; //mat above defined has scaling and rotation
 			}
 
 			if (!AddModelToScene(matFinal.get(), vertdataarray[currentlod][p], vertindicesarray[currentlod][p],
@@ -2165,9 +2169,9 @@ void CMainApplication::PaintGrid(const vr::Hmd_Eye &nEye, int iso) {
 	int c=0;
 			
 	Matrix4 trans;
-	Vector3 iPos = Vector3(0, 0, 0);
+	//Vector3 iPos = Vector3(0, 0, 0);
 		
-	trans.translate(iPos).translate(UserPosition);
+	trans/*.translate(iPos)*/.translate(UserPosition*scaling);
 	Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans;
 	glUniformMatrix4fv(m_nSceneMatrixLocation, 1, GL_FALSE, transform.get());
 
@@ -2205,7 +2209,8 @@ void CMainApplication::RenderUnitCell(const vr::Hmd_Eye &nEye)
 
 
 	//unit cells
-
+	Matrix4 globalScaling;
+globalScaling.scale(scaling, scaling, scaling);
 	int p[3];
 	for (p[0]=0;p[0]<repetitions[0];(p[0])++)
 		for (p[1]=0;p[1]<repetitions[1];(p[1])++)
@@ -2217,7 +2222,7 @@ void CMainApplication::RenderUnitCell(const vr::Hmd_Eye &nEye)
 					trans.identity();
 		
 					trans.translate(iPos).rotateX(-90).translate(UserPosition);
-					transform = GetCurrentViewProjectionMatrix(nEye)*trans;
+					transform = GetCurrentViewProjectionMatrix(nEye)*globalScaling*trans;
 					glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
 					if ((e = glGetError()) != GL_NO_ERROR)
 						dprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
@@ -2233,10 +2238,10 @@ void CMainApplication::RenderUnitCell(const vr::Hmd_Eye &nEye)
 
 		//supercell
 	glEnable(GL_LINE_SMOOTH);
-	glLineWidth(2);
+	glLineWidth(2.0f);
 	trans.identity();
 	trans.rotateX(-90).translate(UserPosition);
-	transform = GetCurrentViewProjectionMatrix(nEye)*trans;
+	transform = GetCurrentViewProjectionMatrix(nEye)*globalScaling*trans;
 	glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("Gl error after glUniform4fv 1 RenderUnitCell, supercell: %d, %s\n", e, gluErrorString(e));
@@ -2265,7 +2270,11 @@ glPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL,levelsi);
 glPatchParameteri(GL_PATCH_VERTICES, 1);
 
 trans.translate(iPos).rotateX(-90).translate(UserPosition);
-Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans;
+
+	Matrix4 globalScaling;
+	globalScaling.scale(scaling, scaling, scaling);
+
+Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*globalScaling*trans;
 
 if (numAtoms && showAtoms) {
 	glBindVertexArray(m_unAtomVAO[0]);
@@ -2275,7 +2284,7 @@ if (numAtoms && showAtoms) {
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
 	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(3 * sizeof(float)));
 
-	Matrix4 mv=GetCurrentViewMatrix(nEye)*trans;
+	//Matrix4 mv=GetCurrentViewMatrix(nEye)*globalScaling*trans;
 	glUniformMatrix4fv(m_nAtomMatrixLocation, 1, GL_FALSE, transform.get());
 	//glUniformMatrix4fv(m_nAtomMVLocation, 1, GL_FALSE, mv.get());
 	if ((e = glGetError()) != GL_NO_ERROR)
@@ -2298,6 +2307,7 @@ if (numClonedAtoms!=0 && (currentset==0||fixedAtoms) && showAtoms) {
 
 //now bonds
 if (numBonds && displaybonds && showAtoms) {
+	glLineWidth(bondThickness);
 	glBindVertexArray(m_unAtomVAO[2]);
 	glUseProgram(m_unUnitCellProgramID);
 	glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
@@ -2310,6 +2320,7 @@ if (numBonds && displaybonds && showAtoms) {
 
 	if ((e = glGetError()) != GL_NO_ERROR)
 			dprintf("Gl error after Render Atom bonds timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+	glLineWidth(1.0f);
 }
 
 
@@ -2399,13 +2410,16 @@ void CMainApplication::CleanDepthTexture ()
 void CMainApplication::RenderInfo(const vr::Hmd_Eye &nEye)
 {
 int e;
-if (info.size()==0)
-	return;
+if (info.size() == 0)
+return;
 glBindVertexArray(m_unInfoVAO);
 glActiveTexture( GL_TEXTURE0 );
 glBindBuffer(GL_ARRAY_BUFFER, m_unInfoVertBuffer);
 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_unInfoIndexBuffer);
 glUseProgram(m_unRenderModelProgramID);
+
+Matrix4 globalScaling;
+globalScaling.scale(scaling, scaling, scaling);
 
 for (int i=0;i<info.size(); i++) {
 	Matrix4 trans;
@@ -2416,7 +2430,7 @@ for (int i=0;i<info.size(); i++) {
 
 	Matrix4 scal;
 	scal.scale(info[i].size);
-	Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans*scal;
+	Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*globalScaling*trans*scal;
 	glUniformMatrix4fv(m_nRenderModelMatrixLocation, 1, GL_FALSE, transform.get());
 	glBindTexture(GL_TEXTURE_2D, info[i].tex);
 	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_SHORT, 0);
@@ -2445,11 +2459,10 @@ for (int i = 0; i < info.size(); i++) {
 		);//.transpose();
 	Matrix4 trans;
 	trans.rotateX(-90).translate(UserPosition);
-	Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans*nt;
+	Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*globalScaling*trans*nt;
 	glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
 	if ((e = glGetError()) != GL_NO_ERROR)
-		dprintf("Gl error after glUniform4fv 1 RenderInfo: %d, %s\n", 
-			e, gluErrorString(e));
+		dprintf("Gl error after glUniform4fv 1 RenderUnitCell: %d, %s\n", e, gluErrorString(e));
 
 	glUniform4fv(m_nUnitCellColourLocation, 1, infolinecolour);
 

@@ -77,6 +77,7 @@ float ** markercolours;
 
 float animationspeed;
 float movementspeed;
+int sidebuttontimestep; 
 
 menubutton_t menubutton;
 
@@ -231,6 +232,7 @@ void initState()
 
 	animationspeed=1.0f;
 	movementspeed=1.0f;
+	sidebuttontimestep=-1;
 
 	infolinecolour[0] = 1.0f;
 	infolinecolour[1] = 1.0f;
@@ -393,7 +395,7 @@ int loadConfigFile(const char * f)
 		else if (!strcmp(s, "scaling")) {
 			r = fscanf(F, "%f", &scaling);
 		}
-		else if (!strcmp(s, "abc")) {
+		else if (!strcmp(s, "abc") || !strcmp (s, "unitcell") ) {
 			for (int i=0;i<3;i++)
 				for (int j=0;j<3;j++) {
 					r = fscanf(F, "%f", &(abc[i][j]));
@@ -672,6 +674,10 @@ int loadConfigFile(const char * f)
 			r=fscanf (F, "%f", &movementspeed);
 			if (r<1)
 				eprintf ("Error reading movementspeed");
+		} else if (!strcmp (s, "sidebuttontimestep")) {
+			r=fscanf (F, "%d", &sidebuttontimestep);
+			if (r<1)
+				eprintf ("Error reading sidebuttontimestep");		
 #ifdef WIN32
 		} else if (!strcmp (s, "info")) {
 			information i;
@@ -701,10 +707,10 @@ int loadConfigFile(const char * f)
 //verification and additional processing
 	fclose(F);
 
-	if (ISOS != 0 && TIMESTEPS==0) {
-		eprintf( "Isos requested, but no timesteps indicated\n");
+	if (ISOS != 0 && TIMESTEPS == 0) {
+		eprintf("Isos requested, but no timesteps indicated\n");
 		return -6;
-	} 
+	}
 	if (ISOS !=0 && plyfiles[0] == 0) {
 		eprintf( "Missing values parameter\n");
 		fclose(F);
@@ -725,6 +731,17 @@ int loadConfigFile(const char * f)
 		atomtrajectories.clear();
 		for (int i=0;i<*numAtoms;i++)
 			atomtrajectories.push_back(i);
+	}
+
+	if (markers && !markercolours) {
+		markercolours=new float* [TIMESTEPS];
+		for (int i=0;i<TIMESTEPS;i++) {
+			markercolours[i]=new float[4];
+			for (int j = 0; j < 3; j++) {
+				markercolours [i][j]=1-BACKGROUND[j];
+			}
+			markercolours[i][3]=0.5;
+		}
 	}
 
 	//chemical bonds
