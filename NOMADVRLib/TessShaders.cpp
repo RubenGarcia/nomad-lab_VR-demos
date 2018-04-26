@@ -1,5 +1,5 @@
 /*
-# Copyright 2016-2018 The NOMAD Developers Group
+# Copyright 2016-2018 Ruben Jesus Garcia-Hernandez
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -33,14 +33,17 @@ const char * const AtomShaders [] = {
 #endif
 	"uniform sampler2D atomData;\n"
     "uniform float totalatoms;\n" //(float)atomsInPeriodicTable
+	"uniform int selectedAtom;\n"
 	"layout(location = 0) in vec3 center;\n"
 	"layout(location = 1) in float atomIn;\n"
 	"out vec4 vcolor;\n" //color , radius
 	"out vec3 vcen;"
+	"out float vselected;"
 	"void main()\n"
 	"{\n"
 	"float coord=atomIn/totalatoms+0.5/totalatoms;\n"
 	"vcolor=vec4(texture(atomData, vec2(coord, 0)));\n"
+	"vselected=float(gl_VertexID==selectedAtom);\n"
 	"vcen=center;\n"
 	"}\n",
 
@@ -52,13 +55,21 @@ const char * const AtomShaders [] = {
 #endif
 	"in lowp vec4 color;\n"
 	"in highp vec3 normal;"
+	"in float selected;"
 	"out lowp vec4 outputColor;\n"
 	"void main()\n"
 	"{\n"
 	"highp vec3 nn = normalize(normal);"
 	"lowp float a=abs(dot(nn, vec3(0,sqrt(2.0)/2.0,sqrt(2.0)/2.0)));\n"
 	"lowp float b=max(0.0, dot(nn, vec3(0,0,1)));\n"
-	"highp vec4 res=color;\n"
+	"highp vec4 res;\n"
+	"bool s=abs(normal.x)<0.2;"
+	"s=s||(abs(normal.y)<0.2);"
+	"s=s||(abs(normal.z)<0.2);"
+	"if (selected>0.5 &&  s)"
+	"	res=vec4(1.0, 0.5, 0.0, 1.0);"
+	"else\n"
+	"	res=color;\n"
 	"	outputColor = vec4 ((res.rgb) * (0.4 + 0.3*a + 0.3*b), color.a);\n"
 	"}\n",
 
@@ -73,8 +84,10 @@ const char * const AtomShaders [] = {
 	"uniform mat4 matrix;\n"
 	"in vec4 vcolor[];\n" //color , radius
 	"in vec3 vcen[];"
+	"in float vselected[];"
 	"out vec4 color;\n" //color 
 	"out vec3 normal;\n"
+	"out float selected;\n"
 
 	"void main()\n"
 	"{\n"
@@ -83,6 +96,7 @@ const char * const AtomShaders [] = {
 	"sin((gl_TessCoord.y-0.5)*pi));"
 	"vec3	vertex = normal * vcolor[0].w  + vcen[0];\n"
 	"color=vec4(vcolor[0].xyz, 1);"
+	"selected=vselected[0];\n"
 	"gl_Position = matrix * vec4(vertex, 1);\n"
 "}\n"
 

@@ -1,5 +1,5 @@
 /*
-# Copyright 2016-2018 The NOMAD Developers Group
+# Copyright 2016-2018 Ruben Jesus Garcia Hernandez
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -735,12 +735,21 @@ int loadConfigFile(const char * f)
 
 	if (markers && !markercolours) {
 		markercolours=new float* [TIMESTEPS];
+		float mc [4];
+		if (fabs (BACKGROUND[0]-0.5) < 0.1 && fabs (BACKGROUND[1]-0.5) < 0.1 && fabs (BACKGROUND[2]-0.5) < 0.1) //almost grey
+			for (int j = 0; j < 3; j++) {
+				mc[j]=0.0f;
+			}
+		else
+			for (int j = 0; j < 3; j++) {
+				mc[j]=1-BACKGROUND[j];
+			}
+		mc[3]=0.5;
 		for (int i=0;i<TIMESTEPS;i++) {
 			markercolours[i]=new float[4];
-			for (int j = 0; j < 3; j++) {
-				markercolours [i][j]=1-BACKGROUND[j];
+			for (int j = 0; j < 4; j++) {
+				markercolours [i][j]=mc[j];
 			}
-			markercolours[i][3]=0.5;
 		}
 	}
 

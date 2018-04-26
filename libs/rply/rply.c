@@ -6,7 +6,7 @@ Rubén Jesús García Hernández
 Fix missing initialization, lines 379, 482
 
 /*
-# Copyright 2016-2018 The NOMAD Developers Group
+# Copyright 2016-2018 Ruben Jesus Garcia Hernandez
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.

@@ -2,7 +2,7 @@
 /*These licenses are compatible with Apache 2.0*/
 
 /*
-# Copyright 2016-2018 The NOMAD Developers Group
+# Copyright 2016-2018 Ruben Jesus Garcia Hernandez
 */
 
 /* Copyright 2017 Google Inc. All rights reserved.

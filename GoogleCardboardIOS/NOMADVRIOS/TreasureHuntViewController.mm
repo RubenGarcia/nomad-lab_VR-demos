@@ -1,4 +1,4 @@
-/*# Copyright 2016-2018 The NOMAD Developers Group*/
+/*# Copyright 2016-2018 Ruben Jesus Garcia Hernandez*/
 /*
  * Copyright 2016 Google Inc. All Rights Reserved.
  *

@@ -1,5 +1,5 @@
 /*
-# Copyright 2016-2018 The NOMAD Developers Group
+# Copyright 2016-2018 Ruben Jesus Garcia Hernandez
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -736,8 +736,8 @@ GLenum SetupUnitCell(GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *Un
 
 bool PrepareUnitCellAtomShader (GLuint *AtomP, GLuint *cellP, GLuint *MarkerP, 
 								GLint *AtomMatrixLocation, GLint *UnitCellMatrixLocation,  GLint *UnitCellColourLocation,
-								GLint *MarkerMatrixLocation, GLint *totalatomsLocation){
-	if (!PrepareAtomShader(AtomP, AtomMatrixLocation, totalatomsLocation))
+								GLint *MarkerMatrixLocation, GLint *totalatomsLocation, GLint *selectedAtomLocation){
+	if (!PrepareAtomShader(AtomP, AtomMatrixLocation, totalatomsLocation, selectedAtomLocation))
 		return false;
 
 	if (!PrepareUnitCellShader(cellP, UnitCellMatrixLocation, UnitCellColourLocation))
@@ -749,7 +749,7 @@ bool PrepareUnitCellAtomShader (GLuint *AtomP, GLuint *cellP, GLuint *MarkerP,
 	return true;
 }
 
-bool PrepareAtomShader (GLuint *AtomP, GLint *AtomMatrixLocation, GLint *totalatomsLocation){
+bool PrepareAtomShader (GLuint *AtomP, GLint *AtomMatrixLocation, GLint *totalatomsLocation, GLint *selectedAtomLocation){
 		//https://www.gamedev.net/topic/591110-geometry-shader-point-sprites-to-spheres/
 	//no rotation, only translations means we can do directional lighting in the shader.
 	//FIXME
@@ -772,7 +772,12 @@ bool PrepareAtomShader (GLuint *AtomP, GLint *AtomMatrixLocation, GLint *totalat
 		eprintf( "Unable to find matrix uniform in atom shader\n" );
 		return false;
 	}
-
+	*selectedAtomLocation=glGetUniformLocation(*AtomP, "selectedAtom");
+	if( *totalatomsLocation == -1 )
+	{
+		eprintf( "Unable to find selectedAtom uniform in atom shader\n" );
+		return false;
+	}
 	return true;
 }
 
