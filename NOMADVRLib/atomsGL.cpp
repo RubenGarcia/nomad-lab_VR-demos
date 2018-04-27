@@ -28,14 +28,6 @@
 #include "polyhedron.h"
 #include "Grid.h"
 
-int getAtomTimesteps() 
-{
-	if (fixedAtoms)
-		return 1;
-	else
-		return TIMESTEPS;
-}
-
 GLenum atomTexture(GLuint t)
 {
 	GLenum e;
@@ -230,6 +222,26 @@ if (!solid) {
 	return e;
 } //SetupAtomsNoTess
 
+void CleanAtoms (GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLuint *BondIndices)
+{
+	if (!numAtoms)
+		return;
+
+	glDeleteVertexArrays(4, *AtomVAO);
+	glDeleteBuffers(3, *AtomVertBuffer);
+	glDeleteBuffers(1, BondIndices);
+
+	delete[] (*AtomVAO);
+	delete[] (*AtomVertBuffer);
+	*AtomVAO=nullptr;
+	*AtomVertBuffer=nullptr;
+
+
+	if (numBonds)
+		delete[] numBonds;
+	numBonds=nullptr;
+	bonds.clear();
+}
 
 GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLuint *BondIndices)
 {
@@ -245,7 +257,7 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLu
 	for (int i=0;i<getAtomTimesteps() ;i++) {
 		totalatoms += numAtoms[i];
 	}
-	eprintf("SetupAtoms: totalatoms=%d", totalatoms);
+	//eprintf("SetupAtoms: totalatoms=%d", totalatoms);
 
 	*AtomVAO = new GLuint[4]; //atoms, cloned atoms, bonds, trajectories
 	*AtomVertBuffer = new GLuint[3]; //atoms, cloned atoms, trajectories
@@ -437,6 +449,13 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLu
 	return e;
 }
 
+void CleanInfoCube  (GLuint *VAO, GLuint *VertBuffer, GLuint *IndexBuffer)
+{
+	glDeleteVertexArrays(1, VAO);
+	glDeleteBuffers(1, VertBuffer);
+	glDeleteBuffers(1, IndexBuffer);
+}
+
 GLenum SetupInfoCube (GLuint *VAO, GLuint *VertBuffer, GLuint *IndexBuffer)
 {
 	glGenVertexArrays(1, VAO);
@@ -606,6 +625,12 @@ GLenum SetupMarkerNoTess(GLuint *MarkerVAO, GLuint *MarkerVertBuffer, GLuint *Ma
 	return e;
 }
 
+void CleanMarker (GLuint *MarkerVAO, GLuint *MarkerVertBuffer)
+{
+	glDeleteVertexArrays(1, MarkerVAO);
+	glDeleteBuffers(1, MarkerVertBuffer);
+}
+
 GLenum SetupMarker(GLuint *MarkerVAO, GLuint *MarkerVertBuffer)
 {//requires tesselation
 	if (!markers)
@@ -645,6 +670,13 @@ GLenum SetupMarker(GLuint *MarkerVAO, GLuint *MarkerVertBuffer)
 	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (const void *)(4*sizeof(float)));
 	glBindVertexArray(0);
 	return glGetError();
+}
+
+void CleanUnitCell (GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *UnitCellIndexBuffer)
+{
+	glDeleteVertexArrays(1, UnitCellVAO);
+	glDeleteBuffers(1, UnitCellVertBuffer);
+	glDeleteBuffers(1, UnitCellIndexBuffer);
 }
 
 GLenum SetupUnitCell(GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *UnitCellIndexBuffer)

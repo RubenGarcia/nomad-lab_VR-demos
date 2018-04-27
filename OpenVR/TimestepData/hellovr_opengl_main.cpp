@@ -5,7 +5,7 @@
 
 /*This code is therefore licensed under Apache 2.0*/
 /*
- # Copyright 2016-2018 Ruben Jesus Garcia Hernandez
+ # Copyright 2016-2018 Ruben Jesus Garcia-Hernandez
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -36,7 +36,6 @@
 #include <SDL.h>
 #include <GL/glew.h>
 #include <SDL_opengl.h>
-//#include <SDL_ttf.h>
 #include <gl/glu.h>
 #include <stdio.h>
 #include <string>
@@ -70,24 +69,12 @@
 
 #define TESSSUB 16
 
-//TTF_Font* font;
-
-//#define LOCALTEST
-
-/*#ifdef LOCALTEST
-#define PATH "Y:\\v2t\\datasets\\mpcdf_CO2_CaO\\cubes-bigger\\IsosurfacesFixed\\"
-#else
-#define PATH "data\\CO2-CaO-B\\"
-//#define PATH "C:\\Users\\mobile\\Desktop\\openvrDemos\\win64\\data\\CO2-CaO-B\\"
-#endif
-*/
 #define ZLAYERS transparencyquality
 
-
+#define NUMBERTEXTURE "digits_64x7_l_blank.png" 
+//png
 
 #define MAXGPU 300
-
-//shown on https://www.vbw-bayern.de/vbw/Aktionsfelder/Innovation-F-T/Forschung-und-Technologie/Zukunft-digital-Big-Data.jsp
 
 #define GRID 1
 
@@ -147,11 +134,14 @@ public:
 	bool SetupDepthPeeling();
 
 	void SetupScene();
+	void CleanScene();
 	void SetupIsosurfaces();
 	void SetupAtoms();
 	void SetupUnitCell();
 	void SetupMarker();
 	void SetupInfoCube();
+	void SetupInfoBoxTexture();
+
 
 	void DrawControllers();
 
@@ -220,8 +210,9 @@ private: // OpenGL bookkeeping
 	int m_iValidPoseCount;
 	int m_iValidPoseCount_Last;
 	bool m_bShowCubes;
-	bool buttonPressed[2][vr::k_unMaxTrackedDeviceCount]; //grip, application menu
-	bool AtomsButtonPressed[2];
+	bool buttonPressed[3][vr::k_unMaxTrackedDeviceCount]; 
+		//grip, application menu, nextConfig (up/down in circle)
+	//bool AtomsButtonPressed[3];
 	bool showAtoms;
 	std::string m_strPoseClasses;                            // what classes we saw poses for this frame
 	char m_rDevClassChar[vr::k_unMaxTrackedDeviceCount];   // for each device, a character representing its class
@@ -320,6 +311,7 @@ private: // OpenGL bookkeeping
 	GLint m_nUnitCellMatrixLocation, m_nUnitCellColourLocation;
 	GLint m_nMarkerMatrixLocation;
 	GLint m_nTotalatomsLocation;
+	GLint m_nSelectedAtomLocation;
 
 	struct FramebufferDesc
 	{
@@ -343,6 +335,19 @@ private: // OpenGL bookkeeping
 	char *pixels, *pixels2; //for saving screenshots to disk
 	int framecounter;
 	bool savetodisk;
+
+	int selectedAtom;
+
+	GLuint numbersTexture;
+
+	bool PrepareControllerGlyph (const vr::Hmd_Eye nEye, const int controller, Vector3* pos);
+	void RenderControllerGlyph (const vr::Hmd_Eye nEye, const int controller);
+	void RenderControllerGlyphs(vr::Hmd_Eye nEye);
+	int LoadConfigFile (const char *c);
+
+	int myargc;
+	char **myargv;
+	int currentConfig;
 };
 
 const float CMainApplication::videospeed = 0.01f;
@@ -391,6 +396,40 @@ void eprintf( const char *fmt, ... )
 		printf( "%s", buffer );
 
 	MessageBoxA(0, buffer, "Warning", 0);
+}
+
+int CMainApplication::LoadConfigFile (const char *c)
+{
+		
+	//change cwd so that relative paths work
+	const char *myc=c;
+	std::string s(c);
+	std::string::size_type l=s.find_last_of("\\/");
+	std::string mys;
+	if (l!=s.npos) {
+		SetCurrentDirectoryA(s.substr(0, l).c_str());
+		mys=s.substr(l+1);
+		myc=mys.c_str();
+	}
+	int r;
+	if ((r=loadConfigFile(myc))<0) {
+		if (-100<r)
+			MessageBoxA(0, loadConfigFileErrors[-r], "Config file reading error", 0);
+		else if (-200<r)
+			MessageBoxA(0, readAtomsXYZErrors[-r-100], "XYZ file reading error", 0);
+		else if (-300<r)
+			MessageBoxA(0, readAtomsCubeErrors[-r-200], "Cube file reading error", 0);
+		else if (-400<r) 
+			MessageBoxA(0, readAtomsJsonErrors[-r-300], "Encyclopedia Json reading error", 0);
+		else
+			MessageBoxA(0, readAtomsAnalyticsJsonErrors[-r-400], "Analytics Json reading error", 0);
+		return -100+r;
+	}
+
+	if (solid)
+		MessageBoxA(0, "Only spheres implemented as atom glyphs in HTC Vive", "Atom Glyph", 0);
+
+	return r;
 }
 
 //-----------------------------------------------------------------------------
@@ -456,8 +495,14 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 	, pixels(0)
 	, framecounter(0)
 	, savetodisk(false)
+	, numbersTexture(0)
+	, selectedAtom(-1)
+	, myargc(argc)
+	, myargv(argv)
+	, currentConfig(1)
 {
-	for (int j=0;j<2;j++)
+	LoadConfigFile(argv[currentConfig]);
+	for (int j=0;j<3;j++)
 		for (int i = 0; i < vr::k_unMaxTrackedDeviceCount; i++) {
 			buttonPressed[j][i] = false;
 		}
@@ -672,7 +717,8 @@ bool CMainApplication::BInitGL()
 
 	GLenum e;
 
-	SetupTexturemaps();
+	if (!SetupTexturemaps())
+		eprintf ("Problem loading textures");
 	e=glGetError();
 	if (e!=GL_NO_ERROR)
 		eprintf ("gl error %d, %s %d", e, __FILE__, __LINE__);
@@ -747,32 +793,12 @@ void CMainApplication::Shutdown()
 	}
 	m_vecRenderModels.clear();
 	
-	if (vertdataarray) {
-		for (int i = 0; i < NUMLODS; i++)
-			if (vertdataarray[i])
-				delete[] vertdataarray[i];
-		delete[]vertdataarray;
-		vertdataarray = 0;
-	}
-	if (vertindicesarray){
-		for (int i = 0; i < NUMLODS; i++)
-			if (vertindicesarray[i])
-				delete[] vertindicesarray[i];
-		delete[] vertindicesarray;
-		vertindicesarray = 0;
-	}
+	CleanScene();
+
 	if (m_pContext)
 	{
 		glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_FALSE);
 		glDebugMessageCallback(nullptr, nullptr);
-		if (m_glSceneVertBuffer) {
-			for (int i = 0; i < NUMLODS; i++) {
-				glDeleteBuffers(NUMPLY, m_glSceneVertBuffer[i]);
-				delete[] (m_glSceneVertBuffer[i]);
-			}
-			delete[] m_glSceneVertBuffer;
-			m_glSceneVertBuffer = nullptr;
-		}
 		glDeleteBuffers(1, &m_glIDVertBuffer);
 		glDeleteBuffers(1, &m_glIDIndexBuffer);
 
@@ -846,14 +872,7 @@ void CMainApplication::Shutdown()
 		{
 			glDeleteVertexArrays( 1, &m_unControllerVAO );
 		}
-		if (m_unSceneVAOIndices!=0)
-		{
-			for (int i=0;i<NUMLODS;i++) {
-				glDeleteBuffers(NUMPLY, m_unSceneVAOIndices[i]);
-				delete[] m_unSceneVAOIndices[i];
-			}
-			delete[] m_unSceneVAOIndices;
-		}
+
 		if (m_iTexture != 0) {
 			glDeleteTextures(3+ZLAYERS+1, m_iTexture);
 			delete[] m_iTexture;
@@ -873,22 +892,6 @@ void CMainApplication::Shutdown()
 		m_pWindow = NULL;
 	}
 
-	if (m_uiVertcount!=0) {
-		for (int i=0;i<NUMLODS;i++) {
-			delete[] m_uiVertcount[i];
-		}
-		delete[] m_uiVertcount;
-	}
-
-	if (numAtoms!=0) {
-		for (int i=0;i<getAtomTimesteps();i++) {
-			delete[] atoms[i];
-		}
-		delete[] atoms;
-		delete[] numAtoms;
-		numAtoms=0;
-		atoms=0;
-	}
 	if (pixels !=0)
 		delete [] pixels;
 	SDL_Quit();
@@ -977,17 +980,56 @@ bool CMainApplication::HandleInput()
 			//this hides the controllers when buttons are pressed. Why?! -> 
 			//rgh: the name of the variable seems to make it so :o) Possibly so that a different model can be used with the correct deformation
 			//m_rbShowTrackedDevice[unDevice] = state.ulButtonPressed == 0;
-
+			bool x=(state.ulButtonPressed & (vr::ButtonMaskFromId(vr::k_EButton_Axis0) |
+					vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu)|
+					vr::ButtonMaskFromId(vr::k_EButton_Grip)))!=0ull;
+			if (x) {
+				if (firstdevice==-1)
+					firstdevice=unDevice;
+				else if(unDevice !=firstdevice && seconddevice==-1)
+					seconddevice=unDevice;
+			}
+			if (unDevice==firstdevice) {
+				if (buttonPressed[2][unDevice] && 
+					/*(state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_Axis0)) == 0 &&*/
+					(state.ulButtonPressed&vr::ButtonMaskFromId(vr::k_EButton_Axis0)) == 0)
+					buttonPressed[2][unDevice]=false;
+				if (!buttonPressed[2][unDevice] && 
+					(/*state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_Axis0) || */
+					 state.ulButtonPressed&vr::ButtonMaskFromId(vr::k_EButton_Axis0) 
+					)){
+					buttonPressed[2][unDevice]=true;
+					if (state.rAxis[0].y > -0.4 && state.rAxis[0].y < 0.4 && state.rAxis[0].x<-0.7) {
+						selectedAtom=-1;
+					} else if (state.rAxis[0].y > 0.7 && state.rAxis[0].x > -0.4 && state.rAxis[0].x < 0.4) {
+						//next config file
+						currentConfig++;
+						if (currentConfig>=myargc)
+							currentConfig=1;
+						CleanScene();
+						LoadConfigFile(myargv[currentConfig]);
+						SetupScene();
+					} else if (state.rAxis[0].y < -0.7 && state.rAxis[0].x > -0.4 && state.rAxis[0].x < 0.4) {
+						//prev config file
+						currentConfig--;
+						if (currentConfig<=0)
+							currentConfig=myargc-1;
+						CleanScene();
+						LoadConfigFile(myargv[currentConfig]);
+						SetupScene();
+					}
+				}
+			}
 			if (!buttonPressed[1][unDevice] && 
 				(state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu) ||
 				state.ulButtonPressed&vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu))
 				) {
 				buttonPressed[1][unDevice] = true;
-				if (firstdevice == -1)
+				/*if (firstdevice == -1)
 					firstdevice = unDevice;
 				else if(unDevice !=firstdevice && seconddevice==-1)
 					seconddevice=unDevice;
-
+*/
 				if (firstdevice==unDevice)
 					savetodisk = !savetodisk;
 				else
@@ -1009,11 +1051,11 @@ bool CMainApplication::HandleInput()
 				)
 			{
 				buttonPressed[0][unDevice] = true;
-				if (firstdevice == -1)
+				/*if (firstdevice == -1)
 					firstdevice = unDevice;
 				else if(unDevice !=firstdevice && seconddevice==-1)
 					seconddevice=unDevice;
-
+*/
 				if (unDevice == firstdevice) {
 					currentset+=sidebuttontimestep;
 					if (currentset < 0)
@@ -1127,12 +1169,9 @@ void CMainApplication::ProcessVREvent( const vr::VREvent_t & event )
 	}
 }
 
-
 void CMainApplication::HapticFeedback(){
-	if (hapticFeedback) {
-		HapticFeedback(firstdevice);
-		HapticFeedback(seconddevice);
-	}
+	HapticFeedback(firstdevice);
+	HapticFeedback(seconddevice);
 }
 //-----------------------------------------------------------------------------
 // Purpose: Haptic feedback if controller near an atom
@@ -1146,6 +1185,10 @@ void CMainApplication::HapticFeedback(int device)
 		vr::TrackedDevicePose_t dp;
 		m_pHMD->GetControllerStateWithPose( vr::TrackingUniverseStanding, device, &cs, &dp );
 		if (dp.bPoseIsValid) {
+			bool clicked = (cs.ulButtonPressed&vr::ButtonMaskFromId(vr::k_EButton_Axis0) &&
+				(cs.rAxis[0].y > -0.4 && cs.rAxis[0].y < 0.4)) && (cs.rAxis[0].x>0.7);
+			if (!hapticFeedback && !clicked)
+				return;
 			int mycurrentset;
 			if (fixedAtoms)
 				mycurrentset=0;
@@ -1176,7 +1219,11 @@ void CMainApplication::HapticFeedback(int device)
 							pos=Vector3 (pos.x, pos.y, -pos.z);
 							float l=(pos - controllerPos).length();
 							if (l<atomr*atomScaling) {
-								m_pHMD->TriggerHapticPulse(device, 0, 3000);
+								if(clicked) {
+									selectedAtom=i;
+								}
+								if (hapticFeedback)
+									m_pHMD->TriggerHapticPulse(device, 0, 3000);
 								return;
 							}
 						}
@@ -1341,7 +1388,7 @@ bool CMainApplication::CreateAllShaders()
 	}
 
 	if (!PrepareUnitCellAtomShader (&m_unAtomsProgramID, &m_unUnitCellProgramID, &m_unMarkerProgramID,
-		&m_nAtomMatrixLocation, &m_nUnitCellMatrixLocation,  &m_nUnitCellColourLocation, &m_nMarkerMatrixLocation, &m_nTotalatomsLocation))
+		&m_nAtomMatrixLocation, &m_nUnitCellMatrixLocation,  &m_nUnitCellColourLocation, &m_nMarkerMatrixLocation, &m_nTotalatomsLocation, &m_nSelectedAtomLocation))
 		return false;
 
 
@@ -1396,7 +1443,12 @@ bool CMainApplication::CreateAllShaders()
 		&& m_unLensProgramID != 0;
 }
 
-
+void CMainApplication::SetupInfoBoxTexture()
+{
+	for (int i=0;i<info.size();i++) {
+		info[i].tex=LoadPNG(info[i].filename);
+	}
+}
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
@@ -1422,7 +1474,6 @@ bool CMainApplication::SetupTexturemaps()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, data2);
-
 	GLenum e;
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("opengl error %d, SetupTextureMaps 1\n", e);
@@ -1430,27 +1481,17 @@ bool CMainApplication::SetupTexturemaps()
 	e=atomTexture( m_iTexture[3+ZLAYERS]);
 
 	glBindTexture( GL_TEXTURE_2D, 0 );
-
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("opengl error %d, SetupTextureMaps 2\n", e);
 
-	//sdl text http://stackoverflow.com/questions/5289447/using-sdl-ttf-with-opengl/5289823#5289823
-	//http://stackoverflow.com/questions/28880562/rendering-text-with-sdl2-and-opengl
-	//FIXME TODO
-	/*int size=10;
-	=TTF_OpenFont("", size);
-	axisTextures=new SDL_Texture*[6];
-
-	const wchar_t axis[6]={'a', 'b', 'c', '\u03B1', '\u03B2', '\u03B3'};
-	for (int i=0;i<6;i++) {
-		axisTextures[i]=TTF_RenderUTF8_Blended();
-	}
-	*/
-
-	for (int i=0;i<info.size();i++) {
-		info[i].tex=LoadPNG(info[i].filename);
-	}
-
+	std::string s(myargv[0]);
+	int l=s.find_last_of("\\/");
+	std::string path;
+	if (l==s.npos)
+		path=std::string(NUMBERTEXTURE);
+	else
+		path=s.substr(0, l)+"\\"+NUMBERTEXTURE;
+	numbersTexture=LoadPNG(path.c_str(), nearest);
 	return ( m_iTexture != 0 && e==GL_NO_ERROR);
 }
 
@@ -1462,6 +1503,49 @@ bool CMainApplication::SetupDepthPeeling()
 		dprintf("Errir setting up DepthPeeling\n");
 
 	return (e);
+}
+
+void CMainApplication::CleanScene()
+{ //delete, opposite order from creation
+	//isos
+	if (ISOS) {
+		for (int i=0;i<NUMLODS;i++) {
+			glDeleteBuffers(NUMPLY, m_glSceneVertBuffer[i]);
+			glDeleteBuffers(NUMPLY, m_unSceneVAOIndices[i]);
+			glDeleteVertexArrays(NUMPLY, m_unSceneVAO[i]);
+			delete[] m_uiVertcount[i];
+			delete[] m_glSceneVertBuffer[i];
+			delete[] m_unSceneVAO[i];
+			delete[] m_unSceneVAOIndices[i];
+			delete[] vertdataarray[i];
+			delete[] vertindicesarray[i];
+		}
+		delete[] m_uiVertcount;
+		delete[] m_glSceneVertBuffer;
+		delete[] m_unSceneVAOIndices;
+		delete[] m_unSceneVAO;
+		delete[] vertdataarray;
+		delete[] vertindicesarray;
+		m_uiVertcount=nullptr;
+		m_glSceneVertBuffer=nullptr;
+		m_unSceneVAOIndices=nullptr;
+		m_unSceneVAO=nullptr;
+		vertdataarray=nullptr;
+		vertindicesarray=nullptr;
+		ISOS=0;
+	}
+	//atoms
+	::CleanAtoms(&m_unAtomVAO, &m_glAtomVertBuffer, &BondIndices);
+	::cleanAtoms(&numAtoms, TIMESTEPS, &atoms);
+	//unit cell
+	::CleanUnitCell(&m_unUnitCellVAO, &m_glUnitCellVertBuffer, &m_glUnitCellIndexBuffer);
+	//marker
+	if (markers) {
+		CleanMarker(&m_unMarkerVAO, &m_glMarkerVertBuffer);
+	}
+	//infocube
+	::CleanInfoCube(&m_unInfoVAO, &m_unInfoVertBuffer, &m_unInfoIndexBuffer);
+	cleanConfig();
 }
 
 //-----------------------------------------------------------------------------
@@ -1477,6 +1561,7 @@ void CMainApplication::SetupScene()
 	SetupMarker();
 	SetupInfoCube();
 	movementspeed/=scaling;
+	SetupInfoBoxTexture();
 }
 
 void CMainApplication::SetupInfoCube()
@@ -1515,7 +1600,195 @@ void CMainApplication::SetupAtoms()
 		dprintf("opengl error %d, SetupAtoms, l %d\n", e, __LINE__);
 }
 
+bool CMainApplication::PrepareControllerGlyph (const vr::Hmd_Eye nEye, const int controller, Vector3* pos)
+{
+Matrix4 & matDeviceToTracking = m_rmat4DevicePose[controller];
+Matrix4 i = matDeviceToTracking;
+*pos= Vector3 (i[12], i[13], i[14]);
 
+Matrix4 trans;
+
+
+Vector3 iPos = (*pos)+Vector3(0,0.02,0); //raise glyph
+
+int e;
+trans.scale(0.05).translate(iPos); //translate(0,0.1,0);
+Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*trans;
+
+//render point grid
+if ((e = glGetError()) != GL_NO_ERROR)
+	dprintf("Gl error: %d, %s, l %d f %s\n", e, gluErrorString(e), __LINE__, __FUNCTION__);
+glDisable(GL_BLEND);
+//glDisable(GL_DEPTH_TEST);
+if ((e = glGetError()) != GL_NO_ERROR)
+	dprintf("Gl error: %d, %s, l %d f %s\n", e, gluErrorString(e), __LINE__, __FUNCTION__);
+glPointSize(1);
+glUseProgram(m_unRenderModelProgramID);
+glUniformMatrix4fv(m_nRenderModelMatrixLocation, 1, GL_FALSE, transform.get());
+
+return true;
+}
+
+void FillVerticesGlyph (float * const vert, const int i, const float u)
+{
+for (int j=0;j<4;j++) {
+			vert[i*9*4+j*9+2]=0; //z
+			vert[i*9*4+j*9+3]=1; //w
+			vert[i*9*4+j*9+4]=0; //nx
+			vert[i*9*4+j*9+5]=0; //ny
+			vert[i*9*4+j*9+6]=-1; //nz
+		}
+		vert [i*9*4+0*9+0]=i+0; //x
+		vert [i*9*4+0*9+1]=0; //y
+		vert [i*9*4+0*9+7]=u; //u
+		vert [i*9*4+0*9+8]=1; //v
+
+		vert [i*9*4+1*9+0]=i+1; //x
+		vert [i*9*4+1*9+1]=0; //y
+		vert [i*9*4+1*9+7]=u+1.0f/16.0f; //u
+		vert [i*9*4+1*9+8]=1; //v
+
+		vert [i*9*4+2*9+0]=i+0; //x
+		vert [i*9*4+2*9+1]=1; //y
+		vert [i*9*4+2*9+7]=u; //u
+		vert [i*9*4+2*9+8]=0; //v
+
+		vert [i*9*4+3*9+0]=i+1; //x
+		vert [i*9*4+3*9+1]=1; //y
+		vert [i*9*4+3*9+7]=u+1.0f/16.0f; //u
+		vert [i*9*4+3*9+8]=0; //v
+}
+
+short int *FillIndicesGlyph (int l)
+{
+	short int *ind = new short int [6*l];
+	for (int i=0;i<l;i++) {
+		ind[6*i + 0] = i*4 + 0;
+		ind[6*i + 1] = i*4 + 1;
+		ind[6*i + 2] = i*4 + 2;
+
+		ind[6*i + 3] = i*4 + 2;
+		ind[6*i + 4] = i*4 + 3;
+		ind[6*i + 5] = i*4 + 1;
+	}
+	return ind;
+}
+
+void RenderNumbersControllerGlyph (int l, float *vert, short int *ind, GLuint texture)
+{
+	GLuint e;
+	GLuint myvao;
+	glGenVertexArrays(1, &myvao);
+	glBindVertexArray(myvao);
+	GLuint testBuf;
+	glGenBuffers(1, &testBuf);
+	glBindBuffer(GL_ARRAY_BUFFER, testBuf);
+	glBufferData(GL_ARRAY_BUFFER, l * 4 * 9 * sizeof(GLfloat), vert, GL_STATIC_DRAW);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
+
+	delete vert;
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(2);
+	
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (void*)0);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (void*)(4 * sizeof(float)));
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 9 * sizeof(float), (void*)(7 * sizeof(float)));
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
+
+	GLuint indexBufferID;
+	glGenBuffers(1, &indexBufferID);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBufferID);
+	if ((e = glGetError()) != GL_NO_ERROR)
+		dprintf("Gl error after zlayer: %d, %s, l %d\n", e, gluErrorString(e), __LINE__);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6*l*sizeof(short int), ind, GL_STATIC_DRAW);
+	delete[] ind;
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glDrawElements(GL_TRIANGLES, 6*l, GL_UNSIGNED_SHORT, 0);
+	glDeleteBuffers(1, &testBuf);
+	glDeleteVertexArrays(1, &myvao);
+}
+
+float GetTextureCoordinate (char c)
+{
+	float u;
+			switch (c) {
+				case '-':
+					u=10.0f; break;
+				case '.':
+					u=11.0f; break;
+				case ' ':
+					u=12.0f; break;
+				case 'a':
+					u=14.0f; break;
+				default:
+					u=(float)(c-'0');
+			} //switch
+			u/=16;
+	return u;
+}
+
+void CMainApplication::RenderControllerGlyph (const vr::Hmd_Eye nEye, const int controller)
+{
+	if (selectedAtom==-1)
+		return;
+	if (controller == seconddevice) {
+		Vector3 pos; 
+		PrepareControllerGlyph(nEye, controller, &pos);
+		pos /=scaling;
+		pos-=UserPosition;
+		pos=Vector3(pos[0], -pos[2], pos[1]);
+		
+		pos-=Vector3(atoms[currentset][selectedAtom*4+0], atoms[currentset][selectedAtom*4+1], atoms[currentset][selectedAtom*4+2]);
+
+		char dis [200];
+		sprintf (dis, "%0.2fa", pos.length());
+		int l=strlen (dis);
+		float *vert;
+		vert=new float[l*4*(4+3+2)];
+		for (int i=0;i<l;i++) {
+			float u=GetTextureCoordinate(dis[i]);
+			FillVerticesGlyph (vert, i, u);
+		} //for
+		short int *ind=FillIndicesGlyph(l);
+		RenderNumbersControllerGlyph (l, vert, ind, numbersTexture);
+		return;
+	} // if
+	
+	if (selectedAtom==-1)
+		return;
+
+	Vector3 pos; 
+	PrepareControllerGlyph(nEye, controller, &pos);
+
+	//display atom number
+	char atom [200];
+	sprintf (atom, "%d", selectedAtom+1);
+	//sprintf (atom, "%d %.2f %.2f %.2f", selectedAtom+1, atoms[currentset][selectedAtom*4+0], atoms[currentset][selectedAtom*4+1], atoms[currentset][selectedAtom*4+2]);
+	int l=strlen (atom);
+
+	float *vert;
+	vert=new float[l*4*(4+3+2)];
+	for (int i=0;i<l;i++) {
+		float u=GetTextureCoordinate(atom[i]);
+		FillVerticesGlyph (vert, i, u);
+	}
+
+	short int *ind=FillIndicesGlyph(l);
+	RenderNumbersControllerGlyph (l, vert, ind, numbersTexture);
+
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: Load the isosurfaces into OpenGL
@@ -1523,6 +1796,9 @@ void CMainApplication::SetupAtoms()
 void CMainApplication::SetupIsosurfaces()
 {
 	if (!m_pHMD)
+		return;
+
+	if (ISOS==0)
 		return;
 	//rgh: add scene loading here
 	vertdataarray = new std::vector<float>*[NUMLODS];
@@ -1580,7 +1856,7 @@ void CMainApplication::SetupIsosurfaces()
 	glDisable(GL_CULL_FACE);
 	float z = 0.0f; 
 	float points[] = {//pos [4], color [3]
-		0, 0, z, 1, 1,1,1,
+		0, 0, z, 1, 1, 1, 1,
 		0, 1, z, 1, 1, 1, 1,
 		1, 1, z, 1, 1, 1, 1,
 		1, 0, z, 1, 1, 1, 1, };
@@ -1715,8 +1991,6 @@ void CMainApplication::SetupIsosurfaces()
 			if (GL_NO_ERROR!=PrepareGLiso(m_unSceneVAO[currentlod][p], m_glSceneVertBuffer[currentlod][p], 
 				vertdataarray[currentlod][p], m_unSceneVAOIndices[currentlod][p], vertindicesarray[currentlod][p]))
 				eprintf ("PrepareGLiso, GL error");
-			
-
 
 			//FIXME: after we go to 64 bits, keep the data in ram
 			vertdataarray[currentlod][p].clear();
@@ -1724,16 +1998,13 @@ void CMainApplication::SetupIsosurfaces()
 			vertdataarray[currentlod][p].resize(0);
 			vertindicesarray[currentlod][p].resize(0);
 
-
 			if (p % ISOS == ISOS - 1)
 				time++;
-
 		}
 		delete[] vertdataarray[currentlod];
 		delete[] vertindicesarray[currentlod];
 		vertdataarray[currentlod] = nullptr;
 		vertindicesarray[currentlod] = nullptr;
-
 	} // for each lod
 	//glEnable(GL_DEPTH_TEST);
 	if ((e = glGetError()) != GL_NO_ERROR)
@@ -2289,11 +2560,13 @@ if (numAtoms && showAtoms) {
 	//glUniformMatrix4fv(m_nAtomMVLocation, 1, GL_FALSE, mv.get());
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("Gl error 4 timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
-	if (currentset==0 ||fixedAtoms)
+	if (currentset==0 ||fixedAtoms) {
+		glUniform1i(m_nSelectedAtomLocation, selectedAtom);
 		glDrawArrays(GL_PATCHES, 0, numAtoms[0]);
-	else
+	} else {
+		glUniform1i(m_nSelectedAtomLocation, selectedAtom+numAtoms[currentset-1]);
 		glDrawArrays(GL_PATCHES, numAtoms[currentset-1], numAtoms[currentset]-numAtoms[currentset-1]);
-	
+	}
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("Gl error after RenderAtoms timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
 }
@@ -2473,6 +2746,14 @@ glBindVertexArray(0);
 }
 
 
+void CMainApplication::RenderControllerGlyphs(vr::Hmd_Eye nEye)
+{
+if (firstdevice!=-1)
+	RenderControllerGlyph(nEye, firstdevice);
+if (seconddevice!=-1)
+	RenderControllerGlyph(nEye, seconddevice);
+}
+
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
@@ -2499,6 +2780,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 		RenderUnitCell(nEye);
 		if (showcontrollers)
 			RenderAllTrackedRenderModels(nEye);
+		RenderControllerGlyphs(nEye);
 		if (showAtoms) {
 			glDisable(GL_BLEND);
 		}
@@ -2541,6 +2823,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 				}
 				if (showcontrollers)
 					RenderAllTrackedRenderModels(nEye);
+				RenderControllerGlyphs(nEye);
 			} // for zl
 
 			glBindFramebuffer(GL_FRAMEBUFFER, dfb);
@@ -2639,6 +2922,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 				RenderInfo(nEye);
 			if (showcontrollers)
 				RenderAllTrackedRenderModels(nEye);
+			RenderControllerGlyphs(nEye);
 		} //else currentiso =isos
 
 
@@ -3058,69 +3342,39 @@ void CGLRenderModel::Draw()
 
 
 
-void cleanConfig()
-{
-	for (int i = 0; i < ISOS; i++) {
-		delete[] isocolours[i];
-		delete[] translations[i];
-	}
-	delete[] isocolours;
-	delete[] translations;
-	if (plyfiles) {
-		for (int i=0;i<ISOS;i++)
-			free ((void*)(plyfiles[i])); //strdup
-		delete[] plyfiles;
-	}
-	
-	free((void*)PATH);
-}
+
 
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
 char * MainErrors [] = {
 	"No error, successful exit",
-	"Exactly one parameter should be provided, please drag the .ncfg over the exe file",
+	"At least one parameter should be provided, please drag the .ncfg over the exe file",
 	"Out of memory starting application",
 	"Could not init application"
 };
 int main(int argc, char *argv[])
 {
+	//https://stackoverflow.com/questions/8544090/detected-memory-leaks
+	/*_CrtSetDbgFlag( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
+	 _CrtSetBreakAlloc(89);
+	 _CrtSetBreakAlloc(88);
+	 _CrtSetBreakAlloc(87);
+	 _CrtSetBreakAlloc(86);
+	 _CrtSetBreakAlloc(85);
+	 _CrtSetBreakAlloc(84);
+	 */
 	TMPDIR=".\\";
 	//http://stackoverflow.com/questions/4991967/how-does-wsastartup-function-initiates-use-of-the-winsock-dll
 	WSADATA wsaData;
     if(WSAStartup(0x202, &wsaData) != 0)
 		return -10;
 	
-	if (argc != 2) {
-		fprintf(stderr, "Use: %s <config file>\n", argv[0]);
+	if (argc < 2) {
+		fprintf(stderr, "Use: %s <config file> [<config file>]*\n", argv[0]);
 		MessageBoxA(0, MainErrors[1], nullptr, 0);
 		return -1;
 	}
-
-	{
-	//change cwd so that relative paths work
-	std::string s(argv[1]);
-	SetCurrentDirectoryA(s.substr(0, s.find_last_of("\\/")).c_str());
-	}
-
-	int r;
-	if ((r=loadConfigFile(argv[1]))<0) {
-		if (-100<r)
-			MessageBoxA(0, loadConfigFileErrors[-r], "Config file reading error", 0);
-		else if (-200<r)
-			MessageBoxA(0, readAtomsXYZErrors[-r-100], "XYZ file reading error", 0);
-		else if (-300<r)
-			MessageBoxA(0, readAtomsCubeErrors[-r-200], "Cube file reading error", 0);
-		else if (-400<r) 
-			MessageBoxA(0, readAtomsJsonErrors[-r-300], "Encyclopedia Json reading error", 0);
-		else
-			MessageBoxA(0, readAtomsAnalyticsJsonErrors[-r-400], "Analytics Json reading error", 0);
-		return -100+r;
-	}
-
-	if (solid)
-		MessageBoxA(0, "Only spheres implemented as atom glyphs in HTC Vive", "Atom Glyph", 0);
 
 	CMainApplication *pMainApplication = new CMainApplication( argc, argv );
 

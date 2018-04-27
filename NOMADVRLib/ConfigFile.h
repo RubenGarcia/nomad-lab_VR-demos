@@ -21,10 +21,9 @@
 #include "polyhedron.h"
 #include "ConfigFileAtoms.h"
 
-extern const char * PATH;
-extern const char * SCREENSHOT;
+extern char * PATH;
+extern char * SCREENSHOT;
 extern int ISOS;
-extern int TIMESTEPS;
 extern float **isocolours; // [ISOS][4];
 extern const char **plyfiles;
 extern float **translations;
@@ -81,13 +80,14 @@ extern float ** markercolours;
 
 extern const char * loadConfigFileErrors[];
 
+void cleanConfig();
 int loadConfigFile(const char * f);
 
 struct information {
 	float pos[3];
 	float size;
 	int atom; //-1=do not draw line
-	const char* filename;
+	char* filename;
 	GLuint tex;
 };
 

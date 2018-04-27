@@ -25,10 +25,9 @@
 #include "eprintf.h"
 #include "polyhedron.h"
 
-const char * PATH;
-const char * SCREENSHOT;
+char * PATH;
+char * SCREENSHOT;
 int ISOS;
-int TIMESTEPS;
 float **isocolours; // [ISOS][4];
 const char **plyfiles;
 float **translations;
@@ -113,7 +112,7 @@ const char * loadConfigFileErrors[] =
 };
 
 void updateTIMESTEPS (int timesteps)
-{
+{ 
 if (TIMESTEPS==0)
 	TIMESTEPS=timesteps;
 else
@@ -164,16 +163,64 @@ while (*file!='\0') {
 }
 }
 
+void cleanConfig()
+{
+	for (int i = 0; i < ISOS; i++) {
+		delete[] isocolours[i];
+		delete[] translations[i];
+	}
+	delete[] isocolours;
+	isocolours=nullptr;
+	delete[] translations;
+	translations=nullptr;
+	if (plyfiles) {
+		for (int i=0;i<ISOS;i++)
+			free ((void*)(plyfiles[i])); //strdup
+		delete[] plyfiles;
+	}
+	plyfiles=nullptr;
+	free(PATH);
+	PATH=nullptr;
+	atomtrajectoryrestarts.clear();
+	free(SCREENSHOT);
+	SCREENSHOT=nullptr;
+
+	if (markers) {
+		for (int i=0;i<TIMESTEPS;i++) {
+			delete[] markers[i];
+			delete[] markercolours[i];
+		}
+		delete[] markers;
+		delete[] markercolours;
+		markers=nullptr;
+		markercolours=nullptr;
+	}
+	for (int i=0;i<info.size();i++) {
+		free(info[i].filename);
+	}
+	info.clear();
+
+	if (numAtoms) {
+		for (int i=0;i<getAtomTimesteps();i++) {
+			delete[] atoms[i];
+		}
+		delete[] atoms;
+		delete[] numAtoms;
+		numAtoms=nullptr;
+		atoms=nullptr;
+	}
+}
+
 void initState()
 {
 	BACKGROUND[0] = 0.95f;
 	BACKGROUND[1] = 0.95f;
 	BACKGROUND[2] = 0.95f;
-	SCREENSHOT="C:\\temp\\frame";
+	SCREENSHOT=strdup("C:\\temp\\frame");
 	ISOS = 0;
 	TIMESTEPS=0;
 	PATH=strdup("");
-	numAtoms=0;
+	numAtoms=nullptr;
 	atomScaling=1;
 	clonedAtoms=0;
 	fixedAtoms=false;
@@ -357,6 +404,7 @@ int loadConfigFile(const char * f)
 			r=readString(F, s);
 			if (r!=0)
 				return -14;
+			free (SCREENSHOT);
 			SCREENSHOT = strdup(s);
 		}
 		else if (!strcmp(s, "xyzfile")||!strcmp(s, "atomfile")) {

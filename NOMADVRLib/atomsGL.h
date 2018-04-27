@@ -28,10 +28,14 @@
 
 GLenum atomTexture(GLuint t);
 GLenum SetupAtoms(GLuint **AtomVAO, GLuint **AtomVertBuffer, GLuint *BondIndices);
+void CleanAtoms (GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLuint *BondIndices);
 GLenum SetupAtomsNoTess (GLuint **AtomVAO, GLuint **AtomVertBuffer, GLuint **AtomIndexBuffer);
+void CleanUnitCell (GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *UnitCellIndexBuffer);
 GLenum SetupUnitCell(GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *UnitCellIndexBuffer);
+void CleanMarker (GLuint *MarkerVAO, GLuint *MarkerVertBuffer);
 GLenum SetupMarker(GLuint *MarkerVAO, GLuint *MarkerVertBuffer);
 GLenum SetupMarkerNoTess(GLuint *MarkerVAO, GLuint *MarkerVertBuffer, GLuint *MarkerIndexBuffer);
+void CleanInfoCube  (GLuint *VAO, GLuint *VertBuffer, GLuint *IndexBuffer);
 GLenum SetupInfoCube (GLuint *VAO, GLuint *VertBuffer, GLuint *IndexBuffer);
 
 bool PrepareUnitCellAtomShader (GLuint *AtomP, GLuint *cellP, GLuint *MarkerP, 
@@ -44,7 +48,6 @@ bool PrepareMarkerShader (GLuint *MP, GLint *MMatrixLocation);
 
 void GetDisplacement(int p[3], float f[3]);
 
-int getAtomTimesteps();
 inline int getTotalAtomsInTexture()
 {
 	return atomsInPeriodicTable+extraAtomNames.size();

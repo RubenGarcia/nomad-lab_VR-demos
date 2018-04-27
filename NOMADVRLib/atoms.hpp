@@ -31,6 +31,8 @@ const int atomsInPeriodicTable=118;
 
 extern const char * TMPDIR;
 
+int getAtomTimesteps();
+void cleanAtoms (int **numatoms, int timesteps, float ***pos);
 int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float ***pos);
 int readAtomsCube(const char *const file, int **numatoms, int *timesteps, float ***pos);
 int readAtomsJson (const char *const file, int **numatoms, int *timesteps, float ***pos, float abc[3][3],  std::vector<float>** clonedAtoms, const char *const token=0);
@@ -65,5 +67,7 @@ extern float inv_abc[3][3];
 extern const char * const atomNames[];
 extern std::vector<const char*> extraAtomNames;
 extern std::vector<float*> extraAtomData;
+
+extern int TIMESTEPS;
 
 #endif //__ATOMS_H

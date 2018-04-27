@@ -44,9 +44,18 @@ const char * TMPDIR;//filled by main
 
 bool inv_abc_init=false;
 float inv_abc[3][3];
+int TIMESTEPS;
 
 std::vector<const char*> extraAtomNames;
 std::vector<float*> extraAtomData;
+
+int getAtomTimesteps() 
+{
+	if (fixedAtoms)
+		return 1;
+	else
+		return TIMESTEPS;
+}
 
 const char * const atomNames[] =
 
@@ -208,6 +217,8 @@ do {
 } while (c != EOF && c != '\n');
 }
 
+
+
 int findAtom(const char *const s)
 {
 	//discard number at end
@@ -251,6 +262,17 @@ const char * readAtomsXYZErrors[] = {
 	"Atom type unknown", //-3
 	"Corrupt xyz file" //-4
 };
+
+void cleanAtoms (int **numatoms, int timesteps, float ***pos)
+{
+	for (int i=0;i<timesteps;i++) {
+		delete[] ((*pos)[i]);
+	}
+	delete[] (*numatoms);
+	*numatoms=nullptr;
+	delete[] (*pos);
+	*pos=nullptr;
+}
 
 int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float ***pos) 
 {
