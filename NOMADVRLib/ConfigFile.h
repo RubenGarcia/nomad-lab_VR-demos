@@ -83,6 +83,11 @@ extern const char * loadConfigFileErrors[];
 void cleanConfig();
 int loadConfigFile(const char * f);
 
+//for multiuser
+extern int secret;
+extern const char * server;
+extern int port;
+
 struct information {
 	float pos[3];
 	float size;

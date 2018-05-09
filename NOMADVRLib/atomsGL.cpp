@@ -674,6 +674,8 @@ GLenum SetupMarker(GLuint *MarkerVAO, GLuint *MarkerVertBuffer)
 
 void CleanUnitCell (GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *UnitCellIndexBuffer)
 {
+	if (!has_abc)
+		return;
 	glDeleteVertexArrays(1, UnitCellVAO);
 	glDeleteBuffers(1, UnitCellVertBuffer);
 	glDeleteBuffers(1, UnitCellIndexBuffer);

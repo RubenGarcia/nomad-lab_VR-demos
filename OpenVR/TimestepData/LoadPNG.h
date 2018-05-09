@@ -1,5 +1,5 @@
 /*
-# Copyright 2016-2018 Ruben Jesus Garcia Hernandez
+# Copyright 2016-2018 Ruben Jesus Garcia-Hernandez
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -18,6 +18,12 @@
 #define LOADPNG_H
 #include "NOMADVRLib/MyGL.h"
 
-GLuint LoadPNG (const char *image);
+enum RenderMode {
+	linear = 0,
+	nearest = 1,
+	error = 2
+};
+
+GLuint LoadPNG(const char *image, int renderMode=linear);
 
 #endif

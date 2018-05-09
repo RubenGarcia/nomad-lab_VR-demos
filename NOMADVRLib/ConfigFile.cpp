@@ -82,6 +82,10 @@ menubutton_t menubutton;
 
 std::vector<information> info;
 
+int secret;
+const char * server;
+int port;
+
 const char * loadConfigFileErrors[] =
 {
 	"All Ok",//0
@@ -290,6 +294,10 @@ void initState()
 
 	bondscaling = 0.7f;
 	bondThickness = 1.0f;
+
+	secret=0;
+	server=nullptr;
+	port=-1;
 }
 
 int loadConfigFile(const char * f)
@@ -530,7 +538,7 @@ int loadConfigFile(const char * f)
 						return -11;
 			}
 		} else if (!strcmp(s, "atomglyph")) {
-			r=fscanf (F, "%s", s);
+			r=fscanf (F, "%99s", s);
 			if (r==0)
 				return -15;
 			if (!strcmp(s, "icosahedron"))
@@ -606,7 +614,7 @@ int loadConfigFile(const char * f)
 		} else if (!strcmp (s, "atomcolour")) {
 			char atom [100];
 			float rgb[3];
-			r = fscanf(F, "%s %f %f %f", atom, rgb, rgb + 1, rgb + 2);
+			r = fscanf(F, "%99s %f %f %f", atom, rgb, rgb + 1, rgb + 2);
 			if (r!=4) {
 				eprintf ("Error loading atom colour");
 				return -19;
@@ -622,7 +630,7 @@ int loadConfigFile(const char * f)
 			char atom [100];
 			float rgb[3];
 			float size;
-			r = fscanf(F, "%s %f %f %f %f", atom, rgb, rgb + 1, rgb + 2, &size);
+			r = fscanf(F, "%99s %f %f %f %f", atom, rgb, rgb + 1, rgb + 2, &size);
 			if (r!=5) {
 				eprintf ("Error loading newatom");
 				return -20;
@@ -711,7 +719,7 @@ int loadConfigFile(const char * f)
 				eprintf("Error reading bondthickness");
 		}
 		else if (!strcmp(s, "menubutton")) {
-			r = fscanf(F, "%s", s);
+			r = fscanf(F, "%99s", s);
 			if (!strcmp(s, "Record"))
 				menubutton = Record;
 			else if (!strcmp(s, "Infobox"))
@@ -743,6 +751,15 @@ int loadConfigFile(const char * f)
 #endif
 		} else if (!strcmp (s, "\x0d")) { //discard windows newline (problem in Sebastian Kokott's phone (?!)
 			continue;
+		} else if (!strcmp (s, "server")) { //multiuser support
+			int r;
+			if (server)
+				delete(server);
+			server=new char[100];
+			r=fscanf (F, "%99s %d %d", server, &port, &secret);
+			if (r<3) {
+				eprintf ("Error reading server paramters");
+			}
 		} else {
 			eprintf( "Unrecognized parameter %s\n", s);
 			for (int i=0;i<strlen(s);i++)

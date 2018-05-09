@@ -32,6 +32,7 @@
 #define new DEBUG_NEW
 
 #include <vector>
+#include <thread>
 
 #include <SDL.h>
 #include <GL/glew.h>
@@ -348,6 +349,10 @@ private: // OpenGL bookkeeping
 	int myargc;
 	char **myargv;
 	int currentConfig;
+
+	std::thread *tcpconn;
+	void connectTCP();
+	int sock;
 };
 
 const float CMainApplication::videospeed = 0.01f;
@@ -429,7 +434,83 @@ int CMainApplication::LoadConfigFile (const char *c)
 	if (solid)
 		MessageBoxA(0, "Only spheres implemented as atom glyphs in HTC Vive", "Atom Glyph", 0);
 
+	//change currentiso if needed
+	if (currentiso > ISOS || currentiso <0) 
+		currentiso = (currentiso + ISOS + 1) % (ISOS+1); //beware of (-1)
+	//add multiuser support
+	if (port!=-1 && tcpconn==nullptr) { //do not change servers as we change config file for now
+		tcpconn=new std::thread(&CMainApplication::connectTCP, this);
+	}
+
+
+
 	return r;
+}
+
+void CMainApplication::connectTCP() 
+{
+	//https://stackoverflow.com/questions/5444197/converting-host-to-ip-by-sockaddr-in-gethostname-etc
+	struct sockaddr_in serv_addr;
+	struct hostent *he;
+	if ( (he = gethostbyname(server) ) == nullptr ) {
+      return; /* error */
+	}
+	memset((char *) &serv_addr, 0, sizeof(serv_addr));
+	memcpy(&serv_addr.sin_addr, he->h_addr_list[0], he->h_length);
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(port);
+	sock=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
+	if ( connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr))) {
+      return; /* error */
+	}
+	//read state
+	int n;
+	int32_t tmp;
+	tmp=htonl (secret);
+	n = send(sock, (char*)&tmp , sizeof(tmp), 0);
+	if (n<sizeof(tmp))
+		return;
+	char what;
+	while (true) {
+		n=recv(sock, &what, sizeof(what), 0);
+		if (n<1)
+			return;
+		switch (what) {
+		case 't':
+			n=recv (sock, (char*)&tmp, sizeof(tmp), 0);
+			if (n<sizeof(tmp))
+				return;
+			currentset=ntohl(tmp)%TIMESTEPS;
+			break;
+		case 'i':
+			n=recv (sock, (char*)&tmp, sizeof(tmp), 0);
+			if (n<sizeof(tmp))
+				return;
+			currentiso=ntohl(tmp)%(ISOS+1);
+			break;
+		case 's':
+			char s;
+			n=recv (sock, &s, sizeof(s), 0);
+			if (n<sizeof(s))
+				return;
+			showAtoms=(bool)s;
+			break;
+		case 'n':
+			n=recv (sock, (char*)&tmp, sizeof(tmp), 0);
+			if (n<sizeof(tmp))
+				return;
+			//load config file
+			if (currentConfig!=ntohl(tmp)%myargc) {
+				currentConfig=ntohl(tmp)%myargc;
+				CleanScene();
+				LoadConfigFile(myargv[currentConfig]);
+				SetupScene();
+			}
+			break;
+		default:
+			eprintf ("Unknown state sent from server: %c\n", what);
+		}
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -480,7 +561,7 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 	, m_bShowCubes(true)
 	, currentset(0)
 	, elapsedtime(videospeed*float(SDL_GetTicks()))
-	, currentiso(ISOS)
+	, currentiso(-1) // (-> ISOS, but at this point ISOS is not yet initialized)
 	, firstdevice(-1)
 	, seconddevice(-1)
 	, m_iTexture(0)
@@ -500,6 +581,8 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 	, myargc(argc)
 	, myargv(argv)
 	, currentConfig(1)
+	, tcpconn(0)
+	, sock(-1)
 {
 	LoadConfigFile(argv[currentConfig]);
 	for (int j=0;j<3;j++)
@@ -1006,6 +1089,22 @@ bool CMainApplication::HandleInput()
 						currentConfig++;
 						if (currentConfig>=myargc)
 							currentConfig=1;
+						if (sock>=0) {
+							char w='c';
+							int32_t tmp;
+							tmp=htonl(currentConfig);
+							int n;
+							n=send(sock, &w, sizeof(w), 0);
+							if (n<sizeof(w)) {
+								closesocket(sock);
+								sock=-1;
+							}
+							n=send(sock, (char*)&tmp, sizeof(tmp), 0);
+							if (n<sizeof(tmp)) {
+								closesocket(sock);
+								sock=-1;
+							}
+						}
 						CleanScene();
 						LoadConfigFile(myargv[currentConfig]);
 						SetupScene();
@@ -1492,6 +1591,8 @@ bool CMainApplication::SetupTexturemaps()
 	else
 		path=s.substr(0, l)+"\\"+NUMBERTEXTURE;
 	numbersTexture=LoadPNG(path.c_str(), nearest);
+	if (numbersTexture==0)
+		eprintf ("Error loading %s\n", path);
 	return ( m_iTexture != 0 && e==GL_NO_ERROR);
 }
 
@@ -1535,8 +1636,10 @@ void CMainApplication::CleanScene()
 		ISOS=0;
 	}
 	//atoms
-	::CleanAtoms(&m_unAtomVAO, &m_glAtomVertBuffer, &BondIndices);
-	::cleanAtoms(&numAtoms, TIMESTEPS, &atoms);
+	if (atoms) {
+		::CleanAtoms(&m_unAtomVAO, &m_glAtomVertBuffer, &BondIndices);
+		::cleanAtoms(&numAtoms, TIMESTEPS, &atoms);
+	}
 	//unit cell
 	::CleanUnitCell(&m_unUnitCellVAO, &m_glUnitCellVertBuffer, &m_glUnitCellIndexBuffer);
 	//marker
@@ -1739,49 +1842,39 @@ float GetTextureCoordinate (char c)
 	return u;
 }
 
+//if selected atom, display atom # and distance. 
+//Otherwise, display timestep in firstdevice and iso in seconddevice
 void CMainApplication::RenderControllerGlyph (const vr::Hmd_Eye nEye, const int controller)
 {
-	if (selectedAtom==-1)
-		return;
-	if (controller == seconddevice) {
-		Vector3 pos; 
-		PrepareControllerGlyph(nEye, controller, &pos);
-		pos /=scaling;
-		pos-=UserPosition;
-		pos=Vector3(pos[0], -pos[2], pos[1]);
-		
-		pos-=Vector3(atoms[currentset][selectedAtom*4+0], atoms[currentset][selectedAtom*4+1], atoms[currentset][selectedAtom*4+2]);
-
-		char dis [200];
-		sprintf (dis, "%0.2fa", pos.length());
-		int l=strlen (dis);
-		float *vert;
-		vert=new float[l*4*(4+3+2)];
-		for (int i=0;i<l;i++) {
-			float u=GetTextureCoordinate(dis[i]);
-			FillVerticesGlyph (vert, i, u);
-		} //for
-		short int *ind=FillIndicesGlyph(l);
-		RenderNumbersControllerGlyph (l, vert, ind, numbersTexture);
-		return;
-	} // if
-	
-	if (selectedAtom==-1)
-		return;
-
+	char string[200];
 	Vector3 pos; 
 	PrepareControllerGlyph(nEye, controller, &pos);
-
-	//display atom number
-	char atom [200];
-	sprintf (atom, "%d", selectedAtom+1);
-	//sprintf (atom, "%d %.2f %.2f %.2f", selectedAtom+1, atoms[currentset][selectedAtom*4+0], atoms[currentset][selectedAtom*4+1], atoms[currentset][selectedAtom*4+2]);
-	int l=strlen (atom);
-
+	if (controller == seconddevice) {
+		if (selectedAtom==-1) { //isos
+			sprintf (string, "%d", currentiso+1);
+		} else {
+			pos /=scaling;
+			pos-=UserPosition;
+			pos=Vector3(pos[0], -pos[2], pos[1]);
+		
+			pos-=Vector3(atoms[currentset][selectedAtom*4+0], atoms[currentset][selectedAtom*4+1], atoms[currentset][selectedAtom*4+2]);
+		
+			sprintf (string, "%0.2fa", pos.length());
+		} //if selectedatom
+	} else { // if controller == firstdevice
+		if (selectedAtom==-1) { //timestep
+			sprintf (string, "%d", currentset+1);
+		} else {
+			//display atom number
+			sprintf (string, "%d", selectedAtom+1);
+			//sprintf (atom, "%d %.2f %.2f %.2f", selectedAtom+1, atoms[currentset][selectedAtom*4+0], atoms[currentset][selectedAtom*4+1], atoms[currentset][selectedAtom*4+2]);
+		}
+	}	
+	int l=strlen (string);
 	float *vert;
 	vert=new float[l*4*(4+3+2)];
 	for (int i=0;i<l;i++) {
-		float u=GetTextureCoordinate(atom[i]);
+		float u=GetTextureCoordinate(string[i]);
 		FillVerticesGlyph (vert, i, u);
 	}
 
@@ -2814,7 +2907,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 					PaintGrid(nEye, i);
 				} //for all isos in descending order
 				if ((e = glGetError()) != GL_NO_ERROR)
-					dprintf("Gl error after paintgrid: %d, %s\n", e, gluErrorString(e));
+					dprintf("Gl error after paintgrid within RenderScene: %d, %s\n", e, gluErrorString(e));
 				if (numAtoms!=0) {
 					if (menubutton == Infobox && savetodisk)
 						RenderInfo(nEye);
