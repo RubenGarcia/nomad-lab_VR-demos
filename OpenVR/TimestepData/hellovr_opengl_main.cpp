@@ -257,6 +257,8 @@ private: // OpenGL bookkeeping
 
 
 	int currentset;
+	void IncrementTimestep();
+	void DecrementTimestep();
 	float elapsedtime;
 	static const float videospeed;
 	int currentiso;
@@ -353,6 +355,13 @@ private: // OpenGL bookkeeping
 	std::thread *tcpconn;
 	void connectTCP();
 	int sock;
+	void Send(char c, int32_t value);
+	void Send(char c, bool value);
+	void SendConfigFile();
+	void SendTimestep();
+	void SendIso();
+	void SendShowAtoms();
+
 };
 
 const float CMainApplication::videospeed = 0.01f;
@@ -453,6 +462,7 @@ void CMainApplication::connectTCP()
 	struct sockaddr_in serv_addr;
 	struct hostent *he;
 	if ( (he = gethostbyname(server) ) == nullptr ) {
+		eprintf ("Connect to server, could not get host name %s\n", server);
       return; /* error */
 	}
 	memset((char *) &serv_addr, 0, sizeof(serv_addr));
@@ -461,6 +471,7 @@ void CMainApplication::connectTCP()
 	serv_addr.sin_port = htons(port);
 	sock=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
 	if ( connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr))) {
+				eprintf ("Connect to server, could not get connection %s\n", server);
       return; /* error */
 	}
 	//read state
@@ -473,32 +484,42 @@ void CMainApplication::connectTCP()
 	char what;
 	while (true) {
 		n=recv(sock, &what, sizeof(what), 0);
-		if (n<1)
+		if (n<1) {
+			eprintf ("closed socket\n");
 			return;
+		}
 		switch (what) {
 		case 't':
 			n=recv (sock, (char*)&tmp, sizeof(tmp), 0);
-			if (n<sizeof(tmp))
+			if (n<sizeof(tmp)) {
+				eprintf ("short read at socket\n");
 				return;
+			}
 			currentset=ntohl(tmp)%TIMESTEPS;
 			break;
 		case 'i':
 			n=recv (sock, (char*)&tmp, sizeof(tmp), 0);
-			if (n<sizeof(tmp))
+			if (n<sizeof(tmp)) {
+				eprintf ("short read at socket\n");
 				return;
+			}
 			currentiso=ntohl(tmp)%(ISOS+1);
 			break;
 		case 's':
 			char s;
 			n=recv (sock, &s, sizeof(s), 0);
-			if (n<sizeof(s))
+			if (n<sizeof(s)) {
+				eprintf ("short read at socket\n");
 				return;
+			}
 			showAtoms=(bool)s;
 			break;
 		case 'n':
 			n=recv (sock, (char*)&tmp, sizeof(tmp), 0);
-			if (n<sizeof(tmp))
+			if (n<sizeof(tmp)) {
+				eprintf ("short read at socket\n");
 				return;
+			}
 			//load config file
 			if (currentConfig!=ntohl(tmp)%myargc) {
 				currentConfig=ntohl(tmp)%myargc;
@@ -980,6 +1001,76 @@ void CMainApplication::Shutdown()
 	SDL_Quit();
 }
 
+void CMainApplication::Send(char c, int32_t value)
+{
+	if (sock>=0) {
+		int32_t tmp;
+		tmp=htonl(value);
+		int n;
+		n=send(sock, &c, sizeof(c), 0);
+		if (n<sizeof(c)) {
+			closesocket(sock);
+			sock=-1;
+		}
+		n=send(sock, (char*)&tmp, sizeof(tmp), 0);
+		if (n<sizeof(tmp)) {
+			closesocket(sock);
+			sock=-1;
+		}
+	}
+}
+
+void CMainApplication::Send(char c, bool value)
+{
+	if (sock>=0) {
+		int n;
+		n=send(sock, &c, sizeof(c), 0);
+		if (n<sizeof(c)) {
+			closesocket(sock);
+			sock=-1;
+		}
+		n=send(sock, (char*)&value, 1, 0);
+		if (n<1) {
+			closesocket(sock);
+			sock=-1;
+		}
+	}
+}
+void CMainApplication::SendConfigFile()
+{
+	Send('n', currentConfig);
+}
+
+void CMainApplication::SendTimestep()
+{
+	Send('t', currentset);
+}
+
+void CMainApplication::SendIso()
+{
+	Send('i', currentiso);
+}
+
+void CMainApplication::SendShowAtoms()
+{
+	Send('s', showAtoms);
+}
+
+void CMainApplication::IncrementTimestep()
+{
+	currentset++;
+	if (currentset >= TIMESTEPS)
+		currentset = 0;
+	SendTimestep();
+}
+
+void CMainApplication::DecrementTimestep()
+{
+currentset--;
+if (currentset < 0)
+	currentset = TIMESTEPS -1;
+SendTimestep();
+}
 //-----------------------------------------------------------------------------
 // Purpose:
 //-----------------------------------------------------------------------------
@@ -1012,19 +1103,16 @@ bool CMainApplication::HandleInput()
 			}
 			//rgh: add keyboard navigation here
 			if (sdlEvent.key.keysym.sym == SDLK_1) {
-				currentset++;
-				if (currentset >= TIMESTEPS)
-					currentset = 0;
+				IncrementTimestep();
 			}
 			if (sdlEvent.key.keysym.sym == SDLK_2) {
-				currentset--;
-				if (currentset < 0)
-					currentset = TIMESTEPS -1;
+				DecrementTimestep();
 			}
 			if (sdlEvent.key.keysym.sym == SDLK_0) {
 				currentiso++;
 				if (currentiso > ISOS)
 					currentiso = 0;
+				SendIso();
 			}
 			if (sdlEvent.key.keysym.sym == SDLK_a) {
 				Matrix4 tmp = m_mat4HMDPose;
@@ -1089,22 +1177,7 @@ bool CMainApplication::HandleInput()
 						currentConfig++;
 						if (currentConfig>=myargc)
 							currentConfig=1;
-						if (sock>=0) {
-							char w='c';
-							int32_t tmp;
-							tmp=htonl(currentConfig);
-							int n;
-							n=send(sock, &w, sizeof(w), 0);
-							if (n<sizeof(w)) {
-								closesocket(sock);
-								sock=-1;
-							}
-							n=send(sock, (char*)&tmp, sizeof(tmp), 0);
-							if (n<sizeof(tmp)) {
-								closesocket(sock);
-								sock=-1;
-							}
-						}
+						SendConfigFile();
 						CleanScene();
 						LoadConfigFile(myargv[currentConfig]);
 						SetupScene();
@@ -1113,6 +1186,7 @@ bool CMainApplication::HandleInput()
 						currentConfig--;
 						if (currentConfig<=0)
 							currentConfig=myargc-1;
+						SendConfigFile();
 						CleanScene();
 						LoadConfigFile(myargv[currentConfig]);
 						SetupScene();
@@ -1131,8 +1205,10 @@ bool CMainApplication::HandleInput()
 */
 				if (firstdevice==unDevice)
 					savetodisk = !savetodisk;
-				else
+				else {
 					showAtoms= !showAtoms;
+					SendShowAtoms();
+				}
 			}
 			else if (buttonPressed[1][unDevice] && 
 				0 == (state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu)) &&
@@ -1161,10 +1237,12 @@ bool CMainApplication::HandleInput()
 						currentset = TIMESTEPS - 1;
 					else if (currentset > TIMESTEPS - 1)
 						currentset=0;
+					SendTimestep();
 				} else {
 					currentiso++;
 					if (currentiso > ISOS)
 						currentiso = 0;
+					SendIso();
 				}
 			} else if (buttonPressed[0][unDevice] && (
 				(state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_Grip)) == 0 &&
@@ -1197,6 +1275,7 @@ bool CMainApplication::HandleInput()
 						currentset++;
 						if (currentset >= TIMESTEPS)
 							currentset = 0;
+						SendTimestep();
 					}
 				}
 			}

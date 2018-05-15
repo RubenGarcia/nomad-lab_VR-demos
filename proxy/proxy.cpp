@@ -74,7 +74,7 @@ bool initNewSocket (unsigned int secret)
 	 tmp=htonl(state.iso);
 	 memcpy (buffer+6, &tmp, sizeof(state.iso));
 	 buffer[10]='s';
-	 buffer[11]=(char)true;
+	 buffer[11]=(char)state.showatoms;
 	 buffer[12]='n';
 	 tmp=htonl(state.ncfg);
 	 memcpy (buffer+13, &tmp, sizeof(state.iso));
@@ -108,6 +108,20 @@ bool initNewSocket (unsigned int secret)
 	}
 
 	return true;
+}
+
+int myrecv(int sock,char *buffer,int len, int flags) {
+	int n=len;
+	char *mybuff=buffer;
+	int r;
+	do {
+		r=recv (sock, mybuff, n, flags);
+		if (r<0)
+			return r;
+		mybuff+=r;
+		n-=r;
+	} while (n>0);
+	return len;
 }
 
 int main(int argc, char *argv[])
@@ -205,45 +219,90 @@ for (;;) {
 
 	for (unsigned i=1;i<sockfds.size();i++)
 		if (FD_ISSET (sockfds[i], &read_fd_set)) {
-     		n = recv(sockfds[i],buffer,255, 0);
+     		n = myrecv(sockfds[i],buffer,1, 0);
+			fprintf (stderr, "received %d bytes from socket %d\n", n, i);
+			if (n<0) { //disconnected
+				printf  ("client closed socket\n");
+				sockfds[i]=-1;
+				continue;
+			}
 			buffer[n]=0;
-			if (n < 0) error("ERROR reading from socket");
-			if (n==0) error ("client closed socket, exiting");
+			if (n==0) {
+				printf  ("client closed socket\n");
+				sockfds[i]=-1;
+				continue;
+			}
 
-			printf("Here is the message: %s\n",buffer);
+			printf("Here is the message: '%s'\n",buffer);
+		
 			//update state
 			if (buffer[0]=='t') {
+				n = myrecv(sockfds[i],buffer+1,4, 0);
+				if (n<0) { //disconnected
+					sockfds[i]=-1;
+					continue;
+				}
 				int32_t time;
 				memcpy(&time, buffer+1, sizeof(int32_t));
 				time=ntohl(time);
 				state.timestep=time;
+				printf("Timestep: %d\n",time);
 			} else if (buffer[0]=='i') {
+				n = myrecv(sockfds[i],buffer+1,4, 0);
+				if (n<0) { //disconnected
+					sockfds[i]=-1;
+					continue;
+				}
 				int32_t iso;
 				memcpy(&iso, buffer+1, sizeof(int32_t));
 				iso=ntohl(iso);
-				state.timestep=iso;
+				state.iso=iso;
+				printf("Iso: %d\n",iso);
 			} else if (buffer[0]=='n') {
+				n = myrecv(sockfds[i],buffer+1,4, 0);
+				if (n<0) { //disconnected
+					sockfds[i]=-1;
+					continue;
+				}
 				int32_t ncfg;
 				memcpy(&ncfg, buffer+1, sizeof(int32_t));
 				ncfg=ntohl(ncfg);
-				state.timestep=ncfg;
+				state.ncfg=ncfg;
+				printf("ncfg: %d\n",ncfg);
 			} else if (buffer[0]=='s') {
+				n = myrecv(sockfds[i],buffer+1,1, 0);
+				if (n<0) { //disconnected
+					sockfds[i]=-1;
+					continue;
+				}
 				state.showatoms=buffer[1]!=0;
+				printf("showatoms: %d\n",state.showatoms);
 			} else {
-				fprintf (stderr, "Unknown state request %c\n", buffer[0]);
+				fprintf (stderr, "Unknown state request '%c'\n", buffer[0]);
 				error ("unknown state" );
 			}
 
 			for (unsigned j=1;j<sockfds.size();j++) {
-				n = send(sockfds[j], buffer , n, 0);
-				if (n < 0) error("ERROR writing to socket");
+				if (sockfds[j]>=0) {
+					if (buffer[0]=='s')
+						n=2;
+					else 
+						n=5;
+					n = send(sockfds[j], buffer , n, 0);
+					if (n < 0) {
+						fprintf(stderr, "ERROR writing to socket, closing\n");
+						sockfds[j]=-1;
+					}
+				}
 			}
 		}
 
 	//unblockingly see if new connections were made and add to sockfds
 	if (FD_ISSET (sockfds[0], &read_fd_set)) {
-		if (initNewSocket (secret));
+		if (initNewSocket (secret)) {
+			printf ("Connected to new client\n");
 			FD_SET (sockfds.back(), &active_fd_set);
+		}
 	}
 }
 #ifdef WIN32
