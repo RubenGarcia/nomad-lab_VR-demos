@@ -726,6 +726,7 @@ int loadConfigFile(const char * f)
 				menubutton = Infobox;
 			else if (!strcmp (s, "Nothing"))
 				menubutton = Nothing;
+			else eprintf ("Unknown menubutton parameter %s\n", s);
 		} else if (!strcmp (s, "movementspeed")) {
 			r=fscanf (F, "%f", &movementspeed);
 			if (r<1)

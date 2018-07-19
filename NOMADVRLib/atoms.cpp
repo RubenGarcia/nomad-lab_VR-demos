@@ -632,10 +632,11 @@ int readAtomsAnalyticsJson(const char *const f, int **numatoms, int *timesteps, 
 		for (rapidjson::SizeType i = 0; i < ss.Size(); i++) {
 			const rapidjson::GenericValue<rapidjson::UTF8<> > & el=ss[i];
 
-			if (!el.HasMember("lattice_vectors") || !el.HasMember("atom_positions")) 
+			if (!el.HasMember("lattice_vectors") && !el.HasMember("atom_positions")) 
 				continue;
 
-			if (currenttime==0) {// take the lattice vectors only once; verify they are real vectors
+			if (currenttime==0 && el.HasMember("lattice_vectors")) {
+				// take the lattice vectors only once; verify they are real vectors
 				const rapidjson::GenericValue<rapidjson::UTF8<> > &lv = el["lattice_vectors"];
 				const rapidjson::GenericValue<rapidjson::UTF8<> > &flatdata = lv["flatData"];
 				bool allzeros=true;
@@ -649,6 +650,8 @@ int readAtomsAnalyticsJson(const char *const f, int **numatoms, int *timesteps, 
 					has_abc=true;
 			}
 
+			if (!el.HasMember("atom_positions")) 
+				continue;
 			const rapidjson::GenericValue<rapidjson::UTF8<> > &result = el["atom_positions"];
 			if (!result.HasMember("shape"))
 				return (-1);
