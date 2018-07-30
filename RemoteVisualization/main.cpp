@@ -17,25 +17,9 @@
 #include "NOMADVRLib/eprintf.h"
 #include "NOMADVRLib/ConfigFileAtoms.h"
 #include "NOMADVRLib/atoms.hpp"
+#include "exportXYZ.h"
 
 	int timesteps;
-
-void exportXYZ(const char * file, const char *mat)
-{
-
-FILE * f=fopen (file, "w");
-for (int i=0;i<timesteps;i++) {
-	fprintf (f, "%d\n", numAtoms[i]);
-	fprintf (f, "Comment: Material=%s\n", mat);
-
-	for (int j=0;j<numAtoms[i];j++) {
-		fprintf (f, "%s\t%f\t%f\t%f\n", atomNames[(int)(atoms[i][j*4+3])], 
-			atoms[i][j*4+0], atoms[i][j*4+1], atoms[i][j*4+2]);
-
-
-	}
-}
-}
 
 void usage (const char * argv0) 
 {
@@ -56,10 +40,10 @@ int main (int argc, char **argv) {
 		readAtomsJson (argv[2], &numAtoms, &timesteps, &atoms, abc, &clonedAtoms);
 	
 		//now export xyz
-		exportXYZ(argv[3], argv[2]);
+		exportXYZ(argv[3], argv[2], timesteps);
 	} else if (argv[1][0]=='a') {
 		readAtomsAnalyticsJson (argv[2], &numAtoms, &timesteps, &atoms, abc, &clonedAtoms);
-		exportXYZ (argv[3], argv[2]);
+		exportXYZ (argv[3], argv[2], timesteps);
 	} else {
 		usage(argv[0]);	
 		return 2;

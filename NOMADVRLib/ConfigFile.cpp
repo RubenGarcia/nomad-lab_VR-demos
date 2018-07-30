@@ -213,6 +213,9 @@ void cleanConfig()
 		numAtoms=nullptr;
 		atoms=nullptr;
 	}
+
+	delete[] server;
+	server=nullptr;
 }
 
 void initState()

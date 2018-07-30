@@ -15,6 +15,9 @@
 */
 #include <stdio.h>
 #include <stdint.h>
+#include <math.h>
+#include <limits>
+
 #ifdef WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -26,6 +29,11 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/select.h>
+#include <sys/ioctl.h>
+#include <sys/signal.h>
+
+#define closesocket close
+#define INVALID_SOCKET (-1)
 //http://stackoverflow.com/questions/4291149/difference-between-string-h-and-strings-h
 #endif
 #include <string.h>
@@ -33,6 +41,11 @@
 #include <vector>
 
 std::vector<int> sockfds;
+std::vector<struct sockaddr_in> cli_addrs;
+std::vector<struct sockaddr_in> udp_cli_addrs;
+std::vector<float> cli_userpos;
+std::vector<unsigned char> cli_colour;
+
 
 void error(const char *msg)
 {
@@ -63,45 +76,70 @@ struct state_t {
 
 bool initNewSocket (unsigned int secret)
 {
+
 	int n;
 	 int32_t tmp;
 	 int32_t rsec;
-	 char buffer[17];
-	 buffer[0]='t';
+	 char buffer[22];
+	 buffer[0]='X';
+	 tmp=cli_addrs.size();
+	 memcpy(buffer+1, &tmp, sizeof(tmp));
+	 buffer[5]='t';
 	 tmp=htonl(state.timestep);
-	 memcpy (buffer+1, &tmp, sizeof(state.timestep));
-	 buffer[5]='i';
+	 memcpy (buffer+6, &tmp, sizeof(state.timestep));
+	 buffer[10]='i';
 	 tmp=htonl(state.iso);
-	 memcpy (buffer+6, &tmp, sizeof(state.iso));
-	 buffer[10]='s';
-	 buffer[11]=(char)state.showatoms;
-	 buffer[12]='n';
+	 memcpy (buffer+11, &tmp, sizeof(state.iso));
+	 buffer[15]='s';
+	 buffer[16]=(char)state.showatoms;
+	 buffer[17]='n';
 	 tmp=htonl(state.ncfg);
-	 memcpy (buffer+13, &tmp, sizeof(state.iso));
+	 memcpy (buffer+18, &tmp, sizeof(state.iso));
 
-	 //struct sockaddr_in cli_addr;
-	 //socklen_t clilen;
-     sockfds.push_back(accept(sockfds[0], nullptr, nullptr));
+	 struct sockaddr_in cli_addr;
+	 socklen_t clilen=sizeof(cli_addr);
+     sockfds.push_back(accept(sockfds[0], (sockaddr*)&cli_addr, &clilen));
 #ifdef WIN32
 	if (sockfds.back() == INVALID_SOCKET) 
 #else
      if (sockfds.back() < 0) 
 #endif
           error("ERROR on accept");
-
+	
+	cli_addrs.push_back(cli_addr);
+	for (int i=0;i<3;i++)
+		cli_userpos.push_back(0);
+	for (int i=0;i<3;i++)
+		cli_colour.push_back((unsigned char)(rand()/RAND_MAX*256.f));
 	tmp=htonl (secret);
 
 	 n=recv(sockfds.back(), (char*)&rsec, sizeof(rsec), 0);
 	 if (tmp!=rsec) {
+		//verify if extraneous HTTP GET and redirect
+		if (rsec==542393671){ // 'GET '
+			printf ("extraneous HTTP GET, send to NOMAD VR web\n");
+			const char* response="HTTP/1.1 302 Found\r\n"
+				"Location: https://www.nomad-coe.eu/the-project/graphics/VR-prototype\r\n";
+
+		n=send(sockfds.back(), response, strlen(response), 0);
+		
+		}
 #ifdef WIN32
 		closesocket (sockfds.back());
 #else
+		printf ("expected %d, got %d\n", secret, ntohl(rsec));
+		printf ("tmp=%d, rsec=%d\n", tmp, rsec);
+		char l[5];
+		l[4]=0;
+		memcpy(l, &rsec, 4);
+		printf ("ascii %s\n",l);
+
 		close (sockfds.back());
 #endif
 		return false;
 	 }
 
-	n = send(sockfds.back(), buffer , 17, 0);
+	n = send(sockfds.back(), buffer , 22, 0);
 	if (n < 0) {
 		error("ERROR writing to socket");
 		return false;
@@ -126,6 +164,8 @@ int myrecv(int sock,char *buffer,int len, int flags) {
 
 int main(int argc, char *argv[])
 {
+	static_assert( std::numeric_limits<double>::is_iec559, "IEEE 754 floating point" );
+
 	unsigned int secret;
 	//windows sockets are only very loosely based on unix sockets.
 	//initialization and error management are different.
@@ -142,7 +182,6 @@ int main(int argc, char *argv[])
 	 std::vector<socklen_t> clilens;
      char buffer[256];
      struct sockaddr_in serv_addr;
-	 std::vector<struct sockaddr_in> cli_addrs;
      int n;
 
 #ifdef WIN32
@@ -165,6 +204,8 @@ int main(int argc, char *argv[])
         WSACleanup();
         return 1;
     }
+#else
+signal(SIGPIPE, SIG_IGN);
 #endif
 
 
@@ -174,6 +215,7 @@ int main(int argc, char *argv[])
          exit(1);
      }
 	 secret=atoi(argv[2]);
+	printf ("NOMADVR proxy server, accepting connections with secret %d\n", secret);
      sockfds.push_back (socket(AF_INET, SOCK_STREAM, IPPROTO_TCP));
     
 #ifdef WIN32
@@ -186,7 +228,10 @@ int main(int argc, char *argv[])
 	 }
      memset((char *) &serv_addr, 0, sizeof(serv_addr));
 	 cli_addrs.push_back(serv_addr);
-	 cli_addrs.push_back(serv_addr);
+	 for (int i=0;i<3;i++)
+		cli_userpos.push_back(0); //unused
+	 for (int i=0;i<3;i++)
+		 cli_colour.push_back(0); //unused
      portno = atoi(argv[1]);
      serv_addr.sin_family = AF_INET;
      serv_addr.sin_addr.s_addr = INADDR_ANY;
@@ -201,6 +246,19 @@ int main(int argc, char *argv[])
   FD_ZERO (&active_fd_set);
   FD_SET (sockfds[0], &active_fd_set);
 
+  //now udp
+	int udpSock=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
+	if (udpSock==INVALID_SOCKET) 
+	{
+		error("ERROR on udp socket creation");
+	}
+	if (bind(udpSock, (struct sockaddr *) &serv_addr,
+              sizeof(serv_addr)) < 0) 
+              error("ERROR on binding");
+     listen(udpSock,5);
+
+	 FD_SET (udpSock, &active_fd_set);
+
      memset(buffer,0, 256);
 
 
@@ -214,31 +272,50 @@ for (;;) {
 	if (select (FD_SETSIZE, &read_fd_set, NULL, NULL, NULL) < 0)
 #endif
 		{
-		error ("select");
+//		error ("select"); //descriptors not currently ready
+		sleep(1);
+		continue;
 		}
 
 	for (unsigned i=1;i<sockfds.size();i++)
 		if (FD_ISSET (sockfds[i], &read_fd_set)) {
-     		n = myrecv(sockfds[i],buffer,1, 0);
-			fprintf (stderr, "received %d bytes from socket %d\n", n, i);
+			//select activates this also on other conditions such as closed socket. Verify.
+			int bytes_available;
+			ioctl(sockfds[i],FIONREAD,&bytes_available);
+			if (bytes_available<1) {
+				fprintf (stderr, "socket %d, bytes=%d, disconnecting\n", 
+					sockfds[i], bytes_available);
+				FD_CLR(sockfds[i], &active_fd_set);
+				closesocket(sockfds[i]);
+				sockfds[i]=-1;
+				continue;
+			}
+	     		n = myrecv(sockfds[i],buffer,1, 0);
+//			fprintf (stderr, "received %d bytes from socket %d\n", n, i);
 			if (n<0) { //disconnected
 				printf  ("client closed socket\n");
+				FD_CLR(sockfds[i], &active_fd_set);
+				closesocket(sockfds[i]);
 				sockfds[i]=-1;
 				continue;
 			}
 			buffer[n]=0;
 			if (n==0) {
 				printf  ("client closed socket\n");
+				FD_CLR(sockfds[i], &active_fd_set);
+				closesocket(sockfds[i]);
 				sockfds[i]=-1;
 				continue;
 			}
 
-			printf("Here is the message: '%s'\n",buffer);
+//			printf("Here is the message: '%s'\n",buffer);
 		
 			//update state
 			if (buffer[0]=='t') {
 				n = myrecv(sockfds[i],buffer+1,4, 0);
 				if (n<0) { //disconnected
+					FD_CLR(sockfds[i], &active_fd_set);
+					closesocket(sockfds[i]);
 					sockfds[i]=-1;
 					continue;
 				}
@@ -250,6 +327,8 @@ for (;;) {
 			} else if (buffer[0]=='i') {
 				n = myrecv(sockfds[i],buffer+1,4, 0);
 				if (n<0) { //disconnected
+					FD_CLR(sockfds[i], &active_fd_set);
+					closesocket(sockfds[i]);
 					sockfds[i]=-1;
 					continue;
 				}
@@ -261,6 +340,8 @@ for (;;) {
 			} else if (buffer[0]=='n') {
 				n = myrecv(sockfds[i],buffer+1,4, 0);
 				if (n<0) { //disconnected
+					FD_CLR(sockfds[i], &active_fd_set);
+					closesocket(sockfds[i]);
 					sockfds[i]=-1;
 					continue;
 				}
@@ -272,13 +353,38 @@ for (;;) {
 			} else if (buffer[0]=='s') {
 				n = myrecv(sockfds[i],buffer+1,1, 0);
 				if (n<0) { //disconnected
+					FD_CLR(sockfds[i], &active_fd_set);
+					closesocket(sockfds[i]);
 					sockfds[i]=-1;
 					continue;
 				}
 				state.showatoms=buffer[1]!=0;
 				printf("showatoms: %d\n",state.showatoms);
+			} else if (buffer[0]=='p') { //local state, response also has identifier
+				memcpy(buffer+1,&i, 4);
+				n = myrecv(sockfds[i],buffer+5,sizeof(float)*3, 0);
+				if (n<0) { //disconnected
+					FD_CLR(sockfds[i], &active_fd_set);
+					closesocket(sockfds[i]);
+					sockfds[i]=-1;
+					continue;
+				}
+				memcpy(&(cli_userpos[3*i]), buffer+5, sizeof(float)*3);
+				n+=5;
+				printf ("user pos\n");
+			} else if (buffer[0]=='D') { //Dragging
+				memcpy(buffer+1,&i, 4);
+				n = myrecv(sockfds[i],buffer+5, sizeof(float)*6+4+1, 0);
+				if (n<0) {
+					FD_CLR(sockfds[i], &active_fd_set);
+					closesocket(sockfds[i]);
+					 sockfds[i]=-1;
+					continue;
+				}	
+				n+=5;
+				printf ("user drag\n");
 			} else {
-				fprintf (stderr, "Unknown state request '%c'\n", buffer[0]);
+				fprintf (stderr, "Unknown state request '%c',%d\n", buffer[0], buffer[0]);
 				error ("unknown state" );
 			}
 
@@ -286,11 +392,17 @@ for (;;) {
 				if (sockfds[j]>=0) {
 					if (buffer[0]=='s')
 						n=2;
-					else 
+					else if (buffer[0]=='p')
+						n=4*3+5;
+					else if (buffer[0]=='D')
+						n=6*sizeof(float)+4+1+5;
+					else
 						n=5;
 					n = send(sockfds[j], buffer , n, 0);
 					if (n < 0) {
 						fprintf(stderr, "ERROR writing to socket, closing\n");
+						FD_CLR(sockfds[j], &active_fd_set);
+						closesocket(sockfds[j]);
 						sockfds[j]=-1;
 					}
 				}
@@ -300,8 +412,60 @@ for (;;) {
 	//unblockingly see if new connections were made and add to sockfds
 	if (FD_ISSET (sockfds[0], &read_fd_set)) {
 		if (initNewSocket (secret)) {
-			printf ("Connected to new client\n");
+			printf ("Connected to new client, %d\n", sockfds.back());
 			FD_SET (sockfds.back(), &active_fd_set);
+		}
+	}
+	//now udp
+	if (FD_ISSET (udpSock, &read_fd_set)) {
+//		printf ("fd_isset on udpSock\n");
+//datagrams can be reordered, so we cannot split type and payload
+//reading a subset of the datagrams discards the rest, so we need all of them to be the same size, and read them in one chunk.
+		struct sockaddr_in src_addr;
+		socklen_t addrlen=sizeof(src_addr);
+		n = recvfrom(udpSock,buffer,5+4+4*4*sizeof(float), 0, (sockaddr*)&src_addr, &addrlen);
+		int found=-1;
+		for (std::vector<int>::size_type i=0;i<udp_cli_addrs.size();i++) {
+			if (src_addr.sin_port == udp_cli_addrs[i].sin_port &&
+				src_addr.sin_addr.s_addr== udp_cli_addrs[i].sin_addr.s_addr) {
+					found=i;
+					break;	
+			}
+		}
+		if (found==-1) {
+			udp_cli_addrs.push_back(src_addr);
+			found=udp_cli_addrs.size()-1;
+                        printf ("adding new udp client %d, p=%d\n", found, 
+				src_addr.sin_port);
+
+		}
+//		printf ("received bytes: %d\nOrder: %c\n", n, buffer[0]);
+		if (n<5+3*4*sizeof(float)) {
+			//may receive a 3x4 from the controllers
+			printf ("error, continuing\n");
+			continue; //error
+		}
+		else if (!(buffer[0]=='1' || buffer[0]=='2' || buffer[0]=='h')) {
+			printf ("udp, unknown message type\n");
+			continue;
+		}
+		uint32_t rem;
+		memcpy (&rem, buffer+1, 4);
+//		printf ("received udp '%c' from %d, retransmitting\n", buffer[0], rem);
+		for (std::vector<int>::size_type i=0;i<udp_cli_addrs.size();i++) {
+			//do not sent to originator
+			if (i==found)
+				continue;
+//			printf ("sending to %d\n", i);
+			if (n!=sendto(udpSock, buffer, n, 0, (sockaddr*)&(udp_cli_addrs[i]), sizeof(sockaddr_in))){
+				printf ("Error sending to %d\n", i);
+				udp_cli_addrs[i]=udp_cli_addrs.back();
+				udp_cli_addrs.pop_back();
+				if (found==udp_cli_addrs.size())
+					found=i;
+				i--; 
+				continue;
+			}
 		}
 	}
 }

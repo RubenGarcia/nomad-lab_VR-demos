@@ -1,4 +1,4 @@
-all: NOMADVRLib/atoms.o eprintf.o happyhttp/happyhttp.o NOMADVRLib/ConfigFileAtoms.o main.o
+all: NOMADVRLib/atoms.o eprintf.o happyhttp/happyhttp.o NOMADVRLib/ConfigFileAtoms.o main.o exportXYZ.o 
 	g++ $^ -o nomad2xyz
 
 .cpp.o:

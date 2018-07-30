@@ -42,6 +42,8 @@
 #include <string>
 #include <cstdlib>
 #include <algorithm>
+#include <mutex>
+#include <condition_variable>
 
 #include <winsock2.h>
 
@@ -83,6 +85,17 @@
 
 
 #define NUMPLY (TIMESTEPS * ISOS)
+
+
+typedef struct remotes {
+	int id;
+	bool valid[3];
+	float head[16];
+	vr::HmdMatrix34_t c1, c2;
+	Vector3 UserPos;
+	unsigned char colour[3];
+} remotes_t;
+
 
 class CGLRenderModel
 {
@@ -352,16 +365,33 @@ private: // OpenGL bookkeeping
 	char **myargv;
 	int currentConfig;
 
-	std::thread *tcpconn;
+	std::thread *tcpconn, *udpconn;
 	void connectTCP();
-	int sock;
+	void UDP();
+	int UDPContr(SOCKET s, char c, int device);
+	int UDPHead(SOCKET s);
+	int sock, s;
+	struct sockaddr_in serv_addr;
 	void Send(char c, int32_t value);
 	void Send(char c, bool value);
 	void SendConfigFile();
 	void SendTimestep();
 	void SendIso();
 	void SendShowAtoms();
+	void SendUserPos();
+	void SendDragDrop(Vector3 pos);  
 
+	std::vector<remotes_t> remotes;
+	int32_t identifier;
+	int FindRemote(int32_t remote);
+
+	Vector3 initDrag;
+	Uint32 msDrag;
+	char whenDrag;// whenDrag=0: start; 1: middle; 2: end; 3: not sending
+
+	char cleanup; //synch TCP and drawing thread on scene load
+	std::mutex cleanupmutex;
+	std::condition_variable cleanupcond;
 };
 
 const float CMainApplication::videospeed = 0.01f;
@@ -456,10 +486,155 @@ int CMainApplication::LoadConfigFile (const char *c)
 	return r;
 }
 
+int CMainApplication::UDPHead(SOCKET s)
+{
+	int n=0;
+	char buff[sizeof(float)*16+5];
+	if ( m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid ) {
+		buff[0]='h';
+		memcpy(buff+1, &identifier, 4);
+		memcpy (buff+5, (char*)m_mat4HMDPose.get(), sizeof(float)*16);
+		n=send(s, buff, sizeof(float)*16+5, 0);
+		if (n<0) {
+			closesocket (s);
+			s=INVALID_SOCKET;
+		}
+		}
+	return n;
+}
+
+int CMainApplication::UDPContr(SOCKET s, char c, int device)
+{
+//datagrams can be reordered, so we cannot split type and payload
+//reading a subset of the datagrams discards the rest, so we need to listen to the largest possible.
+	int n=0;
+	vr::VRControllerState_t cs;
+	vr::TrackedDevicePose_t dp;
+	char buff[sizeof(vr::HmdMatrix34_t) +5];
+	if (!m_pHMD) 
+		return -1;
+	m_pHMD->GetControllerStateWithPose( vr::TrackingUniverseStanding, device, &cs, &dp );
+	if (dp.bPoseIsValid) {
+		vr::HmdMatrix34_t mat=dp.mDeviceToAbsoluteTracking;
+		buff[0]=c;
+		memcpy(buff+1, &identifier, 4);
+		memcpy(buff+5, mat.m, sizeof(mat.m));
+		n=send(s, buff, sizeof(mat.m)+5, 0);
+		if (n<0) {
+			closesocket (s);
+		}
+	}
+	return n;
+}
+
+void CMainApplication::UDP()
+{
+	//struct hostent *he;
+	//if ( (he = gethostbyname(server) ) == nullptr ) {
+	//	eprintf ("Connect to server, could not get host name %s\n", server);
+     // return; /* error */
+	//}
+	//memset((char *) &serv_addr, 0, sizeof(serv_addr));
+	//memcpy(&serv_addr.sin_addr, he->h_addr_list[0], he->h_length);
+	//serv_addr.sin_family = AF_INET;
+	//serv_addr.sin_port = htons(port);
+	s=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
+	if (s==INVALID_SOCKET) {
+		eprintf ("udp socket creation error %d, closing\n", WSAGetLastError());
+		return;
+	}
+	if ( connect(s, (struct sockaddr *)&serv_addr, sizeof(serv_addr))) {
+		eprintf ("Udp Connect to server, could not get connection %s, got error %d\n", server, WSAGetLastError());
+      return; /* error */
+	}
+
+	char buf[100];
+	while (true) {
+		int n;
+		//Sleep(2000); //rgh fixme, should be approx one frame
+		Sleep (10);
+		if (sock==INVALID_SOCKET || s==INVALID_SOCKET)
+			return;
+
+		struct sockaddr_in sin;
+		int addrlen = sizeof(sin);
+		if(getsockname(s, (struct sockaddr *)&sin, &addrlen) == 0 &&
+		    sin.sin_family == AF_INET &&
+			addrlen == sizeof(sin)) {
+				int local_port = sin.sin_port;
+		}
+		//send head and controllerpos
+		n=0;
+		if (identifier==0)
+			continue;
+		if (firstdevice!=-1 ) {
+			n=UDPContr(s, '1', firstdevice);
+			if (n<0)
+				return;
+		}
+		if (seconddevice!=-1) {
+			n=UDPContr(s, '2', seconddevice);
+			if (n<0)
+				return;
+		}
+
+		if ( UDPHead(s)<0 ) {
+			return;
+		}
+		//receive head and controllers
+		unsigned long l;
+		do {
+			ioctlsocket(s, FIONREAD, &l);
+			if (l>0) { //we have data
+				int32_t remote;
+				n=recv(s, buf, 5*4*4*sizeof(float), 0);
+				if (n<0) { //disconnected
+					eprintf ("udp disconnect\n");
+					return;
+				}
+				//Beep( 750, 300 ); //rgh fixme
+				memcpy (&remote, buf+1, 4);
+				int i=FindRemote(remote);
+				if (buf[0]=='h') {
+					memcpy ((char*)&(remotes[i].head[0]), buf+5, sizeof(float)*16);
+					remotes[i].valid[0]=true;
+				} else if (buf[0]=='1') {
+					memcpy ((char*)remotes[i].c1.m,  buf+5, sizeof(float)*12);
+					remotes[i].valid[1]=true;
+				} else if (buf[0]=='2') {
+					memcpy ((char*)remotes[i].c2.m,  buf+5, sizeof(float)*12);
+					remotes[i].valid[2]=true;
+				} else {
+					eprintf ("Unknown udp command '%c'", buf[0]);
+				}
+			
+			}
+		} while (l>0);
+	}
+}
+
+int CMainApplication::FindRemote(int32_t remote) 
+{
+	int found=-1;
+	for (int i=0;i<remotes.size();i++) {
+		if (remotes[i].id==remote) {
+			return i;
+		}
+	}
+	
+	remotes.push_back(remotes_t());
+	remotes.back().id=remote;
+	for (int i=0;i<3;i++)
+		remotes.back().valid[i]=false;
+	//for now, random, non-consistent colours. Send from server later
+	for (int i=0;i<3;i++)
+		remotes.back().colour[i]=(unsigned char)(rand()/RAND_MAX*256.f);
+	return remotes.size()-1;
+}
+
 void CMainApplication::connectTCP() 
 {
 	//https://stackoverflow.com/questions/5444197/converting-host-to-ip-by-sockaddr-in-gethostname-etc
-	struct sockaddr_in serv_addr;
 	struct hostent *he;
 	if ( (he = gethostbyname(server) ) == nullptr ) {
 		eprintf ("Connect to server, could not get host name %s\n", server);
@@ -474,20 +649,39 @@ void CMainApplication::connectTCP()
 				eprintf ("Connect to server, could not get connection %s\n", server);
       return; /* error */
 	}
+		struct sockaddr_in sin;
+		int addrlen = sizeof(sin);
+		if(getsockname(sock, (struct sockaddr *)&sin, &addrlen) == 0 &&
+		    sin.sin_family == AF_INET &&
+			addrlen == sizeof(sin)) {
+				int local_port = sin.sin_port;
+		}
 	//read state
 	int n;
 	int32_t tmp;
 	tmp=htonl (secret);
 	n = send(sock, (char*)&tmp , sizeof(tmp), 0);
-	if (n<sizeof(tmp))
+	if (n<sizeof(tmp)) {
+		closesocket(sock);
+		sock=INVALID_SOCKET;
 		return;
-	char what;
+	}
+	SendUserPos();
+	if (sock==INVALID_SOCKET)
+		return;
+	udpconn=new std::thread(&CMainApplication::UDP, this);
+
+	char what=0;
+	int found;
+	char previous=0;
 	while (true) {
+		previous=what;
 		n=recv(sock, &what, sizeof(what), 0);
 		if (n<1) {
 			eprintf ("closed socket\n");
 			return;
 		}
+		//Beep( 1750, 300 ); //rgh fixme
 		switch (what) {
 		case 't':
 			n=recv (sock, (char*)&tmp, sizeof(tmp), 0);
@@ -521,15 +715,63 @@ void CMainApplication::connectTCP()
 				return;
 			}
 			//load config file
-			if (currentConfig!=ntohl(tmp)%myargc) {
+			//force reload because hidden user may have requested it
+//			if (currentConfig!=ntohl(tmp)%myargc) 
+			{
 				currentConfig=ntohl(tmp)%myargc;
-				CleanScene();
-				LoadConfigFile(myargv[currentConfig]);
-				SetupScene();
+				//avoid race with drawing thread
+				cleanupmutex.lock();
+				cleanup=1;
+				cleanupmutex.unlock();
+				std::unique_lock<std::mutex> lk(cleanupmutex);
+				cleanupcond.wait(lk);
+
+				//OpenGL commands only in main thread
+				//CleanScene();
+				//LoadConfigFile(myargv[currentConfig]);
+				//SetupScene();
+				//cleanupmutex.lock();
+				//cleanup=0;
+				//cleanupmutex.unlock();
 			}
 			break;
+		case 'X':
+			n=recv (sock, (char*)&identifier, sizeof(tmp), 0);
+			if (n<sizeof(tmp)) {
+				eprintf ("short read at socket\n");
+				return;
+			}
+			break;
+		case 'p':
+			int32_t remote;
+			n=recv (sock, (char*)&remote, sizeof(remote), 0);
+			found=-1;
+			for (int i=0;i<remotes.size();i++) {
+				if (remotes[i].id==remote) {
+					found=i;
+					break;
+				}
+			}
+			if (found<0) {
+				remotes.push_back(remotes_t());
+				remotes.back().id=remote;
+				for (int i=0;i<3;i++)
+					remotes.back().valid[i]=false;
+				//for now, random, non-consistent colours. Send from server later
+				for (int i=0;i<3;i++)
+					remotes.back().colour[i]=(unsigned char)((float)rand()/RAND_MAX*256.f);
+				found=remotes.size()-1;
+			}
+			n=recv (sock, (char*)&(remotes[found].UserPos.x), sizeof(float), 0);
+			n=recv (sock, (char*)&(remotes[found].UserPos.y), sizeof(float), 0);
+			n=recv (sock, (char*)&(remotes[found].UserPos.z), sizeof(float), 0);
+			break;
+		case 'D': //discard remote Drag&Drop
+			char buff[6*sizeof(float)+1+2*sizeof(UINT32)];
+			n=recv (sock, buff, 6*sizeof(float)+1+2*sizeof(UINT32), 0);
+			break;
 		default:
-			eprintf ("Unknown state sent from server: %c\n", what);
+			eprintf ("Unknown state sent from server: %c %d\n", what, what);
 		}
 	}
 }
@@ -538,8 +780,8 @@ void CMainApplication::connectTCP()
 // Purpose: Constructor
 //-----------------------------------------------------------------------------
 CMainApplication::CMainApplication(int argc, char *argv[])
-	: m_pWindow(NULL)
-	, m_pContext(NULL)
+	: m_pWindow(nullptr)
+	, m_pContext(nullptr)
 	, m_nWindowWidth(1920)
 	, m_nWindowHeight(1080)
 	, m_unSceneProgramID(0)
@@ -548,8 +790,8 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 	, m_unRenderModelProgramID(0)
 	, m_unAtomsProgramID(0)
 	, m_unUnitCellProgramID(0)
-	, m_pHMD(NULL)
-	, m_pRenderModels(NULL)
+	, m_pHMD(nullptr)
+	, m_pRenderModels(nullptr)
 	, m_bDebugOpenGL(false)
 	, m_bVerbose(false)
 	, m_bPerf(false)
@@ -558,10 +800,10 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 	, m_glControllerVertBuffer(0)
 	, m_unControllerVAO(0)
 	, m_unLensVAO(0)
-	, m_unSceneVAO(0)
-	, m_unSceneVAOIndices(0)
-	, m_unAtomVAO(0)
-	, m_glAtomVertBuffer(0)
+	, m_unSceneVAO(nullptr)
+	, m_unSceneVAOIndices(nullptr)
+	, m_unAtomVAO(nullptr)
+	, m_glAtomVertBuffer(nullptr)
 	, m_glUnitCellVertBuffer(-1)
 	, m_glUnitCellIndexBuffer(-1)
 	, m_unUnitCellVAO(0)
@@ -585,15 +827,14 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 	, currentiso(-1) // (-> ISOS, but at this point ISOS is not yet initialized)
 	, firstdevice(-1)
 	, seconddevice(-1)
-	, m_iTexture(0)
-	, axisTextures(0)
+	, m_iTexture(nullptr)
+	, axisTextures(nullptr)
 	, peelingFramebuffer(0)
 	, m_uiVertcount(0)
 	, m_glSceneVertBuffer(0)
-	//, UserPosition(Vector3(-101.0f * 0.15f*0.5f*GRID + 12.5f, -15.0f, -101.0f * 0.15f*0.5f*GRID + 101.0f * 0.15f*0.25f))
 	, UserPosition(Vector3(-userpos[0] /** 0.04f*/, -userpos[1] /** 0.04f*/, -userpos[2] /** 0.04f*/))
-	, vertdataarray(0)
-	, vertindicesarray(0)
+	, vertdataarray(nullptr)
+	, vertindicesarray(nullptr)
 	, pixels(0)
 	, framecounter(0)
 	, savetodisk(false)
@@ -602,8 +843,13 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 	, myargc(argc)
 	, myargv(argv)
 	, currentConfig(1)
-	, tcpconn(0)
-	, sock(-1)
+	, tcpconn(nullptr)
+	, udpconn(nullptr)
+	, sock(INVALID_SOCKET)
+	, s(INVALID_SOCKET)
+	, identifier(0)
+	, whenDrag (3)
+	, cleanup (0)
 {
 	LoadConfigFile(argv[currentConfig]);
 	for (int j=0;j<3;j++)
@@ -763,7 +1009,7 @@ bool CMainApplication::BInit()
 	m_strDriver = GetTrackedDeviceString( m_pHMD, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String );
 	m_strDisplay = GetTrackedDeviceString( m_pHMD, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String );
 
-	std::string strWindowTitle = "Geophysics OpenVR - " + m_strDriver + " " + m_strDisplay;
+	std::string strWindowTitle = "NOMAD OpenVR - " + m_strDriver + " " + m_strDisplay;
 	SDL_SetWindowTitle( m_pWindow, strWindowTitle.c_str() );
 	
 	// cube array
@@ -885,6 +1131,22 @@ if( *vaos != 0 )
 //-----------------------------------------------------------------------------
 void CMainApplication::Shutdown()
 {
+	if (tcpconn) {
+		closesocket(sock);
+		sock=INVALID_SOCKET;
+		tcpconn->join();
+		delete tcpconn;
+		tcpconn=nullptr;
+	}
+
+	if (udpconn) {
+		closesocket(s);
+		s=INVALID_SOCKET;
+		udpconn->join();
+		delete udpconn;
+		udpconn=nullptr;
+	}
+
 	if( m_pHMD )
 	{
 		vr::VR_Shutdown();
@@ -1001,41 +1263,98 @@ void CMainApplication::Shutdown()
 	SDL_Quit();
 }
 
+void CMainApplication::SendUserPos()
+{
+	if (sock!=INVALID_SOCKET) {
+		int n;
+		const int size=sizeof(float)*3+1;
+		char buff[size];
+		buff[0]='p';
+		memcpy(buff+1, &(UserPosition.x), sizeof(float));
+		memcpy(buff+1+sizeof(float), &(UserPosition.y), sizeof(float));
+		memcpy(buff+1+2*sizeof(float), &(UserPosition.z), sizeof(float));
+		n=send(sock, buff, size, 0);
+		if (n<size) {
+			closesocket(sock);
+			sock=INVALID_SOCKET;
+		}
+	}
+}
+
+void CMainApplication::SendDragDrop(Vector3 pos)  // when=0: start; 1: middle; 2: end; 3: not sending
+{//rgh: send init and end via tcp, but middle via udp?
+
+	if (sock!=INVALID_SOCKET) {
+		if (whenDrag == 3)
+			return;
+		if (whenDrag == 0) {
+			initDrag=pos;
+			msDrag=SDL_GetTicks();
+			whenDrag=1;
+			return;
+		}
+		int n;
+		const int size=sizeof(float)*6+2+sizeof(UINT32);
+		UINT32 elapsed=SDL_GetTicks()-msDrag;
+		if (whenDrag == 1 && elapsed < 100)
+			return;
+		char buff[size];
+		buff[0]='D';
+		memcpy(buff+1, &(initDrag.x), sizeof(float));
+		memcpy(buff+1+sizeof(float), &(initDrag.y), sizeof(float));
+		memcpy(buff+1+2*sizeof(float), &(initDrag.z), sizeof(float));
+		memcpy(buff+1+3*sizeof(float), &(pos.x), sizeof(float));
+		memcpy(buff+1+4*sizeof(float), &(pos.y), sizeof(float));
+		memcpy(buff+1+5*sizeof(float), &(pos.z), sizeof(float));
+		memcpy(buff+1+6*sizeof(float), &(elapsed), sizeof(UINT32));
+		memcpy(buff+1+6*sizeof(float)+ sizeof(UINT32), &whenDrag, 1);
+		n=send(sock, buff, size, 0);
+		if (n<size) {
+			closesocket(sock);
+			sock=INVALID_SOCKET;
+		}
+		if (whenDrag==2)
+			whenDrag=3;
+	}
+
+}
+
 void CMainApplication::Send(char c, int32_t value)
 {
-	if (sock>=0) {
+	if (sock!=INVALID_SOCKET) {
 		int32_t tmp;
 		tmp=htonl(value);
 		int n;
 		n=send(sock, &c, sizeof(c), 0);
 		if (n<sizeof(c)) {
 			closesocket(sock);
-			sock=-1;
+			sock=INVALID_SOCKET;
 		}
 		n=send(sock, (char*)&tmp, sizeof(tmp), 0);
 		if (n<sizeof(tmp)) {
 			closesocket(sock);
-			sock=-1;
+			sock=INVALID_SOCKET;
 		}
 	}
 }
 
 void CMainApplication::Send(char c, bool value)
 {
-	if (sock>=0) {
+	if (sock!=INVALID_SOCKET) {
 		int n;
 		n=send(sock, &c, sizeof(c), 0);
 		if (n<sizeof(c)) {
 			closesocket(sock);
-			sock=-1;
+			sock=INVALID_SOCKET;
 		}
 		n=send(sock, (char*)&value, 1, 0);
 		if (n<1) {
 			closesocket(sock);
-			sock=-1;
+			sock=INVALID_SOCKET;
 		}
 	}
 }
+
 void CMainApplication::SendConfigFile()
 {
 	Send('n', currentConfig);
@@ -1117,19 +1436,23 @@ bool CMainApplication::HandleInput()
 			if (sdlEvent.key.keysym.sym == SDLK_a) {
 				Matrix4 tmp = m_mat4HMDPose;
 				UserPosition += tmp.invert()*Vector3(0, 0, speed);
+				SendUserPos();
 				//UserPosition.x += speed;
 			}
 			if (sdlEvent.key.keysym.sym == SDLK_y) {
 				//UserPosition.x -= speed;
 				Matrix4 tmp = m_mat4HMDPose;
 				UserPosition -= tmp.invert()*Vector3(0, 0, speed);
+				SendUserPos();
 			}
 			if (sdlEvent.key.keysym.sym == SDLK_o) {
 				UserPosition[2] -= 0.1f;
+				SendUserPos();
 				dprintf("%f %f\n", UserPosition[0], UserPosition[2]);
 			}
 			if (sdlEvent.key.keysym.sym == SDLK_p) {
 				UserPosition[2] += 0.1f;
+				SendUserPos();
 				dprintf("%f %f\n", UserPosition[0], UserPosition[2]);
 			}
 		}
@@ -1178,18 +1501,44 @@ bool CMainApplication::HandleInput()
 						if (currentConfig>=myargc)
 							currentConfig=1;
 						SendConfigFile();
-						CleanScene();
-						LoadConfigFile(myargv[currentConfig]);
-						SetupScene();
+						//we will soon receive an order to reload the scene, so avoid double-reloading + race here
+						//CleanScene();
+						//LoadConfigFile(myargv[currentConfig]);
+						//SetupScene();
 					} else if (state.rAxis[0].y < -0.7 && state.rAxis[0].x > -0.4 && state.rAxis[0].x < 0.4) {
 						//prev config file
 						currentConfig--;
 						if (currentConfig<=0)
 							currentConfig=myargc-1;
 						SendConfigFile();
-						CleanScene();
-						LoadConfigFile(myargv[currentConfig]);
-						SetupScene();
+						//CleanScene();
+						//LoadConfigFile(myargv[currentConfig]);
+						//SetupScene();
+					}
+				}
+			} else { //Drag and Drop
+				if (buttonPressed[2][unDevice] && 
+					/*(state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_Axis0)) == 0 &&*/
+					(state.ulButtonPressed&vr::ButtonMaskFromId(vr::k_EButton_Axis0)) == 0) {
+					buttonPressed[2][unDevice]=false; 
+					whenDrag=2;
+					//rgh FIXME send final Drag command
+				}
+				if ( 
+					(/*state.ulButtonTouched&vr::ButtonMaskFromId(vr::k_EButton_Axis0) || */
+					 state.ulButtonPressed&vr::ButtonMaskFromId(vr::k_EButton_Axis0) 
+					)){
+					
+					if (state.rAxis[0].y > -0.4 && state.rAxis[0].y < 0.4 && state.rAxis[0].x<-0.7) {
+						if (!buttonPressed[2][unDevice]) {
+							buttonPressed[2][unDevice]=true;
+							whenDrag=0;
+						}
+							//rgh FIXME send initial Drag command
+						//} else {
+						//	whenDrag=1;
+						//	//rgh FIXME send intermediate Drag command
+						//}
 					}
 				}
 			}
@@ -1260,12 +1609,14 @@ bool CMainApplication::HandleInput()
 					if (gazenavigation) {
 						Matrix4 tmp = m_mat4HMDPose;
 						UserPosition += tmp.invert()*Vector3(0, 0, speed);
+						SendUserPos();
 					} else {
 						//vr::VRControllerState_t cs;
 						//vr::TrackedDevicePose_t dp;
 						//m_pHMD->GetControllerStateWithPose( vr::TrackingUniverseStanding, firstdevice, &cs, &dp );
 						const Matrix4 tmp = m_rmat4DevicePose[firstdevice];
-						UserPosition += tmp*Vector3(0, 0, speed);	
+						UserPosition += tmp*Vector3(0, 0, speed);
+						SendUserPos();
 					}
 				}
 				else {
@@ -1433,6 +1784,18 @@ void CMainApplication::HapticFeedback(int device)
 //-----------------------------------------------------------------------------
 void CMainApplication::RenderFrame()
 {
+	
+	if (cleanup==1) {
+		CleanScene();
+		LoadConfigFile(myargv[currentConfig]);
+		SetupScene();
+		cleanupmutex.lock();
+		cleanup=0;
+		cleanupmutex.unlock();
+		cleanupcond.notify_one();
+		//return;
+	}
+
 	int e;
 	// for now as fast as possible
 	if ( m_pHMD )
@@ -1688,7 +2051,7 @@ bool CMainApplication::SetupDepthPeeling()
 void CMainApplication::CleanScene()
 { //delete, opposite order from creation
 	//isos
-	if (ISOS) {
+	if (m_glSceneVertBuffer && ISOS) {//if unable to init openvr runtime, all these gl variables are null
 		for (int i=0;i<NUMLODS;i++) {
 			glDeleteBuffers(NUMPLY, m_glSceneVertBuffer[i]);
 			glDeleteBuffers(NUMPLY, m_unSceneVAOIndices[i]);
@@ -1712,7 +2075,7 @@ void CMainApplication::CleanScene()
 		m_unSceneVAO=nullptr;
 		vertdataarray=nullptr;
 		vertindicesarray=nullptr;
-		ISOS=0;
+		//ISOS=0;
 	}
 	//atoms
 	if (atoms) {
@@ -1728,6 +2091,7 @@ void CMainApplication::CleanScene()
 	//infocube
 	::CleanInfoCube(&m_unInfoVAO, &m_unInfoVertBuffer, &m_unInfoIndexBuffer);
 	cleanConfig();
+	ISOS=0;
 }
 
 //-----------------------------------------------------------------------------
@@ -1929,13 +2293,19 @@ void CMainApplication::RenderControllerGlyph (const vr::Hmd_Eye nEye, const int 
 	Vector3 pos; 
 	PrepareControllerGlyph(nEye, controller, &pos);
 	if (controller == seconddevice) {
-		if (selectedAtom==-1) { //isos
-			sprintf (string, "%d", currentiso+1);
-		} else {
+		if (selectedAtom!=-1 || whenDrag !=3) {
 			pos /=scaling;
 			pos-=UserPosition;
 			pos=Vector3(pos[0], -pos[2], pos[1]);
-		
+		}
+
+		if (whenDrag != 3) {
+			SendDragDrop(pos);
+		}
+
+		if (selectedAtom==-1) { //isos
+			sprintf (string, "%d", currentiso+1);
+		} else {
 			pos-=Vector3(atoms[currentset][selectedAtom*4+0], atoms[currentset][selectedAtom*4+1], atoms[currentset][selectedAtom*4+2]);
 		
 			sprintf (string, "%0.2fa", pos.length());
@@ -2866,7 +3236,17 @@ glUseProgram(m_unRenderModelProgramID);
 Matrix4 globalScaling;
 globalScaling.scale(scaling, scaling, scaling);
 
+int AtomsInCurrentset;
+if (currentset==0)
+	AtomsInCurrentset=numAtoms[currentset];
+else
+	AtomsInCurrentset=numAtoms[currentset]-numAtoms[currentset-1];
+
 for (int i=0;i<info.size(); i++) {
+	if (info[i].atom-1 > AtomsInCurrentset) {
+		//wrong atom
+		continue;
+	}
 	Matrix4 trans;
 
 	Vector3 iPos(info[i].pos[0], info[i].pos[1], info[i].pos[2]);
@@ -2886,10 +3266,12 @@ for (int i=0;i<info.size(); i++) {
 
 //now line
 glUseProgram(m_unUnitCellProgramID);
+
 for (int i = 0; i < info.size(); i++) {
 	if (info[i].atom < 1)
 		continue;
-	if (info[i].atom-1 > numAtoms[currentset]) {
+	
+	if (info[i].atom-1 > AtomsInCurrentset) {
 		//wrong atom
 		continue;
 	}
@@ -3113,7 +3495,12 @@ void CMainApplication::RenderAllTrackedRenderModels(vr::Hmd_Eye nEye)
 		if (!m_rTrackedDeviceToRenderModel[unTrackedDevice] || !m_rbShowTrackedDevice[unTrackedDevice])
 			continue;
 
-		const vr::TrackedDevicePose_t & pose = m_rTrackedDevicePose[unTrackedDevice];
+		if (firstdevice==-1 && m_pHMD->GetTrackedDeviceClass( unTrackedDevice ) == vr::TrackedDeviceClass_Controller )
+			firstdevice=unTrackedDevice;
+		else if (seconddevice==-1 && firstdevice!=unTrackedDevice && m_pHMD->GetTrackedDeviceClass( unTrackedDevice ) == vr::TrackedDeviceClass_Controller)
+			seconddevice=unTrackedDevice;
+
+		//const vr::TrackedDevicePose_t & pose = m_rTrackedDevicePose[unTrackedDevice];
 
 		const Matrix4 & matDeviceToTracking = m_rmat4DevicePose[unTrackedDevice];
 		Matrix4 matMVP = GetCurrentViewProjectionMatrix(nEye) * matDeviceToTracking;
@@ -3121,6 +3508,45 @@ void CMainApplication::RenderAllTrackedRenderModels(vr::Hmd_Eye nEye)
 
 		m_rTrackedDeviceToRenderModel[unTrackedDevice]->Draw();
 	}
+
+	//now paint remote ones too. Add colour later
+	for (int i=0;i<remotes.size();i++) {
+		if (remotes[i].id==identifier)
+			continue;
+		if (remotes[i].valid[0]) {
+			Vector3 relpos=UserPosition-remotes[i].UserPos;
+			Matrix4 rm(remotes[i].head);
+			rm.invert().translate(relpos*scaling); 
+			Matrix4 matMVP = GetCurrentViewProjectionMatrix(nEye) *rm;
+			//add rest of transforms (their user trans, etc)
+			glUniformMatrix4fv(m_nRenderModelMatrixLocation, 1, GL_FALSE, matMVP.get());
+
+			if (nullptr==m_rTrackedDeviceToRenderModel[vr::k_unTrackedDeviceIndex_Hmd]) {
+				SetupRenderModelForTrackedDevice( vr::k_unTrackedDeviceIndex_Hmd );
+				m_rbShowTrackedDevice[ vr::k_unTrackedDeviceIndex_Hmd ] = false;
+			}
+			m_rTrackedDeviceToRenderModel[vr::k_unTrackedDeviceIndex_Hmd]->Draw();
+		}
+		if (remotes[i].valid[1] && firstdevice!=-1) {
+			Vector3 relpos=UserPosition-remotes[i].UserPos;
+			Matrix4 rm(ConvertSteamVRMatrixToMatrix4(remotes[i].c1));
+			rm.translate(relpos*scaling); 
+			Matrix4 matMVP = GetCurrentViewProjectionMatrix(nEye) *rm;
+			//add rest of transforms (their user trans, etc)
+			glUniformMatrix4fv(m_nRenderModelMatrixLocation, 1, GL_FALSE, matMVP.get());
+			m_rTrackedDeviceToRenderModel[firstdevice]->Draw();
+		}
+		if (remotes[i].valid[2] && seconddevice!=-1) {
+			Vector3 relpos=UserPosition-remotes[i].UserPos;
+			Matrix4 rm(ConvertSteamVRMatrixToMatrix4(remotes[i].c2));
+			rm.translate(relpos*scaling); 
+			Matrix4 matMVP = GetCurrentViewProjectionMatrix(nEye) *rm;
+			//add rest of transforms (their user trans, etc)
+			glUniformMatrix4fv(m_nRenderModelMatrixLocation, 1, GL_FALSE, matMVP.get());
+			m_rTrackedDeviceToRenderModel[seconddevice]->Draw();
+		}
+	}
+
 	GLuint e;
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("Gl error marker 2: %d, %s\n", e, gluErrorString(e));
@@ -3529,13 +3955,16 @@ int main(int argc, char *argv[])
 {
 	//https://stackoverflow.com/questions/8544090/detected-memory-leaks
 	/*_CrtSetDbgFlag( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
-	 _CrtSetBreakAlloc(89);
-	 _CrtSetBreakAlloc(88);
-	 _CrtSetBreakAlloc(87);
-	 _CrtSetBreakAlloc(86);
-	 _CrtSetBreakAlloc(85);
-	 _CrtSetBreakAlloc(84);
-	 */
+		 _CrtSetBreakAlloc(639);
+	 _CrtSetBreakAlloc(783);
+	 _CrtSetBreakAlloc(676);
+	 _CrtSetBreakAlloc(675);
+	 _CrtSetBreakAlloc(639);
+	 _CrtSetBreakAlloc(125);
+	 _CrtSetBreakAlloc(118);
+	 _CrtSetBreakAlloc(117);
+	 _CrtSetBreakAlloc(94);
+	 _CrtSetBreakAlloc(93);*/
 	TMPDIR=".\\";
 	//http://stackoverflow.com/questions/4991967/how-does-wsastartup-function-initiates-use-of-the-winsock-dll
 	WSADATA wsaData;
