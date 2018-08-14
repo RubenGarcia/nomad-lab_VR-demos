@@ -47,6 +47,13 @@ Subdirectories:
 		Transforms a json from encyclopedia or archive into an XYZ file	
 		Useful for the remote visualization infrastructure
 	
+	proxy: Back-end support for multiuser support in OpenVR NOMAD VR. 
+		NOMADVRproxy listens to connections and forwards user actions to rest of
+			users.
+			
+		MD-Driver/SimpleMove and MD-Driver/PeriodicTable: see MD-Driver/Readme
+			Support for atom drag-and-drop functionality in OpenVR NOMAD VR.
+	
 More platforms will be added in the future.
 
 The code is distributed under the Apache 2.0 License (See LICENSE file).

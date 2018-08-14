@@ -38,7 +38,7 @@ grid::~grid()
 void grid::coordinates(const float pos[3], int c[3])
 {
 	for (int i=0;i<3;i++) {
-		c[i]=floor((pos[i]-m[i])/dif[i]*dims);
+		c[i]=static_cast<int>(floor((pos[i]-m[i])/dif[i]*dims));
 		if (c[i]>=dims)
 			c[i]=dims-1;
 		else if (c[i]<0)
@@ -52,7 +52,7 @@ void grid::add (float *p) //compatible with the atoms xyzr
 	coordinates (p, pos);
 	
 	content[pos[0]*dims*dims + pos[1]*dims+pos[2]].push_back(p);
-	float ar=atomRadius(p[3]);
+	float ar=atomRadius(static_cast<int>(p[3]));
 	if (ar>maxradius)
 		maxradius=ar;
 }
@@ -61,7 +61,7 @@ bool grid::compare (float *a, float *b)
 {
 	if (a<=b) //already returned when searching a beforehand
 		return false;
-	float sqd=atomRadius(a[3])+atomRadius(b[3]);
+	float sqd=atomRadius(static_cast<int>(a[3]))+atomRadius(static_cast<int>(b[3]));
 	sqd*=sqd;
 	float d=0;
 	for (int i=0;i<3;i++)
@@ -82,8 +82,8 @@ std::vector<float*> grid::find (float *p)
 	float mp[3];
 	float Mp[3];
 	for (int i=0;i<3;i++) {
-		mp[i]=p[i]-(atomRadius(p[3])+maxradius)/scale;
-		Mp[i]=p[i]+(atomRadius(p[3])+maxradius)/scale;
+		mp[i]=p[i]-(atomRadius(static_cast<int>(p[3]))+maxradius)/scale;
+		Mp[i]=p[i]+(atomRadius(static_cast<int>(p[3]))+maxradius)/scale;
 	}
 	coordinates(mp, mc);
 	coordinates(Mp, Mc);

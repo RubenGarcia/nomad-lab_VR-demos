@@ -86,6 +86,8 @@ int secret;
 const char * server;
 int port;
 
+bool resetTimestepOnReload;
+
 const char * loadConfigFileErrors[] =
 {
 	"All Ok",//0
@@ -115,12 +117,34 @@ const char * loadConfigFileErrors[] =
 	"Error loading analytics json file, add 400 to see the error",//<-400
 };
 
+void cleanMarkers()
+{
+	for (int i=0;i<TIMESTEPS;i++)
+		delete markers[i];
+	delete[] markers;
+	markers=nullptr;
+}
+
+void cleanMarkerColours() {
+	for (int i=0;i<TIMESTEPS;i++)
+		delete markercolours[i];
+	delete[] markercolours;
+	markercolours=nullptr;
+}
+
 void updateTIMESTEPS (int timesteps)
 { 
-if (TIMESTEPS==0)
+if (TIMESTEPS==0) {
 	TIMESTEPS=timesteps;
-else
-	TIMESTEPS=std::min(TIMESTEPS, timesteps);
+} else {
+	if (TIMESTEPS!=timesteps) {
+		if (markers)
+			cleanMarkers();
+		if (markercolours)
+			cleanMarkerColours();
+		TIMESTEPS=std::min(TIMESTEPS, timesteps);
+	}
+}
 }
 
 int readString(FILE *f, char *s)
@@ -155,6 +179,9 @@ int readString(FILE *f, char *s)
 
 void fixFile(char * file)
 {
+if (!strncmp (file, "http://", 7) || !strncmp(file, "https://", 8))
+	return;
+
 #ifdef WIN32
 	const char c='\\';
 #else
@@ -190,13 +217,11 @@ void cleanConfig()
 	SCREENSHOT=nullptr;
 
 	if (markers) {
+		cleanMarkers();
 		for (int i=0;i<TIMESTEPS;i++) {
-			delete[] markers[i];
 			delete[] markercolours[i];
 		}
-		delete[] markers;
 		delete[] markercolours;
-		markers=nullptr;
 		markercolours=nullptr;
 	}
 	for (int i=0;i<info.size();i++) {
@@ -301,7 +326,9 @@ void initState()
 	secret=0;
 	server=nullptr;
 	port=-1;
+	resetTimestepOnReload=true;
 }
+
 
 int loadConfigFile(const char * f)
 {
@@ -335,10 +362,7 @@ int loadConfigFile(const char * f)
 		if (!strcmp(s, "timesteps")) {
 			int timesteps;
 			r = fscanf(F, "%d", &timesteps);
-			if (TIMESTEPS==0)
-				TIMESTEPS=timesteps;
-			else
-				TIMESTEPS=std::min(TIMESTEPS, timesteps);
+			updateTIMESTEPS(timesteps);
 		}
 		else if (!strcmp(s, "isos")) {
 			if (ISOS!=0) 
@@ -572,6 +596,8 @@ int loadConfigFile(const char * f)
 				fclose(F);
 				return -17;
 			}
+			if (markers) 
+				cleanMarkers();
 			markers=new float* [TIMESTEPS];
 			for (int i=0;i<TIMESTEPS;i++) {
 				markers[i]=new float[3];
@@ -755,6 +781,8 @@ int loadConfigFile(const char * f)
 #endif
 		} else if (!strcmp (s, "\x0d")) { //discard windows newline (problem in Sebastian Kokott's phone (?!)
 			continue;
+		} else if (!strcmp (s, "disablereloadreset")) {
+			resetTimestepOnReload=false;
 		} else if (!strcmp (s, "server")) { //multiuser support
 			int r;
 			if (server)

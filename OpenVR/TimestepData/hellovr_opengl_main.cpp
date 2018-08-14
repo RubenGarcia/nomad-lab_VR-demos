@@ -351,6 +351,7 @@ private: // OpenGL bookkeeping
 	char *pixels, *pixels2; //for saving screenshots to disk
 	int framecounter;
 	bool savetodisk;
+	bool showInfoBox;
 
 	int selectedAtom;
 
@@ -370,7 +371,7 @@ private: // OpenGL bookkeeping
 	void UDP();
 	int UDPContr(SOCKET s, char c, int device);
 	int UDPHead(SOCKET s);
-	int sock, s;
+	SOCKET sock, s;
 	struct sockaddr_in serv_addr;
 	void Send(char c, int32_t value);
 	void Send(char c, bool value);
@@ -417,6 +418,10 @@ void dprintf( const char *fmt, ... )
 		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "Warning", buffer, 0);
 }
 
+void message (char *buffer) 
+{
+MessageBoxA (0, buffer, "Warning", 0);
+}
 
 //pure windows, no sdl
 void eprintf( const char *fmt, ... )
@@ -439,7 +444,7 @@ void eprintf( const char *fmt, ... )
 	if ( g_bPrintf )
 		printf( "%s", buffer );
 
-	MessageBoxA(0, buffer, "Warning", 0);
+	std::thread(message, buffer).detach();
 }
 
 int CMainApplication::LoadConfigFile (const char *c)
@@ -689,7 +694,10 @@ void CMainApplication::connectTCP()
 				eprintf ("short read at socket\n");
 				return;
 			}
-			currentset=ntohl(tmp)%TIMESTEPS;
+			if (TIMESTEPS!=0)
+				currentset=ntohl(tmp)%TIMESTEPS;
+			else
+				currentset=ntohl(tmp);
 			break;
 		case 'i':
 			n=recv (sock, (char*)&tmp, sizeof(tmp), 0);
@@ -726,13 +734,6 @@ void CMainApplication::connectTCP()
 				std::unique_lock<std::mutex> lk(cleanupmutex);
 				cleanupcond.wait(lk);
 
-				//OpenGL commands only in main thread
-				//CleanScene();
-				//LoadConfigFile(myargv[currentConfig]);
-				//SetupScene();
-				//cleanupmutex.lock();
-				//cleanup=0;
-				//cleanupmutex.unlock();
 			}
 			break;
 		case 'X':
@@ -850,6 +851,8 @@ CMainApplication::CMainApplication(int argc, char *argv[])
 	, identifier(0)
 	, whenDrag (3)
 	, cleanup (0)
+	, showInfoBox (true)
+	, m_unInfoVAO (0)
 {
 	LoadConfigFile(argv[currentConfig]);
 	for (int j=0;j<3;j++)
@@ -1134,6 +1137,7 @@ void CMainApplication::Shutdown()
 	if (tcpconn) {
 		closesocket(sock);
 		sock=INVALID_SOCKET;
+		cleanupcond.notify_one(); //in case we are waiting for update
 		tcpconn->join();
 		delete tcpconn;
 		tcpconn=nullptr;
@@ -1357,7 +1361,11 @@ void CMainApplication::Send(char c, bool value)
 
 void CMainApplication::SendConfigFile()
 {
-	Send('n', currentConfig);
+	if (sock != INVALID_SOCKET) {
+		Send('n', currentConfig);
+	} else {//notify for local execution
+		cleanup=1;
+	}
 }
 
 void CMainApplication::SendTimestep()
@@ -1501,19 +1509,12 @@ bool CMainApplication::HandleInput()
 						if (currentConfig>=myargc)
 							currentConfig=1;
 						SendConfigFile();
-						//we will soon receive an order to reload the scene, so avoid double-reloading + race here
-						//CleanScene();
-						//LoadConfigFile(myargv[currentConfig]);
-						//SetupScene();
 					} else if (state.rAxis[0].y < -0.7 && state.rAxis[0].x > -0.4 && state.rAxis[0].x < 0.4) {
 						//prev config file
 						currentConfig--;
 						if (currentConfig<=0)
 							currentConfig=myargc-1;
 						SendConfigFile();
-						//CleanScene();
-						//LoadConfigFile(myargv[currentConfig]);
-						//SetupScene();
 					}
 				}
 			} else { //Drag and Drop
@@ -1552,8 +1553,12 @@ bool CMainApplication::HandleInput()
 				else if(unDevice !=firstdevice && seconddevice==-1)
 					seconddevice=unDevice;
 */
-				if (firstdevice==unDevice)
-					savetodisk = !savetodisk;
+				if (firstdevice==unDevice) {
+					if (menubutton==Record)
+						savetodisk = !savetodisk;
+					else if (menubutton==Infobox)
+						showInfoBox= !showInfoBox;
+				}
 				else {
 					showAtoms= !showAtoms;
 					SendShowAtoms();
@@ -1793,7 +1798,6 @@ void CMainApplication::RenderFrame()
 		cleanup=0;
 		cleanupmutex.unlock();
 		cleanupcond.notify_one();
-		//return;
 	}
 
 	int e;
@@ -2089,7 +2093,8 @@ void CMainApplication::CleanScene()
 		CleanMarker(&m_unMarkerVAO, &m_glMarkerVertBuffer);
 	}
 	//infocube
-	::CleanInfoCube(&m_unInfoVAO, &m_unInfoVertBuffer, &m_unInfoIndexBuffer);
+	if (m_unInfoVAO != 0)
+		::CleanInfoCube(&m_unInfoVAO, &m_unInfoVertBuffer, &m_unInfoIndexBuffer);
 	cleanConfig();
 	ISOS=0;
 }
@@ -2108,6 +2113,14 @@ void CMainApplication::SetupScene()
 	SetupInfoCube();
 	movementspeed/=scaling;
 	SetupInfoBoxTexture();
+	SetupCameras(); //near and far plane may have changed
+	if (resetTimestepOnReload) {
+		currentset=0;
+		currentiso=ISOS;
+		UserPosition=Vector3(-userpos[0], -userpos[1], -userpos[2]);
+		SendUserPos();
+		selectedAtom=-1;
+	}
 }
 
 void CMainApplication::SetupInfoCube()
@@ -2155,7 +2168,7 @@ Matrix4 i = matDeviceToTracking;
 Matrix4 trans;
 
 
-Vector3 iPos = (*pos)+Vector3(0,0.02,0); //raise glyph
+Vector3 iPos = (*pos)+Vector3(0.0f,0.02f,0.0f); //raise glyph
 
 int e;
 trans.scale(0.05).translate(iPos); //translate(0,0.1,0);
@@ -2178,31 +2191,31 @@ return true;
 void FillVerticesGlyph (float * const vert, const int i, const float u)
 {
 for (int j=0;j<4;j++) {
-			vert[i*9*4+j*9+2]=0; //z
-			vert[i*9*4+j*9+3]=1; //w
-			vert[i*9*4+j*9+4]=0; //nx
-			vert[i*9*4+j*9+5]=0; //ny
-			vert[i*9*4+j*9+6]=-1; //nz
+			vert[i*9*4+j*9+2]=0.0f; //z
+			vert[i*9*4+j*9+3]=1.0f; //w
+			vert[i*9*4+j*9+4]=0.0f; //nx
+			vert[i*9*4+j*9+5]=0.0f; //ny
+			vert[i*9*4+j*9+6]=-1.0f; //nz
 		}
-		vert [i*9*4+0*9+0]=i+0; //x
-		vert [i*9*4+0*9+1]=0; //y
+		vert [i*9*4+0*9+0]=static_cast<float>(i+0); //x
+		vert [i*9*4+0*9+1]=0.0f; //y
 		vert [i*9*4+0*9+7]=u; //u
-		vert [i*9*4+0*9+8]=1; //v
+		vert [i*9*4+0*9+8]=1.0f; //v
 
-		vert [i*9*4+1*9+0]=i+1; //x
-		vert [i*9*4+1*9+1]=0; //y
+		vert [i*9*4+1*9+0]=static_cast<float>(i+1); //x
+		vert [i*9*4+1*9+1]=0.0f; //y
 		vert [i*9*4+1*9+7]=u+1.0f/16.0f; //u
-		vert [i*9*4+1*9+8]=1; //v
+		vert [i*9*4+1*9+8]=1.0f; //v
 
-		vert [i*9*4+2*9+0]=i+0; //x
-		vert [i*9*4+2*9+1]=1; //y
+		vert [i*9*4+2*9+0]=static_cast<float>(i+0); //x
+		vert [i*9*4+2*9+1]=1.0f; //y
 		vert [i*9*4+2*9+7]=u; //u
-		vert [i*9*4+2*9+8]=0; //v
+		vert [i*9*4+2*9+8]=0.0f; //v
 
-		vert [i*9*4+3*9+0]=i+1; //x
-		vert [i*9*4+3*9+1]=1; //y
+		vert [i*9*4+3*9+0]=static_cast<float>(i+1); //x
+		vert [i*9*4+3*9+1]=1.0f; //y
 		vert [i*9*4+3*9+7]=u+1.0f/16.0f; //u
-		vert [i*9*4+3*9+8]=0; //v
+		vert [i*9*4+3*9+8]=0.0f; //v
 }
 
 short int *FillIndicesGlyph (int l)
@@ -2303,7 +2316,7 @@ void CMainApplication::RenderControllerGlyph (const vr::Hmd_Eye nEye, const int 
 			SendDragDrop(pos);
 		}
 
-		if (selectedAtom==-1) { //isos
+		if (selectedAtom==-1 || numAtoms==nullptr || numAtoms[currentset]>=selectedAtom) { //isos
 			sprintf (string, "%d", currentiso+1);
 		} else {
 			pos-=Vector3(atoms[currentset][selectedAtom*4+0], atoms[currentset][selectedAtom*4+1], atoms[currentset][selectedAtom*4+2]);
@@ -3328,7 +3341,7 @@ void CMainApplication::RenderScene(vr::Hmd_Eye nEye)
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		}
-		if (menubutton==Infobox && savetodisk)
+		if (showInfoBox)
 			RenderInfo(nEye);
 		RenderAtoms(nEye);
 		RenderUnitCell(nEye);
@@ -3954,17 +3967,11 @@ char * MainErrors [] = {
 int main(int argc, char *argv[])
 {
 	//https://stackoverflow.com/questions/8544090/detected-memory-leaks
-	/*_CrtSetDbgFlag( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
-		 _CrtSetBreakAlloc(639);
-	 _CrtSetBreakAlloc(783);
-	 _CrtSetBreakAlloc(676);
-	 _CrtSetBreakAlloc(675);
-	 _CrtSetBreakAlloc(639);
-	 _CrtSetBreakAlloc(125);
-	 _CrtSetBreakAlloc(118);
-	 _CrtSetBreakAlloc(117);
-	 _CrtSetBreakAlloc(94);
-	 _CrtSetBreakAlloc(93);*/
+	_CrtSetDbgFlag( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );/*
+		 _CrtSetBreakAlloc(1969);
+	 _CrtSetBreakAlloc(1918);
+	 _CrtSetBreakAlloc(1226);
+	 */
 	TMPDIR=".\\";
 	//http://stackoverflow.com/questions/4991967/how-does-wsastartup-function-initiates-use-of-the-winsock-dll
 	WSADATA wsaData;

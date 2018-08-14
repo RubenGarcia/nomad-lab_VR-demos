@@ -227,7 +227,7 @@ int findAtom(const char *const s)
 	strcpy (x, s);
 	char *p=x+strlen(x);
 	p--;
-	while (*p > '0' && *p <= '9') {
+	while (*p >= '0' && *p <= '9') {
 		*p='\0';
 		*p--;
 		if (p==x)
@@ -260,7 +260,8 @@ const char * readAtomsXYZErrors[] = {
 	"Could not open file", //-1
 	"Error loading atom type and position line", //-2
 	"Atom type unknown", //-3
-	"Corrupt xyz file" //-4
+	"Corrupt xyz file", //-4
+	"Unable to download xyz file" //-5
 };
 
 void cleanAtoms (int **numatoms, int timesteps, float ***pos)
@@ -276,10 +277,27 @@ void cleanAtoms (int **numatoms, int timesteps, float ***pos)
 
 int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float ***pos) 
 {
+	const char *myfile=nullptr;
+	const char *webdownload="material.xyz";
+	//add http support
+	if (!strncmp(file, "http:", 5) || !strncmp(file, "https:", 6)) {
+		char cmd[2048];
+		int ret;
+		sprintf (cmd, "wget %s -O %s", file, webdownload);
+		ret=system(cmd);
+		if (ret!=0) {
+			*numatoms=nullptr;
+			*pos=nullptr;
+			return (-5);
+		}
+		myfile=webdownload;
+	} else {
+		myfile = file;
+	}
 	int mynumatoms;
 	std::vector<float*> mypos;
 	std::vector<int> mynum;
-	FILE *f=fopen (file, "r");
+	FILE *f=fopen (myfile, "r");
 	int r;
 	char s[100];
 	if (f==0) {
@@ -294,6 +312,7 @@ int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float *
 			blanklines++;
 			if (blanklines>3) {
 				eprintf("Corrupt xyz file %s. Error at %d atoms\n", file, mynumatoms);
+				fclose(f);
 				return -4;
 			}
 			continue; //there may be a blank line at the end of the file
@@ -311,8 +330,10 @@ int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float *
 			char line[512];
 			fgets(line, 512, f);
 			r=sscanf (line, "%s %f %f %f %f", s, mypos.back()+4*i+0, mypos.back()+4*i+1,mypos.back()+4*i+2, &unused);
-			if (r<4)
+			if (r<4) {
+				fclose (f);
 				return -2;
+			}
 			int a=findAtom(s);
 			if (a==-1) {
 				eprintf ("Read atoms xyz, atom type unknown: %s", s);
@@ -331,7 +352,7 @@ int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float *
 		(*numatoms)[i]=mynum[i];
 		//eprintf ("Getting atoms, numatoms=%d",(*numatoms)[i]);
 	}
-
+	fclose (f);
 	return 0;
 }
 
@@ -367,9 +388,10 @@ int readAtomsCube(const char *const file, int **numatoms, int *timesteps, float 
 	discardline(f); //two comments
 	discardline(f);
 	r = fscanf(f, "%d %f %f %f", *numatoms, cubetrans + 0, cubetrans + 1, cubetrans + 2);
-	if (r < 4)
+	if (r < 4) {
+		fclose (f);
 		return -2;
-
+	}
 	//rgh FIXME. Is this always bohr?
 	for (int i=0;i<3;i++)
 		cubetrans[i]*= 0.52918f;

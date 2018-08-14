@@ -227,6 +227,9 @@ void CleanAtoms (GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLui
 	if (!numAtoms)
 		return;
 
+	if (*AtomVAO==nullptr)
+		return;
+
 	glDeleteVertexArrays(4, *AtomVAO);
 	glDeleteBuffers(3, *AtomVertBuffer);
 	glDeleteBuffers(1, BondIndices);
@@ -764,6 +767,7 @@ GLenum SetupUnitCell(GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *Un
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf( "opengl error %d, glBufferData index, l %d\n", e, __LINE__);
 	glBindVertexArray(0);
+	delete[] tmp;
 	return e;
 }
 

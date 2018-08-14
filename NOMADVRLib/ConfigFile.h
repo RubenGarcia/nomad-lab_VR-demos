@@ -88,6 +88,8 @@ extern int secret;
 extern const char * server;
 extern int port;
 
+extern bool resetTimestepOnReload;
+
 struct information {
 	float pos[3];
 	float size;
