@@ -279,6 +279,7 @@ int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float *
 {
 	const char *myfile=nullptr;
 	const char *webdownload="material.xyz";
+#if !defined(OCULUSMOBILE) && !defined(__ANDROID__)
 	//add http support
 	if (!strncmp(file, "http:", 5) || !strncmp(file, "https:", 6)) {
 		char cmd[2048];
@@ -294,6 +295,9 @@ int readAtomsXYZ(const char *const file, int **numatoms, int *timesteps, float *
 	} else {
 		myfile = file;
 	}
+#else
+	myfile=file;
+#endif
 	int mynumatoms;
 	std::vector<float*> mypos;
 	std::vector<int> mynum;

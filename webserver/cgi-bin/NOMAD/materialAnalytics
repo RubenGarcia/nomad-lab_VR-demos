@@ -1,0 +1,78 @@
+#!/bin/bash
+
+export DATASOURCE=https://analytics-toolkit.nomad-coe.eu/api/resolve
+
+if [[ "$QUERY_STRING" = "" ]]
+then
+	#echo Location: /NOMAD/
+	echo Location:https://www.nomad-coe.eu/the-project/graphics/VR-prototype
+	echo ''
+else
+#rgh: text/plain works in pc but android chrome saves it as .txt, removing the extension
+
+#	export TOKEN=`cat t.b64`
+	export RAND=$RANDOM
+#rgh: before end of september 2017, use /var/tmp, after, use /tmp (apache update)
+	cd /tmp
+	/usr/bin/mkdir $RAND
+	cd $RAND
+
+	export MAT=`echo $QUERY_STRING|cut -f 2 -d/`
+
+	mkdir $MAT
+	cd $MAT
+#Some systems have atomic positions in section_system:0
+#Others don't; they start at section_system:1
+#Better to download all and test this in NOMADVR.
+#        wget --no-check-certificate https://analytics-toolkit.nomad-coe.eu/api/resolve/$QUERY_STRING/section_run/0c/section_system/0c?format=recursiveJson -O material.json
+
+	if [[ $QUERY_STRING = *"section_run"* ]]
+	then
+		QS=$QUERY_STRING
+	else
+		QS=$QUERY_STRING/section_run/0c
+	fi
+
+	wget --no-check-certificate $DATASOURCE/$QS?format=recursiveJson -O \
+		materialtmp.json
+
+	if [[ $QUERY_STRING = *"section_run"* ]]
+        then
+		echo "{ "section_system" : [" >>material.json
+		cat materialtmp.json >> material.json
+		echo "] }" >> material.json
+		rm materialtmp.json
+	else
+		mv materialtmp.json material.json
+        fi
+
+	export FORMULA=`grep system_composition material.json|head -n 1 |cut -f 4 -d\"`
+
+	if [[ "$FORMULA" = "" ]]
+	then
+		echo "Content-type: text/html"
+		echo ''
+		echo "<html><body>"
+		echo "No system_composition found in json: no information to display in VR"
+		echo "</body></html>"
+	else
+
+		echo \# Material $QUERY_STRING >> $FORMULA.ncfg
+		echo background 0 0 0 >> $FORMULA.ncfg
+		echo atomscaling 0.5 >> $FORMULA.ncfg
+		echo analyticsjson material.json >> $FORMULA.ncfg
+		echo displaybonds >> $FORMULA.ncfg
+		echo displayunitcell >> $FORMULA.ncfg
+		echo showcontrollers >> $FORMULA.ncfg
+		cd ..
+	
+		zip -r $MAT $MAT >/dev/null 2>&1 
+	
+		echo "Content-type: application/octet-stream"
+		echo "Content-disposition: attachment; filename=${QUERY_STRING}.zip"
+		echo ''
+		cat $MAT.zip
+	fi
+	cd ..
+#	\rm -r $RAND
+fi
