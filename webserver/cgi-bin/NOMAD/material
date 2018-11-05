@@ -16,7 +16,7 @@
 
 source ../../pass
 
-if [[ "$QUERY_STRING" -eq "" ]]
+if [[ "$QUERY_STRING" = "" ]]
 then
 	#echo Location: /NOMAD/
 	echo Location:https://www.nomad-coe.eu/the-project/graphics/VR-prototype
