@@ -35,4 +35,15 @@ Files:
 	This entry point creates a zip file with the structure or molecular dynamics
 	for <string>.
 	
-		
+Prerequisites:
+	-Ensure that the scripts in cgi-bin/NOMAD have unix-like newlines 
+		(use dos2unix or similar)
+	-Ensure that the pass file has a valid username/password and is located
+		at the same directory that cgi-bin is.
+	-Install the following software:
+		-apache 2
+		-bash
+		-grep
+		-zip
+		-wget
+		-curl
