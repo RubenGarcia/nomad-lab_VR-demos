@@ -43,6 +43,15 @@ Subdirectories:
 		htdocs: Web pages containing the VR software and documentation.
 		cgi-bin: cgi scripts to create suitable config files from a material number.
 	
+		Docker container running the VR webservices
+		# install docker
+		# add your NOMAD username and password in webserver/pass
+		# build container
+			sudo docker build -t nomadvr .
+		# run container
+			sudo docker run -d -p 8080:8080 nomadvr
+		# Test e.g. with you.rip.add.res:8080/cgi-bin/NOMAD/material?109702
+
 	RemoteVisualization: NOMAD2xyz app 
 		Transforms a json from encyclopedia or archive into an XYZ file	
 		Useful for the remote visualization infrastructure
@@ -54,6 +63,7 @@ Subdirectories:
 		MD-Driver/SimpleMove and MD-Driver/PeriodicTable: see MD-Driver/Readme
 			Support for atom drag-and-drop functionality in OpenVR NOMAD VR.
 	
+
 More platforms will be added in the future.
 
 The code is distributed under the Apache 2.0 License (See LICENSE file).

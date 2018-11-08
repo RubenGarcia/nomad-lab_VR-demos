@@ -3,5 +3,5 @@ export USER=
 export PASS=
 
 #Notification email
-export EMAIL=
+export EMAIL
 

@@ -100,5 +100,5 @@ TOKEN=`grep data resp.json |cut -f 4 -d \"`
 		cat $MAT.zip
 	fi
 	cd ..
-	\rm -r $RAND
+#	\rm -r $RAND
 fi
