@@ -1,4 +1,5 @@
 Docker file to build a container to perform the VR conversion webservices
+* Check ../webserver/README.md
 
 * copy the Dockerfile to .. (VR-demos -folder)
 * install docker
