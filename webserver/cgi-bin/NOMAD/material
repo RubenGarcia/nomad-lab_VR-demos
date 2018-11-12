@@ -63,7 +63,7 @@ RELAY=$SAMLURL
 
 MATERIALSURL=https://encyclopedia.nomad-coe.eu/api/v1.0/materials
 
-curl -L -c cookies3.txt -X GET -F "RelayState=$RELAY" -F "SAMLResponse=$SAML" "$SAMLURL?acs" -o resp.json >/dev/null 2>&1
+curl -k -L -c cookies3.txt -X GET -F "RelayState=$RELAY" -F "SAMLResponse=$SAML" "$SAMLURL?acs" -o resp.json >/dev/null 2>&1
 TOKEN=`grep data resp.json |cut -f 4 -d \"`
 
 
