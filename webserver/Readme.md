@@ -7,6 +7,7 @@ Directories:
 
 Files:
 	Readme.md: This document
+	Readme-containerization.md: Quick info on how to set up servives in container.
 	pass: Information on the NOMAD user under which the data is accessed.
 	
 	cgi-bin/NOMAD/material: 
