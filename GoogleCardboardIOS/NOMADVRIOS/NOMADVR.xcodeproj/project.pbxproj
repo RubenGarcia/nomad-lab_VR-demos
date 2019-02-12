@@ -7,17 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1278CED81CEBF98600D93A88 /* NOMADVR-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1278CED71CEBF98600D93A88 /* NOMADVR-Info.plist */; };
-		12BEE9C01C8F5426002F8361 /* TreasureHuntAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 12BEE9B91C8F5426002F8361 /* TreasureHuntAppDelegate.m */; };
-		12BEE9C31C8F5426002F8361 /* TreasureHuntViewController.mm in Sources */ = {isa = PBXBuildFile; fileRef = 12BEE9BF1C8F5426002F8361 /* TreasureHuntViewController.mm */; };
-		12BEE9C81C8F546B002F8361 /* launch.xib in Resources */ = {isa = PBXBuildFile; fileRef = 12BEE9C61C8F546B002F8361 /* launch.xib */; };
-		12BEE9CB1C8F54B8002F8361 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 12BEE9CA1C8F54B8002F8361 /* main.m */; };
-		12C3DC8F1CEBBA9E00D39B85 /* treasure_hunt_renderer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 12C3DC8C1CEBBA9E00D39B85 /* treasure_hunt_renderer.mm */; };
 		4D73CEB4207BCA7200C55317 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4D73CEB3207BCA7200C55317 /* Images.xcassets */; };
-		4D85FBEE2075203B008FD96D /* aux.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4D85FBEC2075203B008FD96D /* aux.cpp */; };
 		4D96EFB22077ACD000BD2694 /* GameController.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D96EFB12077ACD000BD2694 /* GameController.framework */; };
 		4D96EFB42077BE3B00BD2694 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D96EFB32077BE3B00BD2694 /* AudioToolbox.framework */; };
-		4DEE7BCE20629B0F00A0956C /* NOMADVRLib in Resources */ = {isa = PBXBuildFile; fileRef = 4DEE7BCD20629B0F00A0956C /* NOMADVRLib */; };
 		4DEE7BD22062A82000A0956C /* atoms.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4DEE7BD12062A82000A0956C /* atoms.cpp */; };
 		4DEE7BD52062A83800A0956C /* atomsGL.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4DEE7BD32062A83800A0956C /* atomsGL.cpp */; };
 		4DEE7BDD2062AD8800A0956C /* rply.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DEE7BDA2062AD8800A0956C /* rply.c */; };
@@ -32,25 +24,19 @@
 		4DEE7BF32062B2EB00A0956C /* polyhedron.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4DEE7BF22062B2EB00A0956C /* polyhedron.cpp */; };
 		4DEE7BF52062B92100A0956C /* IsoShaders.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4DEE7BF42062B92100A0956C /* IsoShaders.cpp */; };
 		4DEE7BF72062BA3F00A0956C /* CompileGLShader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4DEE7BF62062BA3F00A0956C /* CompileGLShader.cpp */; };
-		C99E7A8E024DA5FE8D83A5BB /* libPods-TreasureHuntNDK.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3A4028450E1F4537A4DE358F /* libPods-TreasureHuntNDK.a */; };
-		F27EE917D4C0E740BE5E6345 /* Pods_NOMADVRSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CAC7C8C2287795314AD5579A /* Pods_NOMADVRSDK.framework */; };
+		88C867CD2213283A00ABF9D7 /* auxiliary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 88C867CC2213283A00ABF9D7 /* auxiliary.cpp */; };
+		88C867E32213376A00ABF9D7 /* TreasureHuntAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 88C867DD2213376A00ABF9D7 /* TreasureHuntAppDelegate.m */; };
+		88C867E42213376A00ABF9D7 /* TreasureHuntNDK.xcworkspace in Resources */ = {isa = PBXBuildFile; fileRef = 88C867DE2213376A00ABF9D7 /* TreasureHuntNDK.xcworkspace */; };
+		88C867E52213376A00ABF9D7 /* treasure_hunt_renderer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 88C867E02213376A00ABF9D7 /* treasure_hunt_renderer.mm */; };
+		88C867E62213376A00ABF9D7 /* TreasureHuntViewController.mm in Sources */ = {isa = PBXBuildFile; fileRef = 88C867E12213376A00ABF9D7 /* TreasureHuntViewController.mm */; };
+		88C867E8221337AF00ABF9D7 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 88C867E7221337AF00ABF9D7 /* main.m */; };
+		D9B22D14D0AA977C1F06824C /* Pods_NOMADVR.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DA4F42F56C5559FD5B870DA4 /* Pods_NOMADVR.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		1278CED71CEBF98600D93A88 /* NOMADVR-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "NOMADVR-Info.plist"; sourceTree = SOURCE_ROOT; };
 		12BEE99E1C8F53AB002F8361 /* NOMADVR.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NOMADVR.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		12BEE9B81C8F5426002F8361 /* TreasureHuntAppDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TreasureHuntAppDelegate.h; sourceTree = SOURCE_ROOT; };
-		12BEE9B91C8F5426002F8361 /* TreasureHuntAppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TreasureHuntAppDelegate.m; sourceTree = SOURCE_ROOT; };
-		12BEE9BE1C8F5426002F8361 /* TreasureHuntViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TreasureHuntViewController.h; sourceTree = SOURCE_ROOT; };
-		12BEE9BF1C8F5426002F8361 /* TreasureHuntViewController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = TreasureHuntViewController.mm; sourceTree = SOURCE_ROOT; };
-		12BEE9C61C8F546B002F8361 /* launch.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = launch.xib; sourceTree = SOURCE_ROOT; };
-		12BEE9CA1C8F54B8002F8361 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = SOURCE_ROOT; };
-		12C3DC8C1CEBBA9E00D39B85 /* treasure_hunt_renderer.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = treasure_hunt_renderer.mm; sourceTree = SOURCE_ROOT; };
-		12C3DC8D1CEBBA9E00D39B85 /* treasure_hunt_renderer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = treasure_hunt_renderer.h; sourceTree = SOURCE_ROOT; };
 		3A4028450E1F4537A4DE358F /* libPods-TreasureHuntNDK.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-TreasureHuntNDK.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D73CEB3207BCA7200C55317 /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Images.xcassets; sourceTree = "<group>"; };
-		4D85FBEC2075203B008FD96D /* aux.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = aux.cpp; sourceTree = "<group>"; };
-		4D85FBED2075203B008FD96D /* aux.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = aux.h; sourceTree = "<group>"; };
 		4D96EFB12077ACD000BD2694 /* GameController.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GameController.framework; path = System/Library/Frameworks/GameController.framework; sourceTree = SDKROOT; };
 		4D96EFB32077BE3B00BD2694 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		4DEE7BCD20629B0F00A0956C /* NOMADVRLib */ = {isa = PBXFileReference; lastKnownFileType = folder; name = NOMADVRLib; path = "/Users/lrz/gvr-ios-sdk/Samples/TreasureHuntNDK/NOMADVRLib"; sourceTree = "<absolute>"; };
@@ -71,9 +57,20 @@
 		4DEE7BF22062B2EB00A0956C /* polyhedron.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = polyhedron.cpp; path = NOMADVRLib/polyhedron.cpp; sourceTree = "<group>"; };
 		4DEE7BF42062B92100A0956C /* IsoShaders.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = IsoShaders.cpp; path = NOMADVRLib/IsoShaders.cpp; sourceTree = "<group>"; };
 		4DEE7BF62062BA3F00A0956C /* CompileGLShader.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = CompileGLShader.cpp; path = NOMADVRLib/CompileGLShader.cpp; sourceTree = "<group>"; };
-		9FD381D5B2D35CE778ED88B3 /* Pods-NOMADVRSDK.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NOMADVRSDK.debug.xcconfig"; path = "Pods/Target Support Files/Pods-NOMADVRSDK/Pods-NOMADVRSDK.debug.xcconfig"; sourceTree = "<group>"; };
+		53C54E624108F78D3F44813E /* Pods-NOMADVR.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NOMADVR.release.xcconfig"; path = "Pods/Target Support Files/Pods-NOMADVR/Pods-NOMADVR.release.xcconfig"; sourceTree = "<group>"; };
+		88C867CB2213283A00ABF9D7 /* auxiliary.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = auxiliary.h; sourceTree = "<group>"; };
+		88C867CC2213283A00ABF9D7 /* auxiliary.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = auxiliary.cpp; sourceTree = "<group>"; };
+		88C867DC2213376A00ABF9D7 /* TreasureHuntViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TreasureHuntViewController.h; sourceTree = "<group>"; };
+		88C867DD2213376A00ABF9D7 /* TreasureHuntAppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TreasureHuntAppDelegate.m; sourceTree = "<group>"; };
+		88C867DE2213376A00ABF9D7 /* TreasureHuntNDK.xcworkspace */ = {isa = PBXFileReference; lastKnownFileType = wrapper.workspace; path = TreasureHuntNDK.xcworkspace; sourceTree = "<group>"; };
+		88C867DF2213376A00ABF9D7 /* treasure_hunt_renderer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = treasure_hunt_renderer.h; sourceTree = "<group>"; };
+		88C867E02213376A00ABF9D7 /* treasure_hunt_renderer.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = treasure_hunt_renderer.mm; sourceTree = "<group>"; };
+		88C867E12213376A00ABF9D7 /* TreasureHuntViewController.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = TreasureHuntViewController.mm; sourceTree = "<group>"; };
+		88C867E22213376A00ABF9D7 /* TreasureHuntAppDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TreasureHuntAppDelegate.h; sourceTree = "<group>"; };
+		88C867E7221337AF00ABF9D7 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		C1B60A4E019BA88E02E86E17 /* Pods-NOMADVR.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NOMADVR.debug.xcconfig"; path = "Pods/Target Support Files/Pods-NOMADVR/Pods-NOMADVR.debug.xcconfig"; sourceTree = "<group>"; };
 		CAC7C8C2287795314AD5579A /* Pods_NOMADVRSDK.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_NOMADVRSDK.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		EB0170AE84675B1C851C3FA4 /* Pods-NOMADVRSDK.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NOMADVRSDK.release.xcconfig"; path = "Pods/Target Support Files/Pods-NOMADVRSDK/Pods-NOMADVRSDK.release.xcconfig"; sourceTree = "<group>"; };
+		DA4F42F56C5559FD5B870DA4 /* Pods_NOMADVR.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_NOMADVR.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -83,8 +80,7 @@
 			files = (
 				4D96EFB42077BE3B00BD2694 /* AudioToolbox.framework in Frameworks */,
 				4D96EFB22077ACD000BD2694 /* GameController.framework in Frameworks */,
-				C99E7A8E024DA5FE8D83A5BB /* libPods-TreasureHuntNDK.a in Frameworks */,
-				F27EE917D4C0E740BE5E6345 /* Pods_NOMADVRSDK.framework in Frameworks */,
+				D9B22D14D0AA977C1F06824C /* Pods_NOMADVR.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -98,6 +94,7 @@
 				4D96EFB12077ACD000BD2694 /* GameController.framework */,
 				3A4028450E1F4537A4DE358F /* libPods-TreasureHuntNDK.a */,
 				CAC7C8C2287795314AD5579A /* Pods_NOMADVRSDK.framework */,
+				DA4F42F56C5559FD5B870DA4 /* Pods_NOMADVR.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -106,7 +103,14 @@
 			isa = PBXGroup;
 			children = (
 				4D73CEB3207BCA7200C55317 /* Images.xcassets */,
-				12BEE9A01C8F53AB002F8361 /* TreasureHunt */,
+				88C867E7221337AF00ABF9D7 /* main.m */,
+				88C867DF2213376A00ABF9D7 /* treasure_hunt_renderer.h */,
+				88C867E02213376A00ABF9D7 /* treasure_hunt_renderer.mm */,
+				88C867E22213376A00ABF9D7 /* TreasureHuntAppDelegate.h */,
+				88C867DD2213376A00ABF9D7 /* TreasureHuntAppDelegate.m */,
+				88C867DE2213376A00ABF9D7 /* TreasureHuntNDK.xcworkspace */,
+				88C867DC2213376A00ABF9D7 /* TreasureHuntViewController.h */,
+				88C867E12213376A00ABF9D7 /* TreasureHuntViewController.mm */,
 				12BEE99F1C8F53AB002F8361 /* Products */,
 				4DEE7BDE2062ADCB00A0956C /* happyhttp */,
 				4DEE7BD92062AD5C00A0956C /* rply */,
@@ -114,6 +118,7 @@
 				4DEE7BCF2062A33900A0956C /* NOMADVRLib */,
 				119687AEB1F830DBF8B32F90 /* Frameworks */,
 				2D97AF66D715451F210A5105 /* Pods */,
+				88C867CA2213252100ABF9D7 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -125,35 +130,11 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		12BEE9A01C8F53AB002F8361 /* TreasureHunt */ = {
-			isa = PBXGroup;
-			children = (
-				12BEE9B81C8F5426002F8361 /* TreasureHuntAppDelegate.h */,
-				12BEE9B91C8F5426002F8361 /* TreasureHuntAppDelegate.m */,
-				12BEE9BE1C8F5426002F8361 /* TreasureHuntViewController.h */,
-				12BEE9BF1C8F5426002F8361 /* TreasureHuntViewController.mm */,
-				12C3DC8C1CEBBA9E00D39B85 /* treasure_hunt_renderer.mm */,
-				12C3DC8D1CEBBA9E00D39B85 /* treasure_hunt_renderer.h */,
-				1278CED71CEBF98600D93A88 /* NOMADVR-Info.plist */,
-				12BEE9C61C8F546B002F8361 /* launch.xib */,
-				12BEE9A11C8F53AB002F8361 /* Supporting Files */,
-			);
-			path = TreasureHunt;
-			sourceTree = "<group>";
-		};
-		12BEE9A11C8F53AB002F8361 /* Supporting Files */ = {
-			isa = PBXGroup;
-			children = (
-				12BEE9CA1C8F54B8002F8361 /* main.m */,
-			);
-			name = "Supporting Files";
-			sourceTree = "<group>";
-		};
 		2D97AF66D715451F210A5105 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				9FD381D5B2D35CE778ED88B3 /* Pods-NOMADVRSDK.debug.xcconfig */,
-				EB0170AE84675B1C851C3FA4 /* Pods-NOMADVRSDK.release.xcconfig */,
+				C1B60A4E019BA88E02E86E17 /* Pods-NOMADVR.debug.xcconfig */,
+				53C54E624108F78D3F44813E /* Pods-NOMADVR.release.xcconfig */,
 			);
 			name = Pods;
 			sourceTree = "<group>";
@@ -161,8 +142,8 @@
 		4D85FBEB2075203B008FD96D /* GoogleCardboard */ = {
 			isa = PBXGroup;
 			children = (
-				4D85FBEC2075203B008FD96D /* aux.cpp */,
-				4D85FBED2075203B008FD96D /* aux.h */,
+				88C867CC2213283A00ABF9D7 /* auxiliary.cpp */,
+				88C867CB2213283A00ABF9D7 /* auxiliary.h */,
 			);
 			path = GoogleCardboard;
 			sourceTree = "<group>";
@@ -205,6 +186,14 @@
 			path = happyhttp;
 			sourceTree = "<group>";
 		};
+		88C867CA2213252100ABF9D7 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				4DEE7BCD20629B0F00A0956C /* NOMADVRLib */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -238,7 +227,6 @@
 				TargetAttributes = {
 					12BEE99D1C8F53AB002F8361 = {
 						CreatedOnToolsVersion = 7.2;
-						DevelopmentTeam = 6DYZG82AAG;
 						LastSwiftMigration = 0820;
 					};
 				};
@@ -266,10 +254,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4DEE7BCE20629B0F00A0956C /* NOMADVRLib in Resources */,
 				4D73CEB4207BCA7200C55317 /* Images.xcassets in Resources */,
-				12BEE9C81C8F546B002F8361 /* launch.xib in Resources */,
-				1278CED81CEBF98600D93A88 /* NOMADVR-Info.plist in Resources */,
+				88C867E42213376A00ABF9D7 /* TreasureHuntNDK.xcworkspace in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -282,7 +268,7 @@
 			files = (
 			);
 			inputPaths = (
-				"${SRCROOT}/Pods/Target Support Files/Pods-NOMADVRSDK/Pods-NOMADVRSDK-frameworks.sh",
+				"${PODS_ROOT}/Target Support Files/Pods-NOMADVR/Pods-NOMADVR-frameworks.sh",
 				"${BUILT_PRODUCTS_DIR}/FileBrowser/FileBrowser.framework",
 				"${BUILT_PRODUCTS_DIR}/GTMSessionFetcher/GTMSessionFetcher.framework",
 				"${BUILT_PRODUCTS_DIR}/GoogleToolboxForMac/GoogleToolboxForMac.framework",
@@ -295,7 +281,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}/Pods/Target Support Files/Pods-NOMADVRSDK/Pods-NOMADVRSDK-frameworks.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-NOMADVR/Pods-NOMADVR-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		A352CE7013F07FFD6614613C /* [CP] Copy Pods Resources */ = {
@@ -304,10 +290,12 @@
 			files = (
 			);
 			inputPaths = (
-				"${SRCROOT}/Pods/Target Support Files/Pods-NOMADVRSDK/Pods-NOMADVRSDK-resources.sh",
+				"${PODS_ROOT}/Target Support Files/Pods-NOMADVR/Pods-NOMADVR-resources.sh",
 				"${PODS_ROOT}/GVRSDK/Resources/CardboardSDK.bundle",
 				"${PODS_ROOT}/GVRSDK/Resources/GoogleKitCore.bundle",
 				"${PODS_ROOT}/GVRSDK/Resources/GoogleKitDialogs.bundle",
+				"${PODS_ROOT}/GVRSDK/Resources/GoogleKitDialogsArrows.bundle",
+				"${PODS_ROOT}/GVRSDK/Resources/GoogleKitDialogsStrings.bundle",
 				"${PODS_ROOT}/GVRSDK/Resources/GoogleKitHUD.bundle",
 				"${PODS_ROOT}/GVRSDK/Resources/MaterialRobotoFontLoader.bundle",
 			);
@@ -316,12 +304,14 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/CardboardSDK.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleKitCore.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleKitDialogs.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleKitDialogsArrows.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleKitDialogsStrings.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleKitHUD.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/MaterialRobotoFontLoader.bundle",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}/Pods/Target Support Files/Pods-NOMADVRSDK/Pods-NOMADVRSDK-resources.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-NOMADVR/Pods-NOMADVR-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		ACFE6513C5D698691E7598BC /* [CP] Check Pods Manifest.lock */ = {
@@ -335,7 +325,7 @@
 			);
 			name = "[CP] Check Pods Manifest.lock";
 			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-NOMADVRSDK-checkManifestLockResult.txt",
+				"$(DERIVED_FILE_DIR)/Pods-NOMADVR-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -349,20 +339,20 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				12C3DC8F1CEBBA9E00D39B85 /* treasure_hunt_renderer.mm in Sources */,
 				4DEE7BD52062A83800A0956C /* atomsGL.cpp in Sources */,
-				4D85FBEE2075203B008FD96D /* aux.cpp in Sources */,
 				4DEE7BF52062B92100A0956C /* IsoShaders.cpp in Sources */,
 				4DEE7BE12062ADCB00A0956C /* happyhttp.cpp in Sources */,
-				12BEE9CB1C8F54B8002F8361 /* main.m in Sources */,
 				4DEE7BEB2062AE9F00A0956C /* TessShaders.cpp in Sources */,
+				88C867E62213376A00ABF9D7 /* TreasureHuntViewController.mm in Sources */,
 				4DEE7BF12062AED900A0956C /* ConfigFile.cpp in Sources */,
-				12BEE9C31C8F5426002F8361 /* TreasureHuntViewController.mm in Sources */,
+				88C867E52213376A00ABF9D7 /* treasure_hunt_renderer.mm in Sources */,
 				4DEE7BEF2062AECC00A0956C /* IsosurfacesGL.cpp in Sources */,
-				12BEE9C01C8F5426002F8361 /* TreasureHuntAppDelegate.m in Sources */,
+				88C867E8221337AF00ABF9D7 /* main.m in Sources */,
 				4DEE7BE92062AE6D00A0956C /* ConfigFileAtoms.cpp in Sources */,
 				4DEE7BE52062AE2200A0956C /* markerShaders.cpp in Sources */,
 				4DEE7BF32062B2EB00A0956C /* polyhedron.cpp in Sources */,
+				88C867CD2213283A00ABF9D7 /* auxiliary.cpp in Sources */,
+				88C867E32213376A00ABF9D7 /* TreasureHuntAppDelegate.m in Sources */,
 				4DEE7BD22062A82000A0956C /* atoms.cpp in Sources */,
 				4DEE7BED2062AEAB00A0956C /* UnitCellShaders.cpp in Sources */,
 				4DEE7BDD2062AD8800A0956C /* rply.c in Sources */,
@@ -460,16 +450,17 @@
 		};
 		12BEE9B61C8F53AB002F8361 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 9FD381D5B2D35CE778ED88B3 /* Pods-NOMADVRSDK.debug.xcconfig */;
+			baseConfigurationReference = C1B60A4E019BA88E02E86E17 /* Pods-NOMADVR.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
-				DEVELOPMENT_TEAM = 6DYZG82AAG;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					"COCOAPODS=1",
 					INDICESGL32,
+					IOS,
 				);
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
@@ -491,16 +482,17 @@
 		};
 		12BEE9B71C8F53AB002F8361 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = EB0170AE84675B1C851C3FA4 /* Pods-NOMADVRSDK.release.xcconfig */;
+			baseConfigurationReference = 53C54E624108F78D3F44813E /* Pods-NOMADVR.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
-				DEVELOPMENT_TEAM = 6DYZG82AAG;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					"COCOAPODS=1",
 					INDICESGL32,
+					IOS,
 				);
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",

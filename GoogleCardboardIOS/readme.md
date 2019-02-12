@@ -5,6 +5,14 @@ Follow https://developers.google.com/vr/develop/ios/get-started to install
 the SDK.
 
 Copy NOMADVRIOS in gvr-ios-sdk/Samples
+Copy ../NOMADVRLib to gvr-ios-sdk/Samples/NOMADVRIOS
+Copy ../GoogleCardboard to gvr-ios-sdk/Samples/NOMADVRIOS
+Copy from ../libs/ the directories rply, happyhttp, rapidjson
+	to gvr-ios-sdk/Samples/NOMADVRIOS
+
+Enter gvr-ios-sdk/Samples/TreasureHuntNDK and run
+	pod update
+
 Enter gvr-ios-sdk/Samples/NOMADVRIOS and run 
 	pod update
 

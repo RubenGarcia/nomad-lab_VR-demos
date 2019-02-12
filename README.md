@@ -25,6 +25,7 @@ Subdirectories:
 	OculusMobile: Demos for GearVR.
 	GoogleCardboardAndroid: Demos for Google Cardboard (android)
 	GoogleCardboardIOS: Demo for Google Cardboard (IOS)
+		See readme.md in this folder for instructions
 	GoogleCardboard: Common files between Google Cardboard for Android
 		and for IOS
 	CAVE: Demos for LRZ CAVE-like environment (linux)
