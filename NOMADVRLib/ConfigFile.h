@@ -85,7 +85,7 @@ int loadConfigFile(const char * f);
 
 //for multiuser
 extern int secret;
-extern const char * server;
+extern char * server;
 extern int port;
 
 extern bool resetTimestepOnReload;

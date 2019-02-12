@@ -4,6 +4,7 @@
 /* Changes:
 Rubén Jesús García Hernández
 Fix missing initialization, lines 379, 482
+*/
 
 /*
 # Copyright 2016-2018 Ruben Jesus Garcia Hernandez

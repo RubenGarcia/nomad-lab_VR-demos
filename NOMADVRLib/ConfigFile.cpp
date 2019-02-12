@@ -83,7 +83,7 @@ menubutton_t menubutton;
 std::vector<information> info;
 
 int secret;
-const char * server;
+char * server;
 int port;
 
 bool resetTimestepOnReload;
