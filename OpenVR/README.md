@@ -6,7 +6,9 @@ directory.
 After compilation, copy ..\textures\digits_64x7_l_blank.png to the exe's 
 location.
 
-List of directories
+List of directories:
+
 TimestepData: 
+
 	This program can load prepared molecular dynamics simulations
 
