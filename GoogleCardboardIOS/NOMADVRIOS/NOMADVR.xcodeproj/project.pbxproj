@@ -24,6 +24,7 @@
 		4DEE7BF32062B2EB00A0956C /* polyhedron.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4DEE7BF22062B2EB00A0956C /* polyhedron.cpp */; };
 		4DEE7BF52062B92100A0956C /* IsoShaders.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4DEE7BF42062B92100A0956C /* IsoShaders.cpp */; };
 		4DEE7BF72062BA3F00A0956C /* CompileGLShader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4DEE7BF62062BA3F00A0956C /* CompileGLShader.cpp */; };
+		88B220B02216CA19008B1A47 /* launch.xib in Resources */ = {isa = PBXBuildFile; fileRef = 88B220AF2216CA19008B1A47 /* launch.xib */; };
 		88C867CD2213283A00ABF9D7 /* auxiliary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 88C867CC2213283A00ABF9D7 /* auxiliary.cpp */; };
 		88C867E32213376A00ABF9D7 /* TreasureHuntAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 88C867DD2213376A00ABF9D7 /* TreasureHuntAppDelegate.m */; };
 		88C867E42213376A00ABF9D7 /* TreasureHuntNDK.xcworkspace in Resources */ = {isa = PBXBuildFile; fileRef = 88C867DE2213376A00ABF9D7 /* TreasureHuntNDK.xcworkspace */; };
@@ -58,6 +59,7 @@
 		4DEE7BF42062B92100A0956C /* IsoShaders.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = IsoShaders.cpp; path = NOMADVRLib/IsoShaders.cpp; sourceTree = "<group>"; };
 		4DEE7BF62062BA3F00A0956C /* CompileGLShader.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = CompileGLShader.cpp; path = NOMADVRLib/CompileGLShader.cpp; sourceTree = "<group>"; };
 		53C54E624108F78D3F44813E /* Pods-NOMADVR.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-NOMADVR.release.xcconfig"; path = "Pods/Target Support Files/Pods-NOMADVR/Pods-NOMADVR.release.xcconfig"; sourceTree = "<group>"; };
+		88B220AF2216CA19008B1A47 /* launch.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = launch.xib; sourceTree = "<group>"; };
 		88C867CB2213283A00ABF9D7 /* auxiliary.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = auxiliary.h; sourceTree = "<group>"; };
 		88C867CC2213283A00ABF9D7 /* auxiliary.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = auxiliary.cpp; sourceTree = "<group>"; };
 		88C867DC2213376A00ABF9D7 /* TreasureHuntViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TreasureHuntViewController.h; sourceTree = "<group>"; };
@@ -111,6 +113,7 @@
 				88C867DE2213376A00ABF9D7 /* TreasureHuntNDK.xcworkspace */,
 				88C867DC2213376A00ABF9D7 /* TreasureHuntViewController.h */,
 				88C867E12213376A00ABF9D7 /* TreasureHuntViewController.mm */,
+				88B220AF2216CA19008B1A47 /* launch.xib */,
 				12BEE99F1C8F53AB002F8361 /* Products */,
 				4DEE7BDE2062ADCB00A0956C /* happyhttp */,
 				4DEE7BD92062AD5C00A0956C /* rply */,
@@ -255,6 +258,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D73CEB4207BCA7200C55317 /* Images.xcassets in Resources */,
+				88B220B02216CA19008B1A47 /* launch.xib in Resources */,
 				88C867E42213376A00ABF9D7 /* TreasureHuntNDK.xcworkspace in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -454,6 +458,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -486,6 +491,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
