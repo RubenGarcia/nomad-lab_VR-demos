@@ -37,6 +37,8 @@ public:
 	class OVR::ovrLocale &	GetLocale() { return *Locale; }
 
 private:
+	void RenderOneIso(int iso);
+
 	OVR::ovrSoundEffectContext * SoundEffectContext;
 	OVR::OvrGuiSys::SoundEffectPlayer * SoundEffectPlayer;
 	OVR::OvrGuiSys *		GuiSys;
@@ -47,9 +49,10 @@ private:
     GLint				VertexTransformAttribute, VTAGrid;
 
     ovrMatrix4f			CenterEyeViewMatrix;
-    OVR::Vector4f         UserTranslation=OVR::Vector4f(0,0,-30,0);
+    OVR::Vector4f         UserTranslation=OVR::Vector4f(0,0,0,0);
     OVR::Vector4f eyedir=OVR::Vector4f(0,0,0,0);
     int currentSet=0;
+	int currentISO;
     bool animateTimesteps=false;
     int animateCounter=0;
     GLuint textures[2]; // white, atoms

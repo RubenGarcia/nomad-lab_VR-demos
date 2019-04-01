@@ -175,6 +175,11 @@ void OvrApp::OneTimeInit( const char * fromPackage, const char * launchIntentJSO
 		LOG("NOMADGearVRT No atom glyph specified, using Icosahedron");
 		solid=new Solid(Solid::Type::Icosahedron);
 	}
+	
+	UserTranslation[0]=-userpos[0];
+	UserTranslation[1]=-userpos[2];
+	UserTranslation[2]=userpos[1];
+	
 //	LOG("OneTimeInit, 2");
 	const ovrJava * java = app->GetJava();
 	SoundEffectContext = new ovrSoundEffectContext( *java->Env, java->ActivityObject );
@@ -239,6 +244,7 @@ void OvrApp::OneTimeInit( const char * fromPackage, const char * launchIntentJSO
 
     if (ISOS || markers) {
         PrepareISOShader(&ISOP, &ISOMatrixLoc);
+		currentISO=ISOS;
     }
 
     if (ISOS) {
@@ -365,7 +371,15 @@ void OvrApp::OneTimeShutdown()
 
 bool OvrApp::OnKeyEvent( const int keyCode, const int repeatCount, const KeyEventType eventType )
 {
-    animateTimesteps=!animateTimesteps;
+	if (eventType==KEY_EVENT_SHORT_PRESS) {
+		if (backbuttonTimesteps) {
+			animateTimesteps=!animateTimesteps;
+		} else {
+			currentISO++;
+			if (currentISO==ISOS+1)
+				currentISO=0;
+		}
+	}
     //eprintf("OnKeyEvent called! keycode=%d", keyCode);
     return true;
     /*if ( GuiSys->OnKeyEvent( keyCode, repeatCount, eventType ) )
@@ -426,6 +440,26 @@ Matrix4f OvrApp::Frame( const VrFrame & vrFrame )
     return CenterEyeViewMatrix;
 }
 
+void OvrApp::RenderOneIso(int i) {
+	GLenum e;
+		//rgh FIXME, redo this when we have the new rendering code for atom trajectories
+	glBindVertexArray(ISOVAO[currentSet*ISOS+i]);
+/*	glBindBuffer(GL_ARRAY_BUFFER, ISOBuffer[currentSet*ISOS+i]);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ISOIndices[currentSet*ISOS+i]);
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(0*sizeof(float)));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(3*sizeof(float)));
+	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(6*sizeof(float)));*/
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("5 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+	eprintf ("Drawing %d vertices, isos", numISOIndices[currentSet*ISOS+i]);
+	glDrawElements(GL_TRIANGLES,numISOIndices[currentSet*ISOS+i] , GL_UNSIGNED_INT, 0);		
+	if ((e = glGetError()) != GL_NO_ERROR)
+		eprintf("6 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+}
+
 void OvrApp::RenderIsos(const OVR::Matrix4f eyeViewProjection, int iso) {
 	GLenum e;
 	Matrix4f trans=Matrix4f::Translation(UserTranslation[0], UserTranslation[1], UserTranslation[2]);
@@ -452,26 +486,20 @@ void OvrApp::RenderIsos(const OVR::Matrix4f eyeViewProjection, int iso) {
 		if ((e = glGetError()) != GL_NO_ERROR)
 			eprintf("4 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
 	} else {
+		//rgh: render explicitly opaque surfaces first, then rest
+		//rgh: isocolours alpha == 1 for these surfaces
+		for (int i=0;i<ISOS;i++) {
+			if (isocolours[i][3]==1) {
+				RenderOneIso(i);
+			}
+		}
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
         glDepthMask(GL_FALSE);
 		for (int i=0;i<ISOS;i++) {
-            //rgh FIXME, redo this when we have the new rendering code for atom trajectories
-			glBindVertexArray(ISOVAO[currentSet*ISOS+i]);
-            glBindBuffer(GL_ARRAY_BUFFER, ISOBuffer[currentSet*ISOS+i]);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ISOIndices[currentSet*ISOS+i]);
-			glEnableVertexAttribArray(0);
-			glEnableVertexAttribArray(1);
-            glEnableVertexAttribArray(2);
-			glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(0*sizeof(float)));
-			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(3*sizeof(float)));
-			glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 10*sizeof(float), (const void *)(6*sizeof(float)));
-			if ((e = glGetError()) != GL_NO_ERROR)
-				eprintf("5 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
-			eprintf ("Drawing %d vertices, isos", numISOIndices[currentSet*ISOS+i]);
-			glDrawElements(GL_TRIANGLES,numISOIndices[currentSet*ISOS+i] , GL_UNSIGNED_INT, 0);		
-			if ((e = glGetError()) != GL_NO_ERROR)
-				eprintf("6 Gl error RenderIsos timestep =%d: %d\n", currentSet, e);
+			if (isocolours[i][3]==1)
+				continue;
+			RenderOneIso(i);
 		}
         glDisable(GL_BLEND);
         glDepthMask(GL_TRUE);
@@ -712,7 +740,7 @@ Matrix4f OvrApp::DrawEyeView( const int eye, const float fovDegreesX, const floa
         RenderAtomTrajectories(eyeViewProjection);
 	
 	if (ISOS)
-		RenderIsos(eyeViewProjection, ISOS);
+		RenderIsos(eyeViewProjection, currentISO);
 	
     GL( glBindVertexArray( 0 ) );
     GL( glUseProgram( 0 ) );
