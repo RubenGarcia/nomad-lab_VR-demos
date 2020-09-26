@@ -1,0 +1,71 @@
+﻿Build started 13.11.2017 14:43:47.
+     1>Project "Y:\v2t\software\openvr\openvr-0.9.19\samples\TimestepData\hellovr_opengl.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         D:\Program Files (x86)\VC\bin\CL.exe /c /I.. /I../../headers /I"../thirdparty/glew/glew-1.11.0/include" /I"../thirdparty/sdl2-2.0.3/include" /I. /Irapidjson /ITimestepData/NOMADVRLib /ITimestepData/rply /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _CRT_NONSTDC_NO_DEPRECATE /D _DEBUG /D _WINDOWS /D INDICESGL32 /D NOMINMAX /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MTd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt ..\shared\lodepng.cpp ..\shared\Matrices.cpp ..\shared\pathtools.cpp happyhttp\happyhttp.cpp hellovr_opengl_main.cpp NOMADVRLib\atoms.cpp NOMADVRLib\atomsGL.cpp NOMADVRLib\CompileGLShader.cpp NOMADVRLib\ConfigFile.cpp NOMADVRLib\Grid.cpp NOMADVRLib\IsoShaders.cpp NOMADVRLib\IsosurfacesGL.cpp NOMADVRLib\markerShaders.cpp NOMADVRLib\polyhedron.cpp NOMADVRLib\TessShaders.cpp NOMADVRLib\UnitCellShaders.cpp
+         UnitCellShaders.cpp
+         TessShaders.cpp
+         polyhedron.cpp
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\polyhedron.h(66): error C2065: 'M_PI' : undeclared identifier
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\polyhedron.h(67): error C2065: 'M_PI' : undeclared identifier
+         markerShaders.cpp
+         IsosurfacesGL.cpp
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\polyhedron.h(66): error C2065: 'M_PI' : undeclared identifier
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\polyhedron.h(67): error C2065: 'M_PI' : undeclared identifier
+         IsoShaders.cpp
+         Grid.cpp
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\grid.cpp(24): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\grid.cpp(38): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\grid.cpp(47): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\grid.cpp(68): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\grid.cpp(69): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\grid.cpp(78): warning C4018: '<' : signed/unsigned mismatch
+         ConfigFile.cpp
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\polyhedron.h(66): error C2065: 'M_PI' : undeclared identifier
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\polyhedron.h(67): error C2065: 'M_PI' : undeclared identifier
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\configfile.cpp(180): warning C4305: '=' : truncation from 'double' to 'float'
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\configfile.cpp(624): warning C4018: '<' : signed/unsigned mismatch
+         CompileGLShader.cpp
+         atomsGL.cpp
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\polyhedron.h(66): error C2065: 'M_PI' : undeclared identifier
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\polyhedron.h(67): error C2065: 'M_PI' : undeclared identifier
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\atomsgl.cpp(35): warning C4018: '<' : signed/unsigned mismatch
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\atomsgl.cpp(311): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\atomsgl.cpp(316): warning C4018: '<' : signed/unsigned mismatch
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\atomsgl.cpp(453): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+         atoms.cpp
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\atoms.cpp(1): warning C4005: 'NOMINMAX' : macro redefinition
+                 command-line arguments :  see previous definition of 'NOMINMAX'
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\polyhedron.h(66): error C2065: 'M_PI' : undeclared identifier
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\polyhedron.h(67): error C2065: 'M_PI' : undeclared identifier
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\atoms.cpp(567): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\atoms.cpp(578): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\nomadvrlib\atoms.cpp(586): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+         hellovr_opengl_main.cpp
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\hellovr_opengl_main.cpp(2): warning C4005: 'NOMINMAX' : macro redefinition
+                 command-line arguments :  see previous definition of 'NOMINMAX'
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\hellovr_opengl_main.cpp(1607): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 d:\program files (x86)\vc\include\stdio.h(356) : see declaration of 'sprintf'
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\hellovr_opengl_main.cpp(2057): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 d:\program files (x86)\vc\include\stdio.h(356) : see declaration of 'sprintf'
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\hellovr_opengl_main.cpp(2083): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 d:\program files (x86)\vc\include\stdio.h(356) : see declaration of 'sprintf'
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\hellovr_opengl_main.cpp(2297): warning C4018: '<' : signed/unsigned mismatch
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\hellovr_opengl_main.cpp(2301): warning C4018: '<' : signed/unsigned mismatch
+         happyhttp.cpp
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\happyhttp\happyhttp.cpp(181): warning C4996: 'inet_addr': Use inet_pton() or InetPton() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings
+                 c:\program files (x86)\windows kits\8.1\include\um\winsock2.h(1850) : see declaration of 'inet_addr'
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\happyhttp\happyhttp.cpp(185): warning C4996: 'gethostbyname': Use getaddrinfo() or GetAddrInfoW() instead or define _WINSOCK_DEPRECATED_NO_WARNINGS to disable deprecated API warnings
+                 c:\program files (x86)\windows kits\8.1\include\um\winsock2.h(2238) : see declaration of 'gethostbyname'
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\happyhttp\happyhttp.cpp(209): warning C4996: '_vsnprintf': This function or variable may be unsafe. Consider using _vsnprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 d:\program files (x86)\vc\include\stdio.h(346) : see declaration of '_vsnprintf'
+     1>y:\v2t\software\openvr\openvr-0.9.19\samples\timestepdata\happyhttp\happyhttp.cpp(388): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 d:\program files (x86)\vc\include\stdio.h(356) : see declaration of 'sprintf'
+         pathtools.cpp
+         Matrices.cpp
+         lodepng.cpp
+         Generating Code...
+     1>Done Building Project "Y:\v2t\software\openvr\openvr-0.9.19\samples\TimestepData\hellovr_opengl.vcxproj" (Build target(s)) -- FAILED.
+
+Build FAILED.
+
+Time Elapsed 00:00:07.11

@@ -1,0 +1,129 @@
+﻿Build started 07.06.2019 15:15:18.
+     1>Project "C:\Users\Matthias\Desktop\Nomad_VS13\openvr-0.9.19\samples\Extension_to_visualize_fluid_simulations\hellovr_opengl.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe /c /I.. /I../../headers /I"../thirdparty/glew/glew-1.11.0/include" /I"../thirdparty/sdl2-2.0.3" /I"../thirdparty/sdl2-2.0.3/include" /I. /Zi /nologo /W3 /WX- /sdl /Od /D WIN32 /D _CRT_NONSTDC_NO_DEPRECATE /D _DEBUG /D _WINDOWS /D _USE_MATH_DEFINES /D INDICESGL32 /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MTd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"x64\Debug\\" /Fd"x64\Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt ..\shared\lodepng.cpp ..\shared\Matrices.cpp ..\shared\pathtools.cpp atomVectors.cpp happyhttp\happyhttp.cpp hellovr_opengl_main.cpp LoadPNG.cpp mwP.cpp NOMADVRLib\atoms.cpp NOMADVRLib\atomsGL.cpp NOMADVRLib\CompileGLShader.cpp NOMADVRLib\ConfigFile.cpp NOMADVRLib\Grid.cpp NOMADVRLib\IsoShaders.cpp NOMADVRLib\IsosurfacesGL.cpp NOMADVRLib\markerShaders.cpp NOMADVRLib\polyhedron.cpp NOMADVRLib\TessShaders.cpp NOMADVRLib\UnitCellShaders.cpp
+         UnitCellShaders.cpp
+         TessShaders.cpp
+         polyhedron.cpp
+         markerShaders.cpp
+         IsosurfacesGL.cpp
+         IsoShaders.cpp
+         Grid.cpp
+     1>NOMADVRLib\Grid.cpp(41): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>NOMADVRLib\Grid.cpp(55): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>NOMADVRLib\Grid.cpp(64): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>NOMADVRLib\Grid.cpp(85): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>NOMADVRLib\Grid.cpp(86): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+         ConfigFile.cpp
+     1>NOMADVRLib\ConfigFile.cpp(126): error C4996: 'fscanf': This function or variable may be unsafe. Consider using fscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\stdio.h(230) : see declaration of 'fscanf'
+     1>NOMADVRLib\ConfigFile.cpp(197): warning C4305: '=' : truncation from 'double' to 'float'
+     1>NOMADVRLib\ConfigFile.cpp(408): warning C4267: '=' : conversion from 'size_t' to 'int', possible loss of data
+     1>NOMADVRLib\ConfigFile.cpp(425): warning C4267: '=' : conversion from 'size_t' to 'int', possible loss of data
+     1>NOMADVRLib\ConfigFile.cpp(448): warning C4267: '=' : conversion from 'size_t' to 'int', possible loss of data
+         CompileGLShader.cpp
+         atomsGL.cpp
+     1>c:\users\matthias\desktop\nomad_vs13\openvr-0.9.19\samples\extension_to_visualize_fluid_simulations\nomadvrlib\atomsGL.h(48): warning C4267: 'return' : conversion from 'size_t' to 'int', possible loss of data
+     1>NOMADVRLib\atomsGL.cpp(329): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+     1>NOMADVRLib\atomsGL.cpp(338): warning C4244: 'argument' : conversion from '__int64' to 'int', possible loss of data
+     1>NOMADVRLib\atomsGL.cpp(342): warning C4267: '=' : conversion from 'size_t' to 'int', possible loss of data
+     1>NOMADVRLib\atomsGL.cpp(471): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+         atoms.cpp
+     1>NOMADVRLib\atoms.cpp(216): error C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\string.h(112) : see declaration of 'strcpy'
+     1>NOMADVRLib\atoms.cpp(584): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>NOMADVRLib\atoms.cpp(595): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>NOMADVRLib\atoms.cpp(603): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+         mwP.cpp
+     1>c:\users\matthias\desktop\nomad_vs13\openvr-0.9.19\samples\extension_to_visualize_fluid_simulations\NOMADVRLib/atomsGL.h(48): warning C4267: 'return' : conversion from 'size_t' to 'int', possible loss of data
+     1>mwP.cpp(81): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>mwP.cpp(125): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>mwP.cpp(127): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>mwP.cpp(178): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>mwP.cpp(225): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>mwP.cpp(456): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>mwP.cpp(500): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>mwP.cpp(535): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>mwP.cpp(563): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>mwP.cpp(598): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>mwP.cpp(763): warning C4305: 'argument' : truncation from 'double' to 'const float'
+         LoadPNG.cpp
+         hellovr_opengl_main.cpp
+     1>c:\users\matthias\desktop\nomad_vs13\openvr-0.9.19\samples\extension_to_visualize_fluid_simulations\NOMADVRLib/atomsGL.h(48): warning C4267: 'return' : conversion from 'size_t' to 'int', possible loss of data
+     1>hellovr_opengl_main.cpp(1577): warning C4305: '-=' : truncation from 'double' to 'float'
+     1>hellovr_opengl_main.cpp(1579): warning C4305: '=' : truncation from 'double' to 'float'
+     1>hellovr_opengl_main.cpp(1587): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>hellovr_opengl_main.cpp(1673): warning C4305: '+=' : truncation from 'double' to 'float'
+     1>hellovr_opengl_main.cpp(1686): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>hellovr_opengl_main.cpp(2417): error C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\stdio.h(356) : see declaration of 'sprintf'
+     1>hellovr_opengl_main.cpp(2464): warning C4267: '=' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>hellovr_opengl_main.cpp(3003): warning C4267: '=' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>hellovr_opengl_main.cpp(3133): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>hellovr_opengl_main.cpp(3180): warning C4267: '=' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>hellovr_opengl_main.cpp(3576): warning C4267: '=' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>hellovr_opengl_main.cpp(4051): warning C4305: 'initializing' : truncation from 'double' to 'const float'
+     1>hellovr_opengl_main.cpp(4226): warning C4305: 'argument' : truncation from 'double' to 'float'
+     1>hellovr_opengl_main.cpp(4243): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>hellovr_opengl_main.cpp(4251): warning C4305: '+=' : truncation from 'double' to 'float'
+     1>hellovr_opengl_main.cpp(4254): warning C4305: '+=' : truncation from 'double' to 'float'
+     1>hellovr_opengl_main.cpp(4256): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>hellovr_opengl_main.cpp(4256): warning C4305: 'argument' : truncation from 'double' to 'float'
+     1>hellovr_opengl_main.cpp(4276): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>hellovr_opengl_main.cpp(4280): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>hellovr_opengl_main.cpp(4281): warning C4305: 'argument' : truncation from 'double' to 'float'
+         happyhttp.cpp
+     1>happyhttp\happyhttp.cpp(209): error C4996: '_vsnprintf': This function or variable may be unsafe. Consider using _vsnprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include\stdio.h(346) : see declaration of '_vsnprintf'
+     1>happyhttp\happyhttp.cpp(265): warning C4244: '=' : conversion from 'SOCKET' to 'int', possible loss of data
+     1>happyhttp\happyhttp.cpp(408): warning C4267: 'argument' : conversion from 'size_t' to 'int', possible loss of data
+         atomVectors.cpp
+     1>c:\users\matthias\desktop\nomad_vs13\openvr-0.9.19\samples\extension_to_visualize_fluid_simulations\NOMADVRLib/atomsGL.h(48): warning C4267: 'return' : conversion from 'size_t' to 'int', possible loss of data
+     1>atomVectors.cpp(62): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>atomVectors.cpp(94): warning C4305: 'argument' : truncation from 'double' to 'const float'
+     1>atomVectors.cpp(112): warning C4244: 'argument' : conversion from 'double' to 'const float', possible loss of data
+     1>atomVectors.cpp(120): warning C4244: 'argument' : conversion from 'double' to 'const float', possible loss of data
+     1>atomVectors.cpp(169): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>atomVectors.cpp(217): warning C4305: 'argument' : truncation from 'double' to 'const float'
+     1>atomVectors.cpp(234): warning C4244: 'argument' : conversion from 'double' to 'const float', possible loss of data
+     1>atomVectors.cpp(243): warning C4244: 'argument' : conversion from 'double' to 'const float', possible loss of data
+     1>atomVectors.cpp(290): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>atomVectors.cpp(341): warning C4305: 'argument' : truncation from 'double' to 'const float'
+     1>atomVectors.cpp(358): warning C4244: 'argument' : conversion from 'double' to 'const float', possible loss of data
+     1>atomVectors.cpp(367): warning C4244: 'argument' : conversion from 'double' to 'const float', possible loss of data
+     1>atomVectors.cpp(637): warning C4305: '=' : truncation from 'double' to 'float'
+     1>atomVectors.cpp(643): warning C4305: '=' : truncation from 'double' to 'float'
+     1>atomVectors.cpp(644): warning C4305: '=' : truncation from 'double' to 'float'
+     1>atomVectors.cpp(650): warning C4305: '=' : truncation from 'double' to 'float'
+     1>atomVectors.cpp(798): warning C4305: '=' : truncation from 'double' to 'float'
+     1>atomVectors.cpp(804): warning C4305: '=' : truncation from 'double' to 'float'
+     1>atomVectors.cpp(805): warning C4305: '=' : truncation from 'double' to 'float'
+     1>atomVectors.cpp(811): warning C4305: '=' : truncation from 'double' to 'float'
+     1>atomVectors.cpp(962): warning C4305: '=' : truncation from 'double' to 'float'
+     1>atomVectors.cpp(968): warning C4305: '=' : truncation from 'double' to 'float'
+     1>atomVectors.cpp(969): warning C4305: '=' : truncation from 'double' to 'float'
+     1>atomVectors.cpp(975): warning C4305: '=' : truncation from 'double' to 'float'
+     1>atomVectors.cpp(1099): warning C4305: '=' : truncation from 'double' to 'float'
+     1>atomVectors.cpp(1105): warning C4305: '=' : truncation from 'double' to 'float'
+     1>atomVectors.cpp(1106): warning C4305: '=' : truncation from 'double' to 'float'
+     1>atomVectors.cpp(1112): warning C4305: '=' : truncation from 'double' to 'float'
+         pathtools.cpp
+         Matrices.cpp
+         lodepng.cpp
+     1>..\shared\lodepng.cpp(794): warning C4267: 'argument' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>..\shared\lodepng.cpp(806): warning C4267: '=' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>..\shared\lodepng.cpp(824): warning C4267: 'argument' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>..\shared\lodepng.cpp(1432): warning C4267: '=' : conversion from 'size_t' to 'int', possible loss of data
+     1>..\shared\lodepng.cpp(1436): warning C4267: '=' : conversion from 'size_t' to 'int', possible loss of data
+     1>..\shared\lodepng.cpp(1508): warning C4267: '=' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>..\shared\lodepng.cpp(3432): warning C4267: 'argument' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>..\shared\lodepng.cpp(4225): warning C4267: '=' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>..\shared\lodepng.cpp(4273): warning C4267: '=' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>..\shared\lodepng.cpp(4353): warning C4267: '=' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>..\shared\lodepng.cpp(5274): warning C4267: 'initializing' : conversion from 'size_t' to 'unsigned int', possible loss of data
+         Generating Code...
+     1>Done Building Project "C:\Users\Matthias\Desktop\Nomad_VS13\openvr-0.9.19\samples\Extension_to_visualize_fluid_simulations\hellovr_opengl.vcxproj" (Build target(s)) -- FAILED.
+
+Build FAILED.
+
+Time Elapsed 00:00:10.33

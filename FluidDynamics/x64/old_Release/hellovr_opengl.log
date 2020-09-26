@@ -1,0 +1,51 @@
+﻿Build started 07.06.2019 14:11:39.
+     1>Project "C:\Users\Matthias\Desktop\Werkstud\Extension_to_visualize_fluid_simulations\hellovr_opengl.vcxproj" on node 2 (Build target(s)).
+     1>C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\V120\Microsoft.CppBuild.targets(381,5): warning MSB8028: The intermediate directory (x64\Release\) contains files shared from another project (NOMADViveT.vcxproj).  This can lead to incorrect clean and rebuild behavior.
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe /c /I.. /I../../headers /I"../thirdparty/glew/glew-1.11.0/include" /I"..\thirdparty\sdl2-2.0.3\include" /IY:\software\rapidjson\include /I"Y:\software\openvr\openvr-0.9.19\samples\TimestepData" /IY:\v2t\software\rapidjson\include /I"Y:\v2t\software\openvr\openvr-0.9.19\samples\TimestepData" /Zi /nologo /W3 /WX- /O2 /Oi /GL /D WIN32 /D _CRT_NONSTDC_NO_DEPRECATE /D NDEBUG /D _WINDOWS /D _CRT_SECURE_NO_WARNINGS /D _USE_MATH_DEFINES /D INDICESGL32 /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Fo"x64\Release\\" /Fd"x64\Release\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt ..\shared\lodepng.cpp ..\shared\Matrices.cpp ..\shared\pathtools.cpp atomVectors.cpp happyhttp\happyhttp.cpp hellovr_opengl_main.cpp LoadPNG.cpp mwP.cpp NOMADVRLib\atoms.cpp NOMADVRLib\atomsGL.cpp NOMADVRLib\CompileGLShader.cpp NOMADVRLib\ConfigFile.cpp NOMADVRLib\Grid.cpp NOMADVRLib\IsoShaders.cpp NOMADVRLib\IsosurfacesGL.cpp NOMADVRLib\markerShaders.cpp NOMADVRLib\polyhedron.cpp NOMADVRLib\TessShaders.cpp NOMADVRLib\UnitCellShaders.cpp
+         lodepng.cpp
+     1>c1xx : fatal error C1083: Cannot open source file: '..\shared\lodepng.cpp': No such file or directory
+         Matrices.cpp
+     1>c1xx : fatal error C1083: Cannot open source file: '..\shared\Matrices.cpp': No such file or directory
+         pathtools.cpp
+     1>c1xx : fatal error C1083: Cannot open source file: '..\shared\pathtools.cpp': No such file or directory
+         atomVectors.cpp
+     1>c:\users\matthias\desktop\werkstud\extension_to_visualize_fluid_simulations\NOMADVRLib/MyGL.h(23): fatal error C1083: Cannot open include file: 'GL/glew.h': No such file or directory
+         happyhttp.cpp
+     1>happyhttp\happyhttp.cpp(265): warning C4244: '=' : conversion from 'SOCKET' to 'int', possible loss of data
+     1>happyhttp\happyhttp.cpp(408): warning C4267: 'argument' : conversion from 'size_t' to 'int', possible loss of data
+         hellovr_opengl_main.cpp
+     1>hellovr_opengl_main.cpp(33): fatal error C1083: Cannot open include file: 'SDL.h': No such file or directory
+         LoadPNG.cpp
+     1>c:\users\matthias\desktop\werkstud\extension_to_visualize_fluid_simulations\NOMADVRLib/MyGL.h(23): fatal error C1083: Cannot open include file: 'GL/glew.h': No such file or directory
+         mwP.cpp
+     1>mwP.cpp(24): fatal error C1083: Cannot open include file: 'shared/Vectors.h': No such file or directory
+         atoms.cpp
+     1>NOMADVRLib\atoms.cpp(32): fatal error C1083: Cannot open include file: 'rapidjson/document.h': No such file or directory
+         atomsGL.cpp
+     1>c:\users\matthias\desktop\werkstud\extension_to_visualize_fluid_simulations\nomadvrlib\MyGL.h(23): fatal error C1083: Cannot open include file: 'GL/glew.h': No such file or directory
+         CompileGLShader.cpp
+     1>c:\users\matthias\desktop\werkstud\extension_to_visualize_fluid_simulations\nomadvrlib\MyGL.h(23): fatal error C1083: Cannot open include file: 'GL/glew.h': No such file or directory
+         ConfigFile.cpp
+     1>NOMADVRLib\ConfigFile.cpp(197): warning C4305: '=' : truncation from 'double' to 'float'
+     1>NOMADVRLib\ConfigFile.cpp(408): warning C4267: '=' : conversion from 'size_t' to 'int', possible loss of data
+     1>NOMADVRLib\ConfigFile.cpp(425): warning C4267: '=' : conversion from 'size_t' to 'int', possible loss of data
+     1>NOMADVRLib\ConfigFile.cpp(448): warning C4267: '=' : conversion from 'size_t' to 'int', possible loss of data
+         Grid.cpp
+     1>NOMADVRLib\Grid.cpp(41): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>NOMADVRLib\Grid.cpp(55): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>NOMADVRLib\Grid.cpp(64): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>NOMADVRLib\Grid.cpp(85): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>NOMADVRLib\Grid.cpp(86): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+         IsoShaders.cpp
+         IsosurfacesGL.cpp
+     1>c:\users\matthias\desktop\werkstud\extension_to_visualize_fluid_simulations\nomadvrlib\MyGL.h(23): fatal error C1083: Cannot open include file: 'GL/glew.h': No such file or directory
+         markerShaders.cpp
+         polyhedron.cpp
+         TessShaders.cpp
+         UnitCellShaders.cpp
+     1>Done Building Project "C:\Users\Matthias\Desktop\Werkstud\Extension_to_visualize_fluid_simulations\hellovr_opengl.vcxproj" (Build target(s)) -- FAILED.
+
+Build FAILED.
+
+Time Elapsed 00:00:06.85
