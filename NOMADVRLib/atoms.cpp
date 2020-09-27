@@ -1,5 +1,5 @@
 /*
-# Copyright 2016-2018 Ruben Jesus Garcia Hernandez
+# Copyright 2016-2020 Ruben Jesus Garcia Hernandez
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
@@ -636,7 +636,8 @@ int readAtomsAnalyticsJson(const char *const f, int **numatoms, int *timesteps, 
 
 		for (rapidjson::SizeType i = 0; i < ss.Size(); i++) {
 			const rapidjson::GenericValue<rapidjson::UTF8<> > & el=ss[i];
-			if (el.HasMember("atom_positions")) 
+			//rgh: as of 7/9/2018, section_system/0c has atom_positions but not atom_species
+			if (el.HasMember("atom_positions") && el.HasMember("atom_species")) 
 				(*timesteps)++;
 		}
 
@@ -668,7 +669,7 @@ int readAtomsAnalyticsJson(const char *const f, int **numatoms, int *timesteps, 
 				bool allzeros=true;
 				for (int i=0;i<3;i++)
 					for (int j=0;j<3;j++) {
-						abc[i][j]=flatdata[i*3+j].GetFloat()*1e10; // meter -> aangstrom
+						abc[i][j]=flatdata[i*3+j].GetFloat()*1e10f; // meter -> aangstrom
 						if (abc[i][j]!=0)
 							allzeros=false;
 					}
@@ -676,36 +677,49 @@ int readAtomsAnalyticsJson(const char *const f, int **numatoms, int *timesteps, 
 					has_abc=true;
 			}
 
-			if (!el.HasMember("atom_positions")) 
+			if (!el.HasMember("atom_positions") || !el.HasMember("atom_species")) 
 				continue;
 			const rapidjson::GenericValue<rapidjson::UTF8<> > &result = el["atom_positions"];
-			if (!result.HasMember("shape"))
+			if (!result.HasMember("shape")) {
+				delete[] *pos;
+				delete[] *numatoms;
+				delete[] *clonedAtoms;
+				*pos=nullptr;
+				*numatoms=nullptr;
+				*clonedAtoms=nullptr;
 				return (-1);
+			}
 			const rapidjson::GenericValue<rapidjson::UTF8<> > &shape = result["shape"]; //[numatoms, 3]
 			(*numatoms)[currenttime] = shape[0].GetInt();
 			(*pos)[currenttime] = new float[**numatoms * 4];
-			if (el.HasMember("atom_species")) {
-				const rapidjson::GenericValue<rapidjson::UTF8<> > &results = el["atom_species"];
-				for (int i = 0; i < **numatoms ; i++)
-					(*pos)[currenttime][i*4+3]=results[i].GetInt()-1;
+
+			const rapidjson::GenericValue<rapidjson::UTF8<> > &results = el["atom_species"];
+			for (int i = 0; i < **numatoms ; i++)
+				(*pos)[currenttime][i*4+3]=static_cast<float>(results[i].GetInt()-1);
 
 
-				//atoms are stored in space coordinates, in meters
-				const rapidjson::GenericValue<rapidjson::UTF8<> > &flatdata = result["flatData"];
-				for (int i = 0; i < **numatoms ; i++) {
-					for (int j=0;j<3;j++)
-						(*pos)[currenttime][i*4+j] = flatdata[i*3+j].GetFloat()*1e10; //we store them in aangstrom
+			//atoms are stored in space coordinates, in meters
+			const rapidjson::GenericValue<rapidjson::UTF8<> > &flatdata = result["flatData"];
+			for (int i = 0; i < **numatoms ; i++) {
+				for (int j=0;j<3;j++)
+					(*pos)[currenttime][i*4+j] = flatdata[i*3+j].GetFloat()*1.0e10f; //we store them in aangstrom
 
-					if (has_abc)
-						CloneSpatialAtoms((*pos)[currenttime], (*pos)[currenttime][3], (*clonedAtoms)+currenttime);
-				}
-			} // if atom_species
-			else return (-2);
+				if (has_abc)
+					CloneSpatialAtoms((*pos)[currenttime], (*pos)[currenttime][3], (*clonedAtoms)+currenttime);
+			}
+				
 			currenttime++;
 		} // for ss.size
 	} // json parse error
-	else return -3;
-
+	else {
+		delete[] *pos;
+		delete[] *numatoms;
+		delete[] *clonedAtoms;
+		*pos=nullptr;
+		*numatoms=nullptr;
+		*clonedAtoms=nullptr;
+		return -3;
+	}
 	if (has_abc)
 		for (int i=0;i<*timesteps;i++)
 			TransformAtoms((*clonedAtoms)+i, abc);
