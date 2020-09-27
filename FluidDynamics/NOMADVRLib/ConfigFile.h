@@ -25,6 +25,7 @@ extern int ISOS;
 extern int TIMESTEPS;
 extern float **isocolours; // [ISOS][4];
 extern const char **plyfiles;
+extern const char *** fullplyfiles; //explicit plyfiles for all timesteps
 extern float **translations;
 extern float userpos[3];
 extern float scaling;
@@ -69,6 +70,7 @@ extern bool gazenavigation;
 
 extern int transparencyquality;
 extern float nearclip, farclip;
+extern float nearcut, farcut;
 
 extern float animationspeed; //how fast to change to next timestep
 extern float movementspeed;  //how fast to move the user
@@ -88,5 +90,13 @@ extern int isoBufferSize;
 extern float arrowScalingVelocity;
 extern float arrowScalingAcceleration;
 extern float arrowScalingCross;
+
+typedef enum {
+        Record,
+        CuttingPlane,
+        Nothing
+} menubutton_t;
+
+extern menubutton_t menubutton;
 
 #endif //__CONFIGFILE_H

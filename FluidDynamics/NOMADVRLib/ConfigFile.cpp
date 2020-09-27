@@ -30,6 +30,7 @@ int ISOS;
 int TIMESTEPS;
 float **isocolours; // [ISOS][4];
 const char **plyfiles;
+const char *** fullplyfiles;
 float **translations;
 float userpos[3];
 float scaling;
@@ -73,6 +74,7 @@ bool showcontrollers;
 bool gazenavigation;
 int transparencyquality;
 float nearclip, farclip;
+float nearcut, farcut;
 
 //markers such as hole positions and electron positions
 float ** markers;
@@ -81,6 +83,8 @@ float cubetrans[3];
 
 float animationspeed;
 float movementspeed;
+
+menubutton_t menubutton;
 
 //added variables for move with Particles
 int isoBufferSize;
@@ -315,6 +319,23 @@ int loadConfigFile(const char * f)
 			}
 
 		}
+		else if (!strcmp(s, "fullvalues")) {
+                        if (TIMESTEPS == 0 || ISOS == 0) {
+                                eprintf("full values with no previous correct isos or timesteps parameter\n");
+                                fclose(F);
+                                return -3;
+                        }
+                        fullplyfiles = new const char **[TIMESTEPS];
+                        for (int j = 0; j < TIMESTEPS; j++) {
+                                for (int i = 0; i < ISOS; i++) {
+                                        r = readString(F, s);
+                                        if (r != 0)
+                                                return -14;
+                                        free((void*)(fullplyfiles[j][i]));
+                                        fullplyfiles[j][i] = strdup(s);
+                                }
+                        }
+                }
 		else if (!strcmp(s, "colours")) {
 			if (ISOS == 0) {
 				eprintf( "colours with no previous correct isos parameter\n");
@@ -622,6 +643,10 @@ int loadConfigFile(const char * f)
 			r=fscanf (F, "%f %f", &nearclip, &farclip);
 			if (r<2)
 				eprintf ("Error reading clippingplanes values");
+		} else if (!strcmp(s, "cutplanes")) {
+                        r = fscanf(F, "%f %f", &nearcut, &farcut);
+                        if (r<2)
+                                eprintf("Error reading clippingplanes values"); 
 		}else if (!strcmp (s, "bondscolour")) {
 			r=fscanf (F, "%f %f %f", bondscolours, bondscolours+1, bondscolours+2);
 			if (r<3)
@@ -642,6 +667,15 @@ int loadConfigFile(const char * f)
 			r=fscanf (F, "%f", &animationspeed);
 			if (r<1)
 				eprintf ("Error reading animationspeed");
+		} else if (!strcmp(s, "menubutton")) {
+                        r = fscanf(F, "%99s", s);
+                        if (!strcmp(s, "Record"))
+                                menubutton = Record;
+                        else if (!strcmp(s, "CuttingPlane"))
+                                menubutton = CuttingPlane;
+                        else if (!strcmp (s, "Nothing"))
+                                menubutton = Nothing;
+                        else eprintf ("Unknown menubutton parameter %s\n", s);
 		} else if (!strcmp (s, "movementspeed")) {
 			r=fscanf (F, "%f", &movementspeed);
 			if (r<1)

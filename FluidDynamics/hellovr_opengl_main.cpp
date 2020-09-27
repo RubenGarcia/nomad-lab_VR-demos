@@ -1294,10 +1294,22 @@ bool CMainApplication::HandleInput()
 				else if(unDevice !=firstdevice && seconddevice==-1)
 					seconddevice=unDevice;
 
-				if (firstdevice==unDevice)
-					savetodisk = !savetodisk;
-				else
+				if (firstdevice==unDevice) {
+                    			if (menubutton==Record)
+                                                savetodisk = !savetodisk;
+                                        else if (menubutton == CuttingPlane) {
+                                                if (firstdevice != -1 && seconddevice != -1) {
+                                                        static float origNearclip = nearclip;
+                                                        static float t = M_PI * 3.0f / 2.0f;
+                                                        nearclip = nearcut + (farcut - nearcut) / 2.0f + sinf(t)*(farcut - nearcut) / 2.0f;
+                                                        SetupCameras();
+                                                        t += 0.1f;
+                                                }
+                                        }
+
+				} else {
 					showAtoms= !showAtoms;
+				}
 			}
 			else if (buttonPressed[1][unDevice] && 0 == (state.ulButtonPressed&vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu)))
 			{
@@ -2415,8 +2427,10 @@ void CMainApplication::SetupIsosurfaces()
 			SDL_GL_SwapWindow(m_pWindow);
 
 			//http://stackoverflow.com/questions/9052224/error4error-c3861-snprintf-identifier-not-found
-			sprintf(tmpname, "%s%s%d-%s.ply", PATH, lods[currentlod], time, plyfiles[p % ISOS]);
-
+			if (!fullplyfiles)
+				sprintf(tmpname, "%s%s%d-%s.ply", PATH, lods[currentlod], time, plyfiles[p % ISOS]);
+		 	else
+				sprintf(tmpname, "%s%s", PATH, fullplyfiles[time][p%ISOS]);
 			vertdataarray[currentlod][p].clear();
 			vertindicesarray[currentlod][p].clear();
 
@@ -2951,8 +2965,10 @@ void CMainApplication::LoadIsosurfacesDyn(int buffer){
 			//Loading Screen
 
 			//http://stackoverflow.com/questions/9052224/error4error-c3861-snprintf-identifier-not-found
-			sprintf(tmpname, "%s%d-%s.ply", PATH, time, plyfiles[p % ISOS]);
-
+			if (!fullplyfiles)
+				sprintf(tmpname, "%s%d-%s.ply", PATH, time, plyfiles[p % ISOS]);
+			else 
+				sprintf(tmpname, "%s%s", PATH, fullplyfiles[time][p%ISOS]);
 			vertdataarrayDyn[p].clear();
 			vertindicesarrayDyn[p].clear();
 
@@ -3124,7 +3140,10 @@ int CMainApplication::sdl_LoadIsos(){
 			for (int p = 0; p < myNUMPLY; p++) {
 			
 				//http://stackoverflow.com/questions/9052224/error4error-c3861-snprintf-identifier-not-found
-				sprintf(tmpname, "%s%d-%s.ply", PATH, time, plyfiles[p % ISOS]);
+				if (!fullplyfiles)
+					sprintf(tmpname, "%s%d-%s.ply", PATH, time, plyfiles[p % ISOS]);
+				else
+					sprintf(tmpname, "%s%s", PATH, fullplyfiles[time][p%ISOS]);
 				//eprintf("%s",tmpname);
 
 				vertdataarrayDyn[p].clear();
