@@ -26,6 +26,7 @@ extern char * SCREENSHOT;
 extern int ISOS;
 extern float **isocolours; // [ISOS][4];
 extern const char **plyfiles;
+extern const char *** fullplyfiles; //explicit plyfiles for all timesteps
 extern float **translations;
 extern float userpos[3];
 extern float scaling;
@@ -68,6 +69,7 @@ extern bool gazenavigation;
 
 extern int transparencyquality;
 extern float nearclip, farclip;
+extern float nearcut, farcut;
 
 extern float animationspeed; //how fast to change to next timestep
 extern float movementspeed;  //how fast to move the user
@@ -85,7 +87,7 @@ int loadConfigFile(const char * f);
 
 //for multiuser
 extern int secret;
-extern char * server;
+extern const char * server;
 extern int port;
 
 extern bool resetTimestepOnReload;
@@ -101,6 +103,7 @@ struct information {
 typedef enum {
 	Record,
 	Infobox,
+	CuttingPlane,
 	Nothing
 } menubutton_t;
 

@@ -86,6 +86,7 @@ const char * const MarkerShaders [] = {
 	"vec3	vertex = normal * vrad[0]  + vcen[0];\n"
 	"color=vcolor[0];"
 	"gl_Position = matrix * vec4(vertex, 1);\n"
-"}\n"
+"}\n", //tess, geom, tcs
+  nullptr, nullptr, nullptr
 
 };

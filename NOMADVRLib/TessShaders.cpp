@@ -21,7 +21,7 @@ glPatchParameterfv(GL_PATCH_DEFAULT_OUTER_LEVEL, {3,3,3,3});
 glPatchParameterfv(GL_PATCH_DEFAULT_INNER_LEVEL, {3,3});
 */
 
-const char * const AtomShaders [] = {
+const char * const AtomShaders[] = {
 	"Atom Renderer",
 
 	// vertex shader
@@ -32,7 +32,7 @@ const char * const AtomShaders [] = {
 "#version 300 es\n"
 #endif
 	"uniform sampler2D atomData;\n"
-    "uniform float totalatoms;\n" //(float)atomsInPeriodicTable
+	"uniform float totalatoms;\n" //(float)atomsInPeriodicTable
 	"uniform int selectedAtom;\n"
 	"layout(location = 0) in vec3 center;\n"
 	"layout(location = 1) in float atomIn;\n"
@@ -82,9 +82,9 @@ const char * const AtomShaders [] = {
 	"layout(quads, equal_spacing, cw) in;\n"
 	"#define pi 3.1415926535897932384626433832795\n"
 	"uniform mat4 matrix;\n"
-	"in vec4 vcolor[];\n" //color , radius
-	"in vec3 vcen[];"
-	"in float vselected[];"
+	"in vec4 tcolor[];\n" //color , radius
+	"in vec3 tcen[];\n"
+	"in float tselected[];\n"
 	"out vec4 color;\n" //color 
 	"out vec3 normal;\n"
 	"out float selected;\n"
@@ -94,12 +94,40 @@ const char * const AtomShaders [] = {
 	"normal=vec3(sin(gl_TessCoord.x*2*pi)*cos((gl_TessCoord.y-0.5)*pi), "
 	"cos(gl_TessCoord.x*2*pi)*cos((gl_TessCoord.y-0.5)*pi), "
 	"sin((gl_TessCoord.y-0.5)*pi));"
-	"vec3	vertex = normal * vcolor[0].w  + vcen[0];\n"
-	"color=vec4(vcolor[0].xyz, 1);"
-	"selected=vselected[0];\n"
+	"vec3	vertex = normal * tcolor[0].w  + tcen[0];\n"
+	"color=vec4(tcolor[0].xyz, 1);"
+	"selected=tselected[0];\n"
 	"gl_Position = matrix * vec4(vertex, 1);\n"
-"}\n"
-
+"}\n",
+//geometry
+	nullptr,
+//TCS
+#if defined(WIN32) || defined(CAVE)
+	"#version 400\n"
+#else
+"#version 320 es\n"
+#endif
+	"layout (vertices = 4) out;"
+	"uniform mat4 matrix;\n"
+	"in vec4 vcolor[];\n" //color , radius
+	"in vec3 vcen[];\n"
+	"in float vselected[];\n"
+	"out vec4 tcolor[];\n" //color 
+	"out vec3 tcen[];\n"
+	"out float tselected[];\n"	
+	"void main()\n"
+	"{\n"
+	"tcolor[gl_InvocationID]=vcolor[gl_InvocationID];\n"
+	"tcen[gl_InvocationID]=vcen[gl_InvocationID];\n"
+	"tselected[gl_InvocationID]=vselected[gl_InvocationID];\n"
+	"int l=16;\n" //depending on device coordinate z, i.e. (matrix*tcen).z
+	"gl_TessLevelOuter[0] = l;\n"
+	"gl_TessLevelOuter[1] = l;\n"
+	"gl_TessLevelOuter[2] = l;\n"
+	"gl_TessLevelOuter[3] = l;\n"
+	"gl_TessLevelInner[0] = l;\n"
+	"gl_TessLevelInner[1] = l;\n"
+	"}\n"
 };
 
 const char * const AtomShadersNoTess [] = {
@@ -150,5 +178,9 @@ const char * const AtomShadersNoTess [] = {
 	"	outputColor = vec4 ((res.rgb) * (0.4 + 0.3*a + 0.3*b), color.a);\n"
 	"}\n",
 	//tess eval
-	nullptr
+	nullptr,
+	//geometry
+	nullptr,
+	//tcs
+	nullptr,
 };

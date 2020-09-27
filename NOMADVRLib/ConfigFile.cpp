@@ -30,6 +30,7 @@ char * SCREENSHOT;
 int ISOS;
 float **isocolours; // [ISOS][4];
 const char **plyfiles;
+const char *** fullplyfiles;
 float **translations;
 float userpos[3];
 float scaling;
@@ -69,6 +70,7 @@ bool showcontrollers;
 bool gazenavigation;
 int transparencyquality;
 float nearclip, farclip;
+float nearcut, farcut;
 
 //markers such as hole positions and electron positions
 float ** markers;
@@ -83,7 +85,7 @@ menubutton_t menubutton;
 std::vector<information> info;
 
 int secret;
-char * server;
+const char * server;
 int port;
 
 bool resetTimestepOnReload;
@@ -111,11 +113,53 @@ const char * loadConfigFileErrors[] =
 	"Markercolours with no previous correct timesteps parameter", //-18
 	"Error reading atomcolour", // -19
 	"Error reading newatom", //-20
+	"Error reading chains", //-21
 	"Error loading xyz file, add 100 to see the error",//<-100
 	"Error loading cube file, add 200 to see the error",//<-200
 	"Error loading encyclopedia json file, add 300 to see the error",//<-300
 	"Error loading analytics json file, add 400 to see the error",//<-400
 };
+
+int readChains(const char *file)
+{
+	int r;
+	FILE *f=fopen (file, "r");
+	if (f==nullptr)
+		return -1;
+	fscanf (f, "chains");
+	r=fscanf (f, "%d", &numChains);
+	if (r!=1)
+		return -2;
+	if (numChains==-1) {//use atom colours
+		fclose(f);
+		return 0;
+	}
+
+	chainColours=new float[(numChains+1)*4];
+	for (int i=0;i<4;i++)
+		chainColours[i]=bondscolours[i];
+	for (int c=1;c<=numChains;c++) {
+		for (int i=0;i<4;i++) {
+			r=fscanf (f, "%f", chainColours+c*4+i);
+			if (r!=1) {
+				fclose (f);
+				return -3;
+			}
+		}
+	}
+
+	r=fscanf (f, " affiliations");
+	atomAffiliations=new int[numAtoms[0]];
+	for (int i=0;i<numAtoms[0];i++) {
+		r=fscanf (f, "%d", atomAffiliations+i);
+		if (r!=1) {
+			fclose (f);
+			return -4;
+		}
+	}
+	fclose(f);
+	return 0;
+}
 
 void cleanMarkers()
 {
@@ -208,8 +252,19 @@ void cleanConfig()
 		for (int i=0;i<ISOS;i++)
 			free ((void*)(plyfiles[i])); //strdup
 		delete[] plyfiles;
+		plyfiles = nullptr;
 	}
-	plyfiles=nullptr;
+	
+	if (fullplyfiles) {
+		for (int j = 0; j < TIMESTEPS; j++) {
+			for (int i = 0; i < ISOS; i++)
+				free((void*)(fullplyfiles[j][i])); //strdup
+			delete[] fullplyfiles[j];
+		}
+		delete[] fullplyfiles;
+		fullplyfiles = nullptr;
+	}
+
 	free(PATH);
 	PATH=nullptr;
 	atomtrajectoryrestarts.clear();
@@ -237,10 +292,20 @@ void cleanConfig()
 		delete[] numAtoms;
 		numAtoms=nullptr;
 		atoms=nullptr;
+		delete[] atomAffiliations;
+		atomAffiliations=nullptr;
+		delete[] chainColours;
+		chainColours=nullptr;
+
 	}
 
 	delete[] server;
 	server=nullptr;
+
+	if (numChains!=0) {
+		delete[] chainColours;
+		numChains=0;
+	}
 }
 
 void initState()
@@ -273,8 +338,8 @@ void initState()
 	markers=nullptr;
 	markercolours=nullptr;
 	displayunitcell=false;
-	scaling =1;
-	markerscaling=0.8;
+	scaling =1.0f;
+	markerscaling=0.8f;
 	for (int i=0;i<3;i++)
 		cubetrans[i]=0;
 	translations=nullptr;
@@ -290,6 +355,8 @@ void initState()
 	transparencyquality=12;
 	nearclip=0.2f;
 	farclip=200.f;
+	nearcut = 0.2f;
+	farcut = 0.2f;
 
 	for (int i=0;i<4;i++)
 		unitcellcolour[i]=1.0f;
@@ -323,6 +390,9 @@ void initState()
 	bondscaling = 0.7f;
 	bondThickness = 1.0f;
 
+	atomAffiliations=nullptr;
+	chainColours=nullptr;
+
 	secret=0;
 	server=nullptr;
 	port=-1;
@@ -343,8 +413,7 @@ int loadConfigFile(const char * f)
 	FILE *F = fopen(f, "r");
 	if (F == 0)
 	{
-		eprintf( "Could not open config file %s\n", f);
-		eprintf("Error: %d", errno);
+		eprintf( "Could not open config file %s, error (errno) = %d\n", f, errno);
 		return -1;
 	}
 	char s[100];
@@ -396,6 +465,23 @@ int loadConfigFile(const char * f)
 				plyfiles[i] = strdup(s);
 			}
 
+		}
+		else if (!strcmp(s, "fullvalues")) {
+			if (TIMESTEPS == 0 || ISOS == 0) {
+				eprintf("full values with no previous correct isos or timesteps parameter\n");
+				fclose(F);
+				return -3;
+			}
+			fullplyfiles = new const char **[TIMESTEPS];
+			for (int j = 0; j < TIMESTEPS; j++) {
+				for (int i = 0; i < ISOS; i++) {
+					r = readString(F, s);
+					if (r != 0)
+						return -14;
+					free((void*)(fullplyfiles[j][i]));
+					fullplyfiles[j][i] = strdup(s);
+				}
+			}
 		}
 		else if (!strcmp(s, "colours")) {
 			if (ISOS == 0) {
@@ -450,6 +536,9 @@ int loadConfigFile(const char * f)
 			char file[256];
 			sprintf (file, "%s%s", PATH, s);
 			fixFile(file);
+			if (atoms) {
+				cleanAtoms(&numAtoms, TIMESTEPS, &atoms);
+			}
 			int e;
 			e=readAtomsXYZ(file, &numAtoms, &timesteps, &atoms);
 			if (e<0)
@@ -461,6 +550,9 @@ int loadConfigFile(const char * f)
 			r=readString(F, s);
 			if (r!=0)
 				return -14;
+			if (atoms) {
+				cleanAtoms(&numAtoms, TIMESTEPS, &atoms);
+			}
 			int timesteps=TIMESTEPS;
 			char file[256];
 			sprintf(file, "%s%s", PATH, s);
@@ -497,6 +589,9 @@ int loadConfigFile(const char * f)
 			int e;
 			int timesteps;
 			//rgh fixme, we know only one
+			if (atoms) {
+				cleanAtoms(&numAtoms, timesteps, &atoms);
+			}
 			e = readAtomsJson (file, &numAtoms, &timesteps, &atoms, abc, &clonedAtoms);
 			if (e<0)
 				return e-300;
@@ -515,9 +610,11 @@ int loadConfigFile(const char * f)
 			int timesteps;
 			//rgh fixme, we know only one
 			e = readAtomsAnalyticsJson(file, &numAtoms, &timesteps, &atoms, abc, &clonedAtoms);
-			if (e<0)
-				return e - 400;
+			if (e<0) {
+				//cleanup
 
+				return e - 400;
+			}
 			if (has_abc)
 				numClonedAtoms = clonedAtoms[0].size() / 4;
 			else
@@ -711,6 +808,11 @@ int loadConfigFile(const char * f)
 			r=fscanf (F, "%f %f", &nearclip, &farclip);
 			if (r<2)
 				eprintf ("Error reading clippingplanes values");
+		}
+		else if (!strcmp(s, "cutplanes")) {
+			r = fscanf(F, "%f %f", &nearcut, &farcut);
+			if (r<2)
+				eprintf("Error reading clippingplanes values");
 		}else if (!strcmp (s, "bondscolour")) {
 			r=fscanf (F, "%f %f %f", bondscolours, bondscolours+1, bondscolours+2);
 			if (r<3)
@@ -753,6 +855,8 @@ int loadConfigFile(const char * f)
 				menubutton = Record;
 			else if (!strcmp(s, "Infobox"))
 				menubutton = Infobox;
+			else if (!strcmp(s, "CuttingPlane"))
+				menubutton = CuttingPlane;
 			else if (!strcmp (s, "Nothing"))
 				menubutton = Nothing;
 			else eprintf ("Unknown menubutton parameter %s\n", s);
@@ -792,6 +896,13 @@ int loadConfigFile(const char * f)
 			if (r<3) {
 				eprintf ("Error reading server paramters");
 			}
+		} else if (!strcmp (s, "chainfile")) {
+			r=readString(F, s);
+			if (r!=0)
+				return -21;			
+			r=readChains (s);
+			if (r!=0)
+				return -21;
 		} else {
 			eprintf( "Unrecognized parameter %s\n", s);
 			for (int i=0;i<strlen(s);i++)

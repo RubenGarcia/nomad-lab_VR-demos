@@ -14,22 +14,4 @@
  # limitations under the License.
 */
 
-#include "ConfigFileAtoms.h"
-
-float abc[3][3]; //basis vectors
-bool has_abc = false;
-
-int* numAtoms; //[timesteps]
-float **atoms; //[timesteps][numAtoms[i]*4] //xyzu, u=atom number
-int *atomAffiliations;
-int numChains;
-float *chainColours; //[numChains+1][4];
-bool fixedAtoms; 
-
-float cubetrans[3];
-
-float supercell[3];
-int voxelSize[3];
-
-float bondscaling;
-float bondThickness;
+extern const char * const BondShader[];

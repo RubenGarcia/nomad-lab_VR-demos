@@ -136,6 +136,17 @@ while (true) {
 			return 5;
 		}
 		break;
+		
+		case 'A':
+		//Selected atom, ignore
+		int32_t tmp;
+		n=myrecv(sock, &tmp, 4, 0);
+		if (n<4) 
+{
+			fprintf (stderr, "couldn't receive data n\n");
+			return 5;
+		}
+		break;		
 
 		case 'p': // user position
 		n=myrecv (sock, buffer+1, sizeof(float)*3 + 4, 0);
