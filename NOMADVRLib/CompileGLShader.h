@@ -21,6 +21,8 @@
 #define SHADERVERTEX 1
 #define SHADERFRAGMENT 2
 #define SHADERTESSEVAL 3
+#define SHADERGEOMETRY 4
+#define SHADERTCS 5
 
 //-----------------------------------------------------------------------------
 // Purpose: Compiles a GL shader program and returns the handle. Returns 0 if
@@ -28,5 +30,5 @@
 //-----------------------------------------------------------------------------
 
 GLuint CompileGLShader( const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader,
-	const char *pchTessEvalShader = nullptr);
+	const char *pchTessEvalShader = nullptr, const char *pchGeometryShader = nullptr, const char *pchTCS = nullptr);
 

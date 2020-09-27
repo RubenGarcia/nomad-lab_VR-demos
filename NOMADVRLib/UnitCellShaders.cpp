@@ -43,6 +43,6 @@ const char * const UnitCellShaders [] = {"Unit Cell Renderer",
 	"	outputColor = color;\n"
 	"}\n"
 	,
-	//tess
-	nullptr
+	//tess, geom, tcs
+	nullptr, nullptr, nullptr
 };

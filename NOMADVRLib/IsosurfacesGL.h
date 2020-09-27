@@ -29,7 +29,7 @@ bool AddModelToScene( const float *mat/*[16]*/, std::vector<float> &vertdata,
 #else
 	std::vector<GLuint> & vertindices,
 #endif
-	const char * model, bool water, bool colours, int set);
+	const char * model, bool useisotrans, bool colours, int set);
 
 GLenum PrepareGLiso (GLuint vao, GLuint vertbuffer, const std::vector<float> &vertdata, GLuint indbuffer,
  #ifndef INDICESGL32

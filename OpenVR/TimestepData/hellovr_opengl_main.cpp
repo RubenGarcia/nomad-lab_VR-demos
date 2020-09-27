@@ -241,7 +241,7 @@ private: // OpenGL bookkeeping
 
 	void SaveScreenshot (char *name);
 
-	GLuint *m_iTexture; //[3+ZLAYERS+1] // white, depth1, depth2, color[ZLAYERS], atomtexture
+	GLuint *m_iTexture; //[3+ZLAYERS+2] // white, depth1, depth2, color[ZLAYERS], atomtexture, chaincolours
 	SDL_Texture **axisTextures; //[6]
 	GLuint peelingFramebuffer;
 	unsigned int **m_uiVertcount;// [LODS][NUMPLY];
@@ -317,6 +317,7 @@ private: // OpenGL bookkeeping
 	GLuint m_unUnitCellProgramID;
 	GLuint m_unBlendingProgramID;
 	GLuint m_unMarkerProgramID;
+	GLuint m_unBondsProgramID;
 
 	GLint m_nSceneMatrixLocation;
 	GLint m_nBlendingIntLocation;
@@ -326,8 +327,11 @@ private: // OpenGL bookkeeping
 	GLint m_nAtomMVLocation;
 	GLint m_nUnitCellMatrixLocation, m_nUnitCellColourLocation;
 	GLint m_nMarkerMatrixLocation;
-	GLint m_nTotalatomsLocation;
+	GLint m_nBondMatrixLocation;
+	GLint m_nTotalatomsLocationA;
 	GLint m_nSelectedAtomLocation;
+	GLint m_nTotalchainsLocation;
+	GLint m_nTotalatomsLocationB;
 
 	struct FramebufferDesc
 	{
@@ -380,6 +384,7 @@ private: // OpenGL bookkeeping
 	void SendIso();
 	void SendShowAtoms();
 	void SendUserPos();
+	void SendSelectedAtom();
 	void SendDragDrop(Vector3 pos);  
 
 	std::vector<remotes_t> remotes;
@@ -421,6 +426,7 @@ void dprintf( const char *fmt, ... )
 void message (char *buffer) 
 {
 MessageBoxA (0, buffer, "Warning", 0);
+delete[] buffer;
 }
 
 //pure windows, no sdl
@@ -444,21 +450,33 @@ void eprintf( const char *fmt, ... )
 	if ( g_bPrintf )
 		printf( "%s", buffer );
 
-	std::thread(message, buffer).detach();
+	char *b2=new char[strlen(buffer)+1];
+	strcpy (b2, buffer);
+	std::thread(message, b2).detach();
 }
 
 int CMainApplication::LoadConfigFile (const char *c)
 {
-		
-	//change cwd so that relative paths work
-	const char *myc=c;
-	std::string s(c);
-	std::string::size_type l=s.find_last_of("\\/");
-	std::string mys;
-	if (l!=s.npos) {
-		SetCurrentDirectoryA(s.substr(0, l).c_str());
-		mys=s.substr(l+1);
-		myc=mys.c_str();
+	char *myc;
+
+	if (!strncmp(c, "http:", 5) || !strncmp(c, "https:", 6)) {
+		myc=strdup("config.ncfg");
+		char cmd[2048];
+		int ret;
+		sprintf (cmd, "wget %s -O %s", c, myc);
+		ret=system(cmd);
+	} else {
+		//change cwd so that relative paths work
+		std::string s(c);
+		std::string::size_type l=s.find_last_of("\\/");
+		std::string mys;
+		if (l!=s.npos) {
+			SetCurrentDirectoryA(s.substr(0, l).c_str());
+			mys=s.substr(l+1);
+			myc=strdup(mys.c_str());
+		} else {
+			myc=strdup(c);
+		}
 	}
 	int r;
 	if ((r=loadConfigFile(myc))<0) {
@@ -487,7 +505,7 @@ int CMainApplication::LoadConfigFile (const char *c)
 	}
 
 
-
+	free (myc);
 	return r;
 }
 
@@ -706,6 +724,14 @@ void CMainApplication::connectTCP()
 				return;
 			}
 			currentiso=ntohl(tmp)%(ISOS+1);
+			break;
+		case 'A':
+			n=recv (sock, (char*)&tmp, sizeof(tmp), 0);
+			if (n<sizeof(tmp)) {
+				eprintf ("short read at socket\n");
+				return;
+			}
+			selectedAtom=ntohl(tmp);
 			break;
 		case 's':
 			char s;
@@ -1383,6 +1409,10 @@ void CMainApplication::SendShowAtoms()
 	Send('s', showAtoms);
 }
 
+void CMainApplication::SendSelectedAtom()
+{
+	Send('A', selectedAtom);
+}
 void CMainApplication::IncrementTimestep()
 {
 	currentset++;
@@ -1503,6 +1533,7 @@ bool CMainApplication::HandleInput()
 					buttonPressed[2][unDevice]=true;
 					if (state.rAxis[0].y > -0.4 && state.rAxis[0].y < 0.4 && state.rAxis[0].x<-0.7) {
 						selectedAtom=-1;
+						SendSelectedAtom();
 					} else if (state.rAxis[0].y > 0.7 && state.rAxis[0].x > -0.4 && state.rAxis[0].x < 0.4) {
 						//next config file
 						currentConfig++;
@@ -1558,6 +1589,24 @@ bool CMainApplication::HandleInput()
 						savetodisk = !savetodisk;
 					else if (menubutton==Infobox)
 						showInfoBox= !showInfoBox;
+					else if (menubutton == CuttingPlane) {
+						if (firstdevice != -1 && seconddevice != -1) {
+							//const Matrix4 tmp1 = m_rmat4DevicePose[firstdevice];
+							//const Matrix4 tmp2 = m_rmat4DevicePose[seconddevice];
+							//const Vector4 zero(0,0,0,1);
+							//const Vector4 a = zero * tmp1;
+							//const Vector4 b = zero * tmp2;
+							//const Vector4 c = a - b;
+							//nearclip = c.length();
+							static float origNearclip = nearclip;
+							static float t = M_PI * 3.0f / 2.0f;
+							//nearclip = orignearclip + 1.0f + sinf(t);
+							nearclip = nearcut + (farcut - nearcut) / 2.0f + sinf(t)*(farcut - nearcut) / 2.0f;
+							SetupCameras();
+							t += 0.1f;
+						}
+						
+					}
 				}
 				else {
 					showAtoms= !showAtoms;
@@ -1755,6 +1804,7 @@ void CMainApplication::HapticFeedback(int device)
 							if (l<atomr*atomScaling) {
 								if(clicked) {
 									selectedAtom=i;
+									SendSelectedAtom();
 								}
 								if (hapticFeedback)
 									m_pHMD->TriggerHapticPulse(device, 0, 3000);
@@ -1928,14 +1978,20 @@ bool CMainApplication::CreateAllShaders()
 	m_nRenderModelMatrixLocation = glGetUniformLocation( m_unRenderModelProgramID, "matrix" );
 	if( m_nRenderModelMatrixLocation == -1 )
 	{
-		dprintf( "Unable to find matrix uniform in render model shader\n" );
+		dprintf( "Unable to find matrix uniform in render model shader (%s)\n", TexturedShaders[SHADERNAME]);
 		return false;
 	}
 
-	if (!PrepareUnitCellAtomShader (&m_unAtomsProgramID, &m_unUnitCellProgramID, &m_unMarkerProgramID,
-		&m_nAtomMatrixLocation, &m_nUnitCellMatrixLocation,  &m_nUnitCellColourLocation, &m_nMarkerMatrixLocation, &m_nTotalatomsLocation, &m_nSelectedAtomLocation))
+	if (!PrepareUnitCellAtomShader(&m_unAtomsProgramID, &m_unUnitCellProgramID,
+		&m_unMarkerProgramID, &m_unBondsProgramID,
+		&m_nAtomMatrixLocation, &m_nUnitCellMatrixLocation, &m_nUnitCellColourLocation,
+		&m_nMarkerMatrixLocation, &m_nBondMatrixLocation,
+		&m_nTotalatomsLocationA, &m_nSelectedAtomLocation, &m_nTotalchainsLocation,
+		&m_nTotalatomsLocationB)
+		) {
+		dprintf("Unable to compile UnitCellAtomShaders");
 		return false;
-
+	}
 
 	m_unLensProgramID = CompileGLShader(
 		"Distortion",
@@ -2008,8 +2064,9 @@ bool CMainApplication::SetupTexturemaps()
 	//std::string sExecutableDirectory = Path_StripFilename(Path_GetExecutablePath());
 	//std::string strFullPath = Path_MakeAbsolute("../cube_texture.png", sExecutableDirectory);
 
-	m_iTexture = new GLuint[3+ZLAYERS+1]; // white, depth1, depth2, color[ZLAYERS], atomtexture
-	glGenTextures(3+ZLAYERS+1, m_iTexture);
+	m_iTexture = new GLuint[3+ZLAYERS+2]; 
+		// white, depth1, depth2, color[ZLAYERS], atomtexture, bondcolours
+	glGenTextures(3+ZLAYERS+2, m_iTexture);
 
 	//white
 	unsigned char data2[4] = { 255, 255, 255, 255 }; //white texture for non-textured meshes
@@ -2024,7 +2081,29 @@ bool CMainApplication::SetupTexturemaps()
 		dprintf("opengl error %d, SetupTextureMaps 1\n", e);
 
 	e=atomTexture( m_iTexture[3+ZLAYERS]);
+	if (e != GL_NO_ERROR)
+		dprintf("opengl error %d, SetupTextureMaps atomTexture\n", e);
 
+	if (numChains>0) {
+		glBindTexture(GL_TEXTURE_2D, m_iTexture[3+ZLAYERS+1]);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			dprintf("opengl error %d, SetupTextureMaps chainColours 1\n", e);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			dprintf("opengl error %d, SetupTextureMaps chainColours 2\n", e);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			dprintf("opengl error %d, SetupTextureMaps chainColours 3\n", e);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			dprintf("opengl error %d, SetupTextureMaps chainColours 4\n", e);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			dprintf("opengl error %d, SetupTextureMaps chainColours 5\n", e);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, numChains+1, 1, 0, GL_RGBA, GL_FLOAT, chainColours);
+		if ((e = glGetError()) != GL_NO_ERROR)
+			dprintf("opengl error %d, SetupTextureMaps chainColours 6\n", e);
+	}
 	glBindTexture( GL_TEXTURE_2D, 0 );
 	if ((e = glGetError()) != GL_NO_ERROR)
 		dprintf("opengl error %d, SetupTextureMaps 2\n", e);
@@ -2120,6 +2199,7 @@ void CMainApplication::SetupScene()
 		UserPosition=Vector3(-userpos[0], -userpos[1], -userpos[2]);
 		SendUserPos();
 		selectedAtom=-1;
+		SendSelectedAtom();
 	}
 }
 
@@ -2492,7 +2572,10 @@ void CMainApplication::SetupIsosurfaces()
 			SDL_GL_SwapWindow(m_pWindow);
 
 			//http://stackoverflow.com/questions/9052224/error4error-c3861-snprintf-identifier-not-found
-			sprintf(tmpname, "%s%s%d-%s.ply", PATH, lods[currentlod], time, plyfiles[p % ISOS]);
+			if (!fullplyfiles)
+				sprintf(tmpname, "%s%s%d-%s.ply", PATH, lods[currentlod], time, plyfiles[p % ISOS]);
+			else
+				sprintf(tmpname, "%s%s", PATH, fullplyfiles[time][p%ISOS]);
 
 			vertdataarray[currentlod][p].clear();
 			vertindicesarray[currentlod][p].clear();
@@ -2527,7 +2610,7 @@ void CMainApplication::SetupIsosurfaces()
 			}
 
 			if (!AddModelToScene(matFinal.get(), vertdataarray[currentlod][p], vertindicesarray[currentlod][p],
-				tmpname, false, isocolours[p%ISOS][0]<0, p%ISOS))
+				tmpname, isocolours[p%ISOS][3]>-0.5f, isocolours[p%ISOS][0]<0.0f, p%ISOS))
 			{
 				dprintf("Error loading ply file %s\n", tmpname);
 				//m_bShowCubes = false;
@@ -3086,7 +3169,7 @@ float delta[3];
 ::GetDisplacement(p, delta);
 Vector3 iPos(delta[0], delta[1], delta[2]);
 glUseProgram(m_unAtomsProgramID);
-glUniform1f(m_nTotalatomsLocation, (float)getTotalAtomsInTexture());
+glUniform1f(m_nTotalatomsLocationA, static_cast<float>(getTotalAtomsInTexture()));
 
 float levelso[4] = { TESSSUB, TESSSUB, TESSSUB, TESSSUB };
 float levelsi[2] = { TESSSUB, TESSSUB};
@@ -3104,11 +3187,6 @@ Matrix4 transform = GetCurrentViewProjectionMatrix(nEye)*globalScaling*trans;
 
 if (numAtoms && showAtoms) {
 	glBindVertexArray(m_unAtomVAO[0]);
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-	glBindBuffer(GL_ARRAY_BUFFER, m_glAtomVertBuffer[0]);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
-	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(3 * sizeof(float)));
 
 	//Matrix4 mv=GetCurrentViewMatrix(nEye)*globalScaling*trans;
 	glUniformMatrix4fv(m_nAtomMatrixLocation, 1, GL_FALSE, transform.get());
@@ -3137,18 +3215,38 @@ if (numClonedAtoms!=0 && (currentset==0||fixedAtoms) && showAtoms) {
 if (numBonds && displaybonds && showAtoms) {
 	glLineWidth(bondThickness);
 	glBindVertexArray(m_unAtomVAO[2]);
-	glUseProgram(m_unUnitCellProgramID);
-	glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
-	glUniform4fv(m_nUnitCellColourLocation, 1, bondscolours);
-	if (currentset==0||fixedAtoms)
-		glDrawElements(GL_LINES, numBonds[0],  GL_UNSIGNED_INT, (void*)0);
-	else
-		glDrawElements(GL_LINES, numBonds[currentset]-numBonds[currentset-1], GL_UNSIGNED_INT, 
-			(void*)(sizeof(int)*numBonds[currentset-1]) );
+	if (numChains==0) {
+		glUseProgram(m_unUnitCellProgramID);
+		glUniformMatrix4fv(m_nUnitCellMatrixLocation, 1, GL_FALSE, transform.get());
+		glUniform4fv(m_nUnitCellColourLocation, 1, bondscolours);
+		if (currentset==0||fixedAtoms)
+			glDrawElements(GL_LINES, numBonds[0],  GL_UNSIGNED_INT, (void*)0);
+		else
+			glDrawElements(GL_LINES, numBonds[currentset]-numBonds[currentset-1], GL_UNSIGNED_INT, 
+				(void*)(sizeof(int)*numBonds[currentset-1]) );
 
-	if ((e = glGetError()) != GL_NO_ERROR)
-			dprintf("Gl error after Render Atom bonds timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
-	glLineWidth(1.0f);
+		if ((e = glGetError()) != GL_NO_ERROR)
+				dprintf("Gl error after Render Atom bonds timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+		glLineWidth(1.0f);
+	} else {
+		glUseProgram(m_unBondsProgramID);
+		glUniformMatrix4fv(m_nBondMatrixLocation, 1, GL_FALSE, transform.get());
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, m_iTexture[3+ZLAYERS+1]); //chain colours
+		glActiveTexture(GL_TEXTURE0); //restore state
+		//glBindTexture(GL_TEXTURE_2D, m_iTexture[3+ZLAYERS]); //atoms //already bound
+		glUniform1f(m_nTotalchainsLocation, static_cast<float>(numChains+1));
+		glUniform1f(m_nTotalatomsLocationB, static_cast<float>(getTotalAtomsInTexture()));
+		if (currentset==0||fixedAtoms)
+			glDrawElements(GL_LINES, numBonds[0],  GL_UNSIGNED_INT, (void*)0);
+		else
+			glDrawElements(GL_LINES, numBonds[currentset]-numBonds[currentset-1], GL_UNSIGNED_INT, 
+				(void*)(sizeof(int)*numBonds[currentset-1]) );
+
+		if ((e = glGetError()) != GL_NO_ERROR)
+				dprintf("Gl error after Render Atom bonds timestep =%d: %d, %s\n", currentset, e, gluErrorString(e));
+		glLineWidth(1.0f);
+	}
 }
 
 
@@ -3505,7 +3603,8 @@ void CMainApplication::RenderAllTrackedRenderModels(vr::Hmd_Eye nEye)
 
 	for (uint32_t unTrackedDevice = 0; unTrackedDevice < vr::k_unMaxTrackedDeviceCount; unTrackedDevice++)
 	{
-		if (!m_rTrackedDeviceToRenderModel[unTrackedDevice] || !m_rbShowTrackedDevice[unTrackedDevice])
+		if (!m_rTrackedDeviceToRenderModel[unTrackedDevice] || !m_rbShowTrackedDevice[unTrackedDevice] || 
+			m_pHMD->GetTrackedDeviceClass( unTrackedDevice ) == vr::TrackedDeviceClass_HMD) //do not display own glasses (OpenVR bug)
 			continue;
 
 		if (firstdevice==-1 && m_pHMD->GetTrackedDeviceClass( unTrackedDevice ) == vr::TrackedDeviceClass_Controller )
@@ -3968,9 +4067,9 @@ int main(int argc, char *argv[])
 {
 	//https://stackoverflow.com/questions/8544090/detected-memory-leaks
 	_CrtSetDbgFlag( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );/*
-		 _CrtSetBreakAlloc(1969);
-	 _CrtSetBreakAlloc(1918);
-	 _CrtSetBreakAlloc(1226);
+		 _CrtSetBreakAlloc(70);
+	 _CrtSetBreakAlloc(112);
+	 _CrtSetBreakAlloc(77);
 	 */
 	TMPDIR=".\\";
 	//http://stackoverflow.com/questions/4991967/how-does-wsastartup-function-initiates-use-of-the-winsock-dll

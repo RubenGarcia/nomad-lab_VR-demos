@@ -21,6 +21,7 @@
 #include "TessShaders.h"
 #include "UnitCellShaders.h"
 #include "markerShaders.h"
+#include "BondShaders.h"
 #include "atomsGL.h"
 #include "atoms.hpp"
 #include "ConfigFile.h"
@@ -253,7 +254,8 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLu
 	//rgh FIXME: put this all in the same vao
 	
 	//http://prideout.net/blog/?p=48 //public domain code
-	//xyz u=atom type ; 4 floats
+	const int atomComponents=5;
+	//xyz,u=atom type,a=chain affiliation  ; 5 floats
 	int e;
 
 	int totalatoms=0;
@@ -274,13 +276,13 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLu
 
 	glEnableVertexAttribArray(0);
 	glEnableVertexAttribArray(1);
-	glDisableVertexAttribArray(2);
+	glEnableVertexAttribArray(2);
 	glDisableVertexAttribArray(3);
 
 	e=glGetError();
 	if (e!=GL_NO_ERROR)
 		eprintf ("gl error %d, %s %d", e, __FILE__, __LINE__);
-	float *tmp = new float[4 * totalatoms];
+	float *tmp = new float[atomComponents * totalatoms];
 	float *current=tmp;
 	
 	const int atomlimit=30;
@@ -290,8 +292,11 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLu
 			for (int k = 0; k < 4; k++) {
 				*current++ = atoms[p][4 * a + k];
 			}
+			*current++=numChains<=0?0.0f:static_cast<float>(atomAffiliations[a]);
 		} //a
 	}
+
+	std::vector<float> bondcolours;
 
 	if (!displaybonds) {
 		numBonds=nullptr;
@@ -336,7 +341,7 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLu
 							M[k]=atoms[p][4*a+k];
 					}
 				}
-				grid g(m, M, pow(numAtoms[p], 1.0f/3.0f), bondscaling);
+				grid g(m, M, static_cast<int>(pow(numAtoms[p], 1.0f/3.0f)), bondscaling);
 				for (int a = 1; a < numAtoms[p]; a++) 
 					g.add(atoms[p]+4*a);
 				for (int a = 0; a < numAtoms[p]; a++) {
@@ -354,9 +359,10 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLu
 				numAtoms[p]+=numAtoms[p-1];
 		} //p
 	} // showbonds
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
-	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(3 * sizeof(float)));
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * totalatoms * 4 , tmp,
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, atomComponents * sizeof(float), (const void *)(0));
+	glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, atomComponents * sizeof(float), (const void *)(3 * sizeof(float)));
+	glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, atomComponents * sizeof(float), (const void *)(4 * sizeof(float)));
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * totalatoms * atomComponents, tmp,
 		GL_STATIC_DRAW);
 	if ((e = glGetError()) != GL_NO_ERROR)
 		eprintf( "opengl error %d, glBufferData, l %d\n", e, __LINE__);
@@ -397,8 +403,8 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLu
 		for (unsigned int t = 0; t < atomtrajectories.size(); t++) {
 			for (int i=0;i<TIMESTEPS;i++)
 				for (int j = 0; j < 3; j++) {
-					traj[t*TIMESTEPS * 3 + i * 3 + j] = tmp[i*numAtoms[0]*4+
-																+atomtrajectories[t]*4
+					traj[t*TIMESTEPS * 3 + i * 3 + j] = tmp[i*numAtoms[0]*atomComponents+
+																+atomtrajectories[t]*atomComponents
 																+j];
 				}
 		}
@@ -421,8 +427,12 @@ GLenum SetupAtoms(GLuint **AtomVAO /*[4]*/, GLuint **AtomVertBuffer /*[3]*/, GLu
 		glBindBuffer(GL_ARRAY_BUFFER, (*AtomVertBuffer)[0]);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *BondIndices);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(int)*bonds.size(), bonds.data(), GL_STATIC_DRAW);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (const void *)(0));
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, atomComponents * sizeof(float), (const void *)(0));
+		glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, atomComponents * sizeof(float), (const void *)(3 * sizeof(float)));
+		glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, atomComponents * sizeof(float), (const void *)(4 * sizeof(float)));
 		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
+		glEnableVertexAttribArray(2);
 		glBindVertexArray(0);
 	
 		e=glGetError();
@@ -661,7 +671,7 @@ GLenum SetupMarker(GLuint *MarkerVAO, GLuint *MarkerVertBuffer)
 		for (int j=0;j<3;j++) { //center [3]
 			tmp[i*8+j]=markers[i][j];
 		}
-		tmp[i*8+3]=0.8*size; //size [1]
+		tmp[i*8+3]=0.8f*size; //size [1]
 		for (int j=0;j<4;j++) {//colour[4]
 			tmp[i*8+4+j]=markercolours[i][j];
 		}
@@ -678,6 +688,9 @@ GLenum SetupMarker(GLuint *MarkerVAO, GLuint *MarkerVertBuffer)
 void CleanUnitCell (GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *UnitCellIndexBuffer)
 {
 	if (!has_abc)
+		return;
+
+	if (*UnitCellVAO==0)
 		return;
 	glDeleteVertexArrays(1, UnitCellVAO);
 	glDeleteBuffers(1, UnitCellVertBuffer);
@@ -772,20 +785,69 @@ GLenum SetupUnitCell(GLuint *UnitCellVAO, GLuint *UnitCellVertBuffer, GLuint *Un
 }
 
 
-bool PrepareUnitCellAtomShader (GLuint *AtomP, GLuint *cellP, GLuint *MarkerP, 
-								GLint *AtomMatrixLocation, GLint *UnitCellMatrixLocation,  GLint *UnitCellColourLocation,
-								GLint *MarkerMatrixLocation, GLint *totalatomsLocation, GLint *selectedAtomLocation){
-	if (!PrepareAtomShader(AtomP, AtomMatrixLocation, totalatomsLocation, selectedAtomLocation))
+bool PrepareUnitCellAtomShader (GLuint *AtomP, GLuint *cellP, GLuint *MarkerP, GLuint *BondP,
+								GLint *AtomMatrixLocation, GLint *UnitCellMatrixLocation,  
+								GLint *UnitCellColourLocation, GLint *MarkerMatrixLocation, 
+								GLint *BondMatrixLocation, 
+								GLint *totalatomsLocationA, GLint *selectedAtomLocation,
+								GLint *totalchainsLocation, GLint *totalatomsLocationB)
+{
+	if (!PrepareAtomShader(AtomP, AtomMatrixLocation, totalatomsLocationA, selectedAtomLocation)) {
+		eprintf("Could not compile AtomShader");
 		return false;
+	}
 
-	if (!PrepareUnitCellShader(cellP, UnitCellMatrixLocation, UnitCellColourLocation))
+	if (!PrepareUnitCellShader(cellP, UnitCellMatrixLocation, UnitCellColourLocation)) {
+		eprintf("Could not compile UnitCellShader");
 		return false;
+	}
+		
+	if (!PrepareMarkerShader(MarkerP, MarkerMatrixLocation)) {
+		eprintf("Could not compile MarkerShader");
+		return false;
+	}
 
-	if (!PrepareMarkerShader(MarkerP, MarkerMatrixLocation))
+	if (!PrepareBondShader (BondP, BondMatrixLocation, totalchainsLocation, totalatomsLocationB)) {
+		eprintf("Could not compile BondShader");
 		return false;
+	}
+	
 
 	return true;
 }
+
+bool PrepareBondShader (GLuint *BondP, GLint *BondMatrixLocation, 
+						GLint *totalchainsLocation, GLint *totalatomsLocation)
+{
+	*BondP= CompileGLShader(
+		BondShader[SHADERNAME],
+		BondShader[SHADERVERTEX],
+		BondShader[SHADERFRAGMENT],
+		BondShader[SHADERTESSEVAL],
+		BondShader[SHADERGEOMETRY],
+		BondShader[SHADERTCS]
+		);
+	*BondMatrixLocation=glGetUniformLocation(*BondP, "matrix");
+	if( *BondMatrixLocation == -1 )
+	{
+		eprintf( "Unable to find matrix uniform in bond shader\n" );
+		return false;
+	}
+	*totalchainsLocation=glGetUniformLocation(*BondP, "totalChains");
+	if( *totalchainsLocation == -1 )
+	{
+		eprintf( "Unable to find totalChains uniform in bond shader\n" );
+		return false;
+	}
+	*totalatomsLocation=glGetUniformLocation(*BondP, "totalatoms");
+	if( *totalatomsLocation == -1 )
+	{
+		eprintf( "Unable to find totalatoms uniform in bond shader\n" );
+		return false;
+	}
+	return true;
+}
+							
 
 bool PrepareAtomShader (GLuint *AtomP, GLint *AtomMatrixLocation, GLint *totalatomsLocation, GLint *selectedAtomLocation){
 		//https://www.gamedev.net/topic/591110-geometry-shader-point-sprites-to-spheres/
@@ -796,7 +858,9 @@ bool PrepareAtomShader (GLuint *AtomP, GLint *AtomMatrixLocation, GLint *totalat
 		AtomShaders[SHADERNAME],
 		AtomShaders[SHADERVERTEX],
 		AtomShaders[SHADERFRAGMENT],
-		AtomShaders[SHADERTESSEVAL]
+		AtomShaders[SHADERTESSEVAL],
+		AtomShaders[SHADERGEOMETRY],
+		AtomShaders[SHADERTCS]
 		);
 	*AtomMatrixLocation=glGetUniformLocation(*AtomP, "matrix");
 	if( *AtomMatrixLocation == -1 )
@@ -828,7 +892,9 @@ bool PrepareMarkerShader (GLuint *MP, GLint *MMatrixLocation){
 		MarkerShaders[SHADERNAME],
 		MarkerShaders[SHADERVERTEX],
 		MarkerShaders[SHADERFRAGMENT],
-		MarkerShaders[SHADERTESSEVAL]
+		MarkerShaders[SHADERTESSEVAL],
+		MarkerShaders[SHADERGEOMETRY],
+		MarkerShaders[SHADERTCS]
 		);
 	*MMatrixLocation=glGetUniformLocation(*MP, "matrix");
 	if( *MMatrixLocation == -1 )
@@ -847,8 +913,7 @@ bool PrepareAtomShaderNoTess (GLuint *AtomP, GLint *AtomMatrixLocation, GLint *t
 	*AtomP = CompileGLShader(
 		AtomShadersNoTess[SHADERNAME],
 		AtomShadersNoTess[SHADERVERTEX],
-		AtomShadersNoTess[SHADERFRAGMENT],
-		AtomShadersNoTess[SHADERTESSEVAL]
+		AtomShadersNoTess[SHADERFRAGMENT]
 		);
 	*AtomMatrixLocation=glGetUniformLocation(*AtomP, "matrix");
 	if( *AtomMatrixLocation == -1 )
@@ -870,8 +935,7 @@ bool PrepareUnitCellShader (GLuint *cellP, GLint *UnitCellMatrixLocation,  GLint
 	*cellP= CompileGLShader(
 		UnitCellShaders[SHADERNAME],
 		UnitCellShaders[SHADERVERTEX],
-		UnitCellShaders[SHADERFRAGMENT],
-		UnitCellShaders[SHADERTESSEVAL]
+		UnitCellShaders[SHADERFRAGMENT]
 		);
 	*UnitCellMatrixLocation=glGetUniformLocation(*cellP, "matrix");
 	if( *UnitCellMatrixLocation == -1 )

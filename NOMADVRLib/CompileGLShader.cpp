@@ -18,9 +18,10 @@
 #include <stdio.h>
 #include "MyGL.h"
 #include "eprintf.h"
+#include "CompileGLShader.h"
 
 GLuint CompileGLShader( const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader,
-	const char *pchTessEvalShader /*= nullptr*/)
+	const char *pchTessEvalShader /*= nullptr*/, const char *pchGeometryShader /*= nullptr*/, const char *pchTCS)
 {
 	GLuint unProgramID = glCreateProgram();
 
@@ -67,7 +68,7 @@ GLuint CompileGLShader( const char *pchShaderName, const char *pchVertexShader, 
 	glAttachShader( unProgramID, nSceneFragmentShader );
 	glDeleteShader( nSceneFragmentShader ); // the program hangs onto this once it's attached
 
-	//tess
+	//tess eval
 	if (pchTessEvalShader) {
 #if defined (__APPLE__) && !defined (GL_TESS_EVALUATION_SHADER)
         eprintf ("Tess Eval Shaders unsupported on IOS");
@@ -93,6 +94,49 @@ GLuint CompileGLShader( const char *pchShaderName, const char *pchVertexShader, 
 		glAttachShader(unProgramID, nSceneTessShader);
 		glDeleteShader(nSceneTessShader); // the program hangs onto this once it's attached
 #endif
+	}
+	if (pchGeometryShader) {
+		GLuint  GeometryShader = glCreateShader(GL_GEOMETRY_SHADER);
+		glShaderSource(GeometryShader, 1, &pchGeometryShader, nullptr);
+		glCompileShader(GeometryShader);
+
+		GLint tShaderCompiled = GL_FALSE;
+		glGetShaderiv(GeometryShader, GL_COMPILE_STATUS, &tShaderCompiled);
+		if (tShaderCompiled != GL_TRUE)
+		{
+			eprintf("%s - Unable to compile geometry shader %d!\n", pchShaderName, GeometryShader);
+			GLchar mess[3000];
+			GLsizei le;
+			glGetShaderInfoLog(GeometryShader, 3000, &le, mess);
+			eprintf("error messages: %s", mess);
+			glDeleteProgram(unProgramID);
+			glDeleteShader(GeometryShader);
+			return 0;
+		}
+		glAttachShader(unProgramID, GeometryShader);
+		glDeleteShader(GeometryShader); // the program hangs onto this once it's attached
+	}
+
+	if (pchTCS) {
+		GLuint TCS = glCreateShader(GL_TESS_CONTROL_SHADER);
+		glShaderSource(TCS, 1, &pchTCS, nullptr);
+		glCompileShader(TCS);
+
+		GLint tShaderCompiled = GL_FALSE;
+		glGetShaderiv(TCS, GL_COMPILE_STATUS, &tShaderCompiled);
+		if (tShaderCompiled != GL_TRUE)
+		{
+			eprintf("%s - Unable to compile tesselation control shader %d!\n", pchShaderName, TCS);
+			GLchar mess[3000];
+			GLsizei le;
+			glGetShaderInfoLog(TCS, 3000, &le, mess);
+			eprintf("error messages: %s", mess);
+			glDeleteProgram(unProgramID);
+			glDeleteShader(TCS);
+			return 0;
+		}
+		glAttachShader(unProgramID, TCS);
+		glDeleteShader(TCS); // the program hangs onto this once it's attached
 	}
 
 	glLinkProgram( unProgramID );

@@ -50,14 +50,19 @@ const char * const IsoShaders [] = {"Iso Renderer",
 	"void main()\n"
 	"{\n"
 		"lowp vec3 nn=normalize(vnormal);"
-		"lowp float a=max(0.0, dot(nn, vec3(0,sqrt(2.0)/2.0,sqrt(2.0)/2.0)));\n"
-		"lowp float b=max(0.0, dot(nn, vec3(0,0,1)));\n"
+	//two faced normal
+		"lowp float a=abs (dot(nn, vec3(0,sqrt(2.0)/2.0,sqrt(2.0)/2.0)));\n"
+		"lowp float b=abs (dot(nn, vec3(0,0,1)));\n"
 		"highp vec4 res=vcolor;\n"
 		"	outputColor = vec4 ((res.rgb) * (0.2 + 0.2*a + 0.3*b), vcolor.a);\n" 
 	"}\n"
 	,
-	//tess
-	nullptr
+	//tess eval
+	nullptr,
+	//geometry
+	nullptr,
+	//tcs
+	nullptr,
 };
 
 const char *const IsoTransparentShaders [] = {"Iso Transparent Renderer",
@@ -100,13 +105,19 @@ const char *const IsoTransparentShaders [] = {"Iso Transparent Renderer",
 	"if ((pos.z/pos.w+1.0)/2.0 <= mytex.r+0.00001 ) discard;\n"
 
 	"lowp vec3 nn=normalize(n);"
-	"lowp float a=max(0.0, dot(nn, vec3(0,sqrt(2.0)/2.0,sqrt(2.0)/2.0)));\n"
-	"lowp float b=max(0.0, dot(nn, vec3(0,0,1)));\n"
+	"lowp float a=abs(dot(nn, vec3(0,sqrt(2.0)/2.0,sqrt(2.0)/2.0)));\n"
+	"lowp float b=abs(dot(nn, vec3(0,0,1)));\n"
 	"highp vec4 res=color;\n"
 	"	outputColor = vec4 ((res.rgb) * (0.2 + 0.2*a + 0.3*b), color.a);\n" 
 
 	"}\n",
-	nullptr
+	//tess eval
+	nullptr,
+	//geometry
+	nullptr,
+	//tcs
+	nullptr,
+
 };
 
 const char *const IsoBlendShaders [] = {"Iso Transparent Blend",
@@ -137,5 +148,10 @@ const char *const IsoBlendShaders [] = {"Iso Transparent Blend",
 	"{\n"
 	"   outputColor = texture( diffuse, v2TexCoord);\n"
 	"}\n",
-	nullptr
+	//tess eval
+	nullptr,
+	//geometry
+	nullptr,
+	//tcs
+	nullptr,
 };

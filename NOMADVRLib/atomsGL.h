@@ -38,13 +38,19 @@ GLenum SetupMarkerNoTess(GLuint *MarkerVAO, GLuint *MarkerVertBuffer, GLuint *Ma
 void CleanInfoCube  (GLuint *VAO, GLuint *VertBuffer, GLuint *IndexBuffer);
 GLenum SetupInfoCube (GLuint *VAO, GLuint *VertBuffer, GLuint *IndexBuffer);
 
-bool PrepareUnitCellAtomShader (GLuint *AtomP, GLuint *cellP, GLuint *MarkerP, 
-								GLint *AtomMatrixLocation, GLint *UnitCellMatrixLocation,  GLint *UnitCellColourLocation,
-								GLint *MarkerMatrixLocation, GLint *totalatomsLocation, GLint *selectedAtomLocation);
+bool PrepareUnitCellAtomShader (GLuint *AtomP, GLuint *cellP, GLuint *MarkerP, GLuint *BondP,
+								GLint *AtomMatrixLocation, GLint *UnitCellMatrixLocation,  
+								GLint *UnitCellColourLocation, GLint *MarkerMatrixLocation, 
+								GLint *BondMatrixLocation, 
+								GLint *totalatomsLocationA, GLint *selectedAtomLocation,
+								GLint *totalchainsLocation, GLint *totalatomsLocationB);
+	//A: Atom, B: Bond
 bool PrepareAtomShader (GLuint *AtomP, GLint *AtomMatrixLocation, GLint *totalatomsLocation, GLint *selectedAtomLocation);
 bool PrepareAtomShaderNoTess (GLuint *AtomP, GLint *AtomMatrixLocation, GLint *totalatomsLocation);
 bool PrepareUnitCellShader (GLuint *cellP, GLint *UnitCellMatrixLocation,  GLint *UnitCellColourLocation);
 bool PrepareMarkerShader (GLuint *MP, GLint *MMatrixLocation);
+bool PrepareBondShader (GLuint *BondP, GLint *BondMatrixLocation, GLint *totalchainsLocation,
+						GLint *totalatomsLocation);
 
 void GetDisplacement(int p[3], float f[3]);
 

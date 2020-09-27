@@ -65,7 +65,7 @@ bool AddModelToScene( const float *mat/*[16]*/, std::vector<float> &vertdata,
 #else
 	std::vector<GLuint> & vertindices,
 #endif
-	const char * model, bool water, bool colours, int set) 
+	const char * model, bool useisotrans, bool colours, int set) 
 {
 
 	CurrentVertex=-1;
@@ -142,8 +142,13 @@ bool AddModelToScene( const float *mat/*[16]*/, std::vector<float> &vertdata,
 			for (int j = 0; j < 4; j++)
 				vertdata.push_back(isocolours[set][j]);
 		} else {
-			for (int j = 0; j < 4; j++)
+			for (int j = 0; j < 3; j++)
 				vertdata.push_back(CubeVertices[i * numComponents + 6 + j]);
+			if (useisotrans)
+				vertdata.push_back(isocolours[set][3]);
+			else
+				vertdata.push_back(CubeVertices[i * numComponents + 6 + 3]); //trans
+
 		}
 	}
 	delete[] CubeVertices;
@@ -268,7 +273,7 @@ GLenum PrepareISOTransShader (GLuint *p, GLint *mat, GLuint *b) {
 	*mat=glGetUniformLocation(*p, "matrix");
 	if( *mat == -1 )
 	{
-		eprintf( "Unable to find matrix uniform in ISO shader\n" );
+		eprintf( "Unable to find matrix uniform in ISO shader (%s)\n", IsoTransparentShaders[SHADERNAME]);
 		
 	}
 	*b=CompileGLShader(

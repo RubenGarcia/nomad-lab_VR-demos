@@ -607,7 +607,7 @@ const char * readAtomsAnalyticsJsonErrors[] = {
 int readAtomsAnalyticsJson(const char *const f, int **numatoms, int *timesteps, float ***pos, float abc[3][3],
 	std::vector<float>** clonedAtoms)
 {
-	float tmppos[3];
+	//float tmppos[3];
 
 	FILE *fp = fopen(f, "r");
 	if (fp == 0) {

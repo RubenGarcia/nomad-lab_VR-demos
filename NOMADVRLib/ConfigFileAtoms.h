@@ -22,6 +22,9 @@ extern bool has_abc;
 
 extern int* numAtoms; //[timesteps]
 extern float **atoms; //[timesteps][numAtoms[i]*4] //xyzu, u=atom number
+extern int *atomAffiliations;
+extern int numChains;
+extern float *chainColours; //[numChains+1][4]; 0=default bond colour
 extern bool fixedAtoms; //all timesteps use the atoms for timestep 0. Used for excitons etc.
 
 extern float cubetrans[3];
