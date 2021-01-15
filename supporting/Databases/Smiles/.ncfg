@@ -1,0 +1,10 @@
+#SMILE 
+xyzfile ".xyz"
+info 0 0 -4 2 0 ".png"
+menubutton Nothing
+sidebuttontimestep 0
+disablereloadreset
+background 0 0 0
+atomscaling 0.5
+displaybonds
+showcontrollers

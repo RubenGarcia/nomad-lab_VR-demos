@@ -61,6 +61,8 @@ Subdirectories:
 			
 		MD-Driver/SimpleMove and MD-Driver/PeriodicTable: see MD-Driver/Readme
 			Support for atom drag-and-drop functionality in OpenVR NOMAD VR.
+
+        supporting: Additional programs and scripts used e.g. in connection to databases
 	
 
 More platforms will be added in the future.
