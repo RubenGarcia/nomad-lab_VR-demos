@@ -69,3 +69,19 @@ More platforms will be added in the future.
 
 The code is distributed under the Apache 2.0 License (See LICENSE file).
 
+Additional links:
+
+https://www.nomad-coe.eu/the-project/graphics/virtual-reality-configurator
+(now at
+https://web.archive.org/web/20210616115601/www.nomad-coe.eu/the-project/graphics/virtual-reality-configurator
+)
+https://www.nomad-coe.eu/the-project/graphics/VR-prototype
+(now at
+https://web.archive.org/web/20210518111054/https://www.nomad-coe.eu/the-project/graphics/VR-prototype
+)
+
+These webpages are also available in this repository under
+webserver/htdocs/NOMAD/
+
+Download Vive installer at 
+webserver/htdocs/NOMAD/NOMADViveT-Setup.exe
