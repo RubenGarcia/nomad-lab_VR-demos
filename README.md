@@ -72,10 +72,13 @@ The code is distributed under the Apache 2.0 License (See LICENSE file).
 Additional links:
 
 https://www.nomad-coe.eu/the-project/graphics/virtual-reality-configurator
+
 (now at
 https://web.archive.org/web/20210616115601/www.nomad-coe.eu/the-project/graphics/virtual-reality-configurator
 )
+
 https://www.nomad-coe.eu/the-project/graphics/VR-prototype
+
 (now at
 https://web.archive.org/web/20210518111054/https://www.nomad-coe.eu/the-project/graphics/VR-prototype
 )
