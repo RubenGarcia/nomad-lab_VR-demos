@@ -1,3 +1,11 @@
+# This demo using the legacy Google VR SDK is no longer maintained
+
+# About legacy Google VR SDK 
+
+The legacy Google VR SDK, was last updated in 2019 and is no longer receiving updates.
+
+# Old documentation
+
 This repository contains the demos for Google cardboard using GVR Android SDK v1.20.0
 	https://github.com/googlevr/gvr-android-sdk
 
