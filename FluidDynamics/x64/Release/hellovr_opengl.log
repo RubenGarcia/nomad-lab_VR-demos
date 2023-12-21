@@ -1,0 +1,59 @@
+﻿Build started 11.06.2019 16:36:20.
+     1>Project "C:\Users\Matthias\Desktop\Nomad_VS13\openvr-0.9.19\samples\Extension_to_visualize_fluid_simulations\hellovr_opengl.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe /c /I.. /I../../headers /I"../thirdparty/glew/glew-1.11.0/include" /I"..\thirdparty\sdl2-2.0.3\include" /IY:\software\rapidjson\include /I"Y:\software\openvr\openvr-0.9.19\samples\TimestepData" /IY:\v2t\software\rapidjson\include /I"Y:\v2t\software\openvr\openvr-0.9.19\samples\TimestepData" /Zi /nologo /W3 /WX- /O2 /Oi /GL /D WIN32 /D _CRT_NONSTDC_NO_DEPRECATE /D NDEBUG /D _WINDOWS /D _CRT_SECURE_NO_WARNINGS /D _USE_MATH_DEFINES /D INDICESGL32 /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Fo"x64\Release\\" /Fd"x64\Release\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt hellovr_opengl_main.cpp
+         hellovr_opengl_main.cpp
+     1>c:\users\matthias\desktop\nomad_vs13\openvr-0.9.19\samples\extension_to_visualize_fluid_simulations\NOMADVRLib/atomsGL.h(48): warning C4267: 'return' : conversion from 'size_t' to 'int', possible loss of data
+     1>hellovr_opengl_main.cpp(1577): warning C4305: '-=' : truncation from 'double' to 'float'
+     1>hellovr_opengl_main.cpp(1579): warning C4305: '=' : truncation from 'double' to 'float'
+     1>hellovr_opengl_main.cpp(1587): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>hellovr_opengl_main.cpp(1673): warning C4305: '+=' : truncation from 'double' to 'float'
+     1>hellovr_opengl_main.cpp(1686): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>hellovr_opengl_main.cpp(2465): warning C4267: '=' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>hellovr_opengl_main.cpp(3004): warning C4267: '=' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>hellovr_opengl_main.cpp(3134): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+     1>hellovr_opengl_main.cpp(3181): warning C4267: '=' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>hellovr_opengl_main.cpp(3577): warning C4267: '=' : conversion from 'size_t' to 'unsigned int', possible loss of data
+     1>hellovr_opengl_main.cpp(4053): warning C4305: 'initializing' : truncation from 'double' to 'const float'
+     1>hellovr_opengl_main.cpp(4228): warning C4305: 'argument' : truncation from 'double' to 'float'
+     1>hellovr_opengl_main.cpp(4245): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>hellovr_opengl_main.cpp(4253): warning C4305: '+=' : truncation from 'double' to 'float'
+     1>hellovr_opengl_main.cpp(4256): warning C4305: '+=' : truncation from 'double' to 'float'
+     1>hellovr_opengl_main.cpp(4258): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>hellovr_opengl_main.cpp(4258): warning C4305: 'argument' : truncation from 'double' to 'float'
+     1>hellovr_opengl_main.cpp(4278): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>hellovr_opengl_main.cpp(4282): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>hellovr_opengl_main.cpp(4283): warning C4305: 'argument' : truncation from 'double' to 'float'
+     1>hellovr_opengl_main.cpp(4226): warning C4101: 'e' : unreferenced local variable
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Matthias\Desktop\Nomad_VS13\openvr-0.9.19\samples\Extension_to_visualize_fluid_simulations\\..\bin\NOMADViveT_ma.exe" /INCREMENTAL:NO /NOLOGO /LIBPATH:"..\thirdparty\glew\glew-1.11.0\lib\Release\x64" /LIBPATH:"H:\Temp\SDL2-2.0.3-vs2013-64\Release" /LIBPATH:..\..\lib\win64 /LIBPATH:"..\thirdparty\sdl2-2.0.3\bin\win64" openvr_api.lib glew32.lib SDL2.lib SDL2main.lib glu32.lib opengl32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib Ws2_32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\Matthias\Desktop\Nomad_VS13\openvr-0.9.19\samples\Extension_to_visualize_fluid_simulations\\..\bin\NOMADViveT_ma.pdb" /SUBSYSTEM:WINDOWS /LARGEADDRESSAWARE /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Matthias\Desktop\Nomad_VS13\openvr-0.9.19\samples\Extension_to_visualize_fluid_simulations\\..\bin\NOMADViveT_ma.lib" /MACHINE:X64 x64\Release\NOMADViveT.res
+         x64\Release\lodepng.obj
+         x64\Release\Matrices.obj
+         x64\Release\pathtools.obj
+         x64\Release\atomVectors.obj
+         x64\Release\happyhttp.obj
+         x64\Release\hellovr_opengl_main.obj
+         x64\Release\hsv.obj
+         x64\Release\LoadPNG.obj
+         x64\Release\mwP.obj
+         x64\Release\atoms.obj
+         x64\Release\atomsGL.obj
+         x64\Release\CompileGLShader.obj
+         x64\Release\ConfigFile.obj
+         x64\Release\Grid.obj
+         x64\Release\IsoShaders.obj
+         x64\Release\IsosurfacesGL.obj
+         x64\Release\markerShaders.obj
+         x64\Release\polyhedron.obj
+         x64\Release\TessShaders.obj
+         x64\Release\UnitCellShaders.obj
+         x64\Release\rply.obj
+         Generating code
+     1>c:\users\matthias\desktop\nomad_vs13\openvr-0.9.19\samples\extension_to_visualize_fluid_simulations\rply\rply.c(403): warning C4700: uninitialized local variable 'ply' used
+         Finished generating code
+         hellovr_opengl.vcxproj -> C:\Users\Matthias\Desktop\Nomad_VS13\openvr-0.9.19\samples\Extension_to_visualize_fluid_simulations\\..\bin\NOMADViveT_ma.exe
+     1>Done Building Project "C:\Users\Matthias\Desktop\Nomad_VS13\openvr-0.9.19\samples\Extension_to_visualize_fluid_simulations\hellovr_opengl.vcxproj" (Build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:06.64
